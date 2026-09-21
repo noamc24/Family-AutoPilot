@@ -1,19 +1,21 @@
 import { localDate, uid, type AppData, type FamilyEvent, type FamilyTask, type FamilyUnit, type Person } from './data'
 
 const isAdult = (person: Person) => person.age >= 18
-export const canDrive = (person: Person) => person.age >= 18 && person.hasLicense && person.hasCar && person.availableForPickup && (!person.availability || person.availability === 'available' || !!person.unavailableUntil && person.unavailableUntil <= new Date().toISOString().slice(0, 16))
+const localNow = () => { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}T${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}` }
+export const canDrive = (person: Person) => person.age >= 18 && person.hasLicense && person.hasCar && person.availableForPickup && (!person.availability || person.availability === 'available' || person.availability === 'home' || !!person.unavailableUntil && person.unavailableUntil <= localNow())
 export function drivingIneligibility(person: Person): string | null {
   if (person.age < 18) return 'מתחת לגיל 18'
   if (!person.hasLicense) return 'ללא רישיון נהיגה'
   if (!person.hasCar) return 'ללא גישה לרכב'
   if (!person.availableForPickup) return 'לא זמין/ה לאיסוף'
-  if (person.availability && person.availability !== 'available' && (!person.unavailableUntil || person.unavailableUntil > new Date().toISOString().slice(0, 16))) return person.availability === 'work' ? 'בעבודה' : person.availability === 'travel' ? 'בנסיעה' : 'לא זמין/ה'
+  if (person.availability && !['available', 'home'].includes(person.availability) && (!person.unavailableUntil || person.unavailableUntil > localNow())) return person.availability === 'work' ? 'בעבודה' : person.availability === 'travel' ? 'בנסיעה' : 'לא זמין/ה'
   return null
 }
 
 export function pickupIneligibility(person: Person, event: Pick<FamilyEvent, 'id' | 'familyId' | 'date' | 'time'>, data: AppData): string | null {
-  const basicReason = person.unavailableUntil && person.unavailableUntil <= `${event.date}T${event.time}` && person.availability !== 'available' ? drivingIneligibility({ ...person, availability: 'available' }) : drivingIneligibility(person)
+  const basicReason = drivingIneligibility({ ...person, availability: 'available' })
   if (basicReason) return basicReason
+  if (person.availability && !['available', 'home'].includes(person.availability) && (!person.unavailableUntil || person.unavailableUntil > `${event.date}T${event.time}`)) return person.availability === 'work' ? 'בעבודה בזמן האירוע' : person.availability === 'travel' ? 'בנסיעה בזמן האירוע' : 'לא זמין/ה בזמן האירוע'
   const minutes = (time: string) => { const [hour, minute] = time.split(':').map(Number); return hour * 60 + minute }
   const busy = data.events.some(other => other.id !== event.id && other.familyId === event.familyId && other.date === event.date && other.responsibleId === person.id && Math.abs(minutes(other.time) - minutes(event.time)) < 45)
   return busy ? 'אירוע אחר באותה שעה' : null
@@ -42,7 +44,7 @@ export function saveEventAndDependents(data: AppData, event: FamilyEvent): AppDa
 }
 
 export function removeEventAndDependents(data: AppData, eventId: string): AppData {
-  return { ...data, events: data.events.filter(event => event.id !== eventId), tasks: data.tasks.filter(task => task.eventId !== eventId), transportationRequests: data.transportationRequests.filter(request => request.eventId !== eventId) }
+  return { ...data, events: data.events.filter(event => event.id !== eventId), tasks: data.tasks.filter(task => task.eventId !== eventId), transportationRequests: data.transportationRequests.filter(request => request.eventId !== eventId), integrationLogs: data.integrationLogs.filter(entry => entry.eventId !== eventId), calendarMirrors: data.calendarMirrors.filter(entry => entry.eventId !== eventId) }
 }
 const weekdayNames: Record<string, number> = { ראשון: 0, שני: 1, שלישי: 2, רביעי: 3, חמישי: 4, שישי: 5, שבת: 6 }
 
@@ -72,9 +74,9 @@ export type BirthdayPlan = {
 export function prepareBirthdayPlan(data: AppData, family: FamilyUnit, actorId: string, input: string): BirthdayPlan {
   const child = family.people.find(person => input.includes(person.name) && !isAdult(person)) || family.people.find(person => !isAdult(person))
   const actor = family.people.find(person => person.id === actorId)
-  const birthdayName = input.match(/יום הולדת\s+(?:ל|של)\s*([\p{L}]+)/u)?.[1] || 'דניאל'
+  const birthdayName = input.match(/יום הולדת\s+(?:אצל|ל|של)\s*([\p{L}]+)/u)?.[1] || 'דניאל'
   const title = `יום ההולדת של ${birthdayName}`
-  const weekday = input.match(/(?:ביום|יום)\s+(ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת)/)?.[1]
+  const weekday = input.match(/(?:ביום\s+|יום\s+|ב)(ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת)/)?.[1]
   const date = /מחר/.test(input) ? localDate(1) : weekday ? nextWeekday(weekdayNames[weekday]) : localDate(1)
   const timeMatch = input.match(/(?:בשעה|ב־)\s*(\d{1,2})(?::(\d{2}))?/)
   const hour = Number(timeMatch?.[1] || 17)
@@ -118,12 +120,16 @@ export function applyLatePlan(data: AppData, family: FamilyUnit, actorId: string
   if (!impact.hasChanges || impact.blocked) return data
   const actor = family.people.find(person => person.id === actorId)
   const events = data.events.map(event => {
-    if (event.id === impact.pickup?.id) return { ...event, responsibleId: '', participantIds: event.participantIds.filter(id => id !== actorId), needsAttention: true, details: 'בקשת הסעה ממתינה לתשובות' }
+    if (event.id === impact.pickup?.id) return { ...event, responsibleId: '', participantIds: event.participantIds.filter(id => id !== actorId).length ? event.participantIds.filter(id => id !== actorId) : event.participantIds, needsAttention: true, issueReason: `${actor?.name || 'בן/בת משפחה'} מתעכב/ת בעבודה ולא יכול/ה לבצע את ההסעה שתוכננה`, details: 'בקשת הסעה ממתינה לתשובות' }
     if (event.id === impact.dinner?.id) return { ...event, details: `${actor?.name || 'בן/בת משפחה'} יגיע/תגיע כשעה מאוחר יותר` }
     return event
   })
   const groceryIds = new Set(impact.groceries.map(task => task.id))
   const tasks = data.tasks.map(task => groceryIds.has(task.id) ? { ...task, due: localDate(1) } : task)
+  const [pickupHour, pickupMinute] = (impact.pickup?.time || '17:00').split(':').map(Number)
+  const untilMinute = Math.min(23 * 60 + 59, pickupHour * 60 + pickupMinute + 60)
+  const unavailableUntil = `${localDate()}T${String(Math.floor(untilMinute / 60)).padStart(2, '0')}:${String(untilMinute % 60).padStart(2, '0')}`
+  const families = data.families.map(item => item.id === family.id ? { ...item, people: item.people.map(person => person.id === actorId ? { ...person, availability: 'work' as const, unavailableUntil } : person) } : item)
   const actions = [impact.pickup ? `נפתחה בקשת הסעה עבור ${impact.pickup.title}` : '', impact.groceries.length ? 'הקניות נדחו למחר' : '', impact.dinner ? 'שעת ההגעה לארוחה עודכנה' : ''].filter(Boolean)
-  return { ...data, events, tasks, activity: [{ id: uid(), familyId: family.id, text: actions.join(' · '), personIds: [actorId] }, ...data.activity] }
+  return { ...data, families, events, tasks, activity: [{ id: uid(), familyId: family.id, text: actions.join(' · '), personIds: [actorId] }, ...data.activity] }
 }

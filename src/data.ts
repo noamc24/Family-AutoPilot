@@ -1,10 +1,13 @@
-export type Person = { id: string; name: string; role: 'אב' | 'אם' | 'בן' | 'בת'; color: string; age: number; hasLicense: boolean; hasCar: boolean; availableForPickup: boolean; availability?: 'available' | 'work' | 'travel' | 'unavailable'; unavailableUntil?: string }
+export type Person = { id: string; name: string; role: 'אב' | 'אם' | 'בן' | 'בת'; color: string; age: number; hasLicense: boolean; hasCar: boolean; availableForPickup: boolean; availability?: 'available' | 'home' | 'work' | 'travel' | 'unavailable'; unavailableUntil?: string }
 export type FamilyUnit = { id: string; name: string; people: Person[] }
-export type FamilyEvent = { id: string; familyId: string; title: string; date: string; time: string; icon: string; participantIds: string[]; responsibleId: string; details: string; needsAttention?: boolean; requiresDriver?: boolean }
+export type FamilyEvent = { id: string; familyId: string; title: string; date: string; time: string; endTime?: string; icon: string; participantIds: string[]; responsibleId: string; details: string; needsAttention?: boolean; requiresDriver?: boolean; departureTime?: string; routeMinutes?: number; createdById?: string; issueReason?: string; sourceNote?: string }
 export type FamilyTask = { id: string; familyId: string; title: string; ownerId: string; due: string; done: boolean; eventId?: string; requiresAdult?: boolean }
 export type Activity = { id: string; familyId: string; text: string; personIds: string[] }
 export type TransportationRequest = { id: string; familyId: string; eventId: string; passengerId: string; eligibleMemberIds: string[]; responses: Record<string, 'PENDING' | 'CAN_DO' | 'CANNOT_DO'>; selectedDriverId: string; status: 'OPEN' | 'PARTIALLY_RESPONDED' | 'COVERED' | 'UNRESOLVED' | 'CANCELLED'; createdById: string; origin: string; destination: string; requiredAt: string }
-export type AppData = { families: FamilyUnit[]; events: FamilyEvent[]; tasks: FamilyTask[]; activity: Activity[]; transportationRequests: TransportationRequest[] }
+export type IntegrationSource = 'waze' | 'whatsapp' | 'school' | 'university' | 'family'
+export type IntegrationLog = { id: string; familyId: string; scenarioKey: string; source: IntegrationSource; sourceText: string; action: string; personIds: string[]; eventId?: string; createdAt: string; trigger?: 'manual' | 'automatic' }
+export type CalendarMirror = { id: string; familyId: string; eventId: string; personId: string; provider: 'google'; createdAt: string }
+export type AppData = { families: FamilyUnit[]; events: FamilyEvent[]; tasks: FamilyTask[]; activity: Activity[]; transportationRequests: TransportationRequest[]; integrationLogs: IntegrationLog[]; calendarMirrors: CalendarMirror[] }
 
 export const uid = () => Math.random().toString(36).slice(2, 10)
 export const localDate = (offset = 0) => {
@@ -42,6 +45,8 @@ export const initialData: AppData = {
     { id: 'activity-2', familyId: 'cohen', text: 'התור של מאיה מופיע בלוח המשפחתי', personIds: ['maya'] },
   ],
   transportationRequests: [],
+  integrationLogs: [],
+  calendarMirrors: [],
 }
 
 /** Keeps persisted records tied to a real member of their own family unit. */
@@ -53,7 +58,7 @@ export function sanitizeAppData(data: AppData): AppData {
     const participantIds = [...new Set((event.participantIds || []).filter(id => members.has(id)))]
     const responsibleId = members.has(event.responsibleId) ? event.responsibleId : ''
     if (!participantIds.length && !responsibleId) return []
-    return [{ ...event, participantIds, responsibleId, needsAttention: event.requiresDriver && !responsibleId ? true : event.needsAttention }]
+    return [{ ...event, participantIds, responsibleId, createdById: event.createdById && members.has(event.createdById) ? event.createdById : undefined, needsAttention: event.requiresDriver && !responsibleId ? true : event.needsAttention }]
   })
   const eventIds = new Set(events.map(event => event.id))
   const tasks = data.tasks.filter(task => membersByFamily.has(task.familyId) && (!task.eventId || eventIds.has(task.eventId)))
@@ -62,7 +67,10 @@ export function sanitizeAppData(data: AppData): AppData {
     .map(entry => ({ ...entry, personIds: entry.personIds.filter(id => membersByFamily.get(entry.familyId)!.has(id)) }))
   const transportationRequests = (data.transportationRequests || []).filter(request => eventIds.has(request.eventId) && membersByFamily.has(request.familyId))
     .map(request => { const members = membersByFamily.get(request.familyId)!; const eligibleMemberIds = request.eligibleMemberIds.filter(id => members.has(id)); return { ...request, eligibleMemberIds, responses: Object.fromEntries(Object.entries(request.responses || {}).filter(([id]) => eligibleMemberIds.includes(id))), selectedDriverId: members.has(request.selectedDriverId) ? request.selectedDriverId : '' } })
-  return { ...data, events, tasks, activity, transportationRequests }
+  const integrationLogs = (data.integrationLogs || []).filter(entry => membersByFamily.has(entry.familyId) && (!entry.eventId || eventIds.has(entry.eventId)))
+    .map(entry => ({ ...entry, personIds: entry.personIds.filter(id => membersByFamily.get(entry.familyId)!.has(id)) }))
+  const calendarMirrors = (data.calendarMirrors || []).filter(entry => eventIds.has(entry.eventId) && membersByFamily.get(entry.familyId)?.has(entry.personId))
+  return { ...data, events, tasks, activity, transportationRequests, integrationLogs, calendarMirrors }
 }
 
 export function readData(): AppData {
@@ -76,9 +84,15 @@ export function readData(): AppData {
           const role = person.role === 'אם' || person.role.startsWith('אמא') ? 'אם' : person.role === 'אב' || person.role.startsWith('אבא') ? 'אב' : person.role.startsWith('בת') ? 'בת' : 'בן'
           return { ...person, role, age: person.age ?? seed?.age ?? 0, hasLicense: person.hasLicense ?? seed?.hasLicense ?? false, hasCar: person.hasCar ?? seed?.hasCar ?? false, availableForPickup: person.availableForPickup ?? seed?.availableForPickup ?? false }
         }) })),
-        events: saved.events.map(event => ({ ...event, requiresDriver: event.requiresDriver ?? (['dance', 'football', 'pickup'].includes(event.id) || /הסעה|מסיע|איסוף/.test(`${event.title} ${event.details}`)) })),
+        events: saved.events.map(event => {
+          const source = saved.integrationLogs?.find(entry => entry.eventId === event.id)?.source
+          const sourceNote = event.sourceNote || (source === 'waze' ? 'זוהה עומס בוויז' : source === 'whatsapp' ? 'זוהתה הודעה בוואטסאפ' : source === 'school' ? 'זוהה עדכון מבית הספר' : source === 'university' ? 'זוהה עדכון מהאוניברסיטה' : undefined)
+          return { ...event, sourceNote, requiresDriver: event.requiresDriver ?? (['dance', 'football', 'pickup'].includes(event.id) || /הסעה|מסיע|איסוף/.test(`${event.title} ${event.details}`)) }
+        }),
         tasks: saved.tasks.map(task => ({ ...task, requiresAdult: task.requiresAdult ?? (/קני|רכיש|תשלום/.test(task.title)) })),
         transportationRequests: saved.transportationRequests || [],
+        integrationLogs: saved.integrationLogs || [],
+        calendarMirrors: saved.calendarMirrors || [],
       })
     }
   } catch { /* use demo state */ }
@@ -87,7 +101,7 @@ export function readData(): AppData {
 
 export function removePersonAndTheirData(data: AppData, familyId: string, personId: string): AppData {
   const removedEventIds = new Set(data.events.filter(event => event.familyId === familyId &&
-    (event.responsibleId === personId || event.participantIds.includes(personId))).map(event => event.id))
+    (event.responsibleId === personId || event.participantIds.includes(personId) || event.createdById === personId)).map(event => event.id))
   return {
     families: data.families.map(family => family.id === familyId
       ? { ...family, people: family.people.filter(person => person.id !== personId) }
@@ -96,6 +110,8 @@ export function removePersonAndTheirData(data: AppData, familyId: string, person
     tasks: data.tasks.filter(task => task.familyId !== familyId || (task.ownerId !== personId && !removedEventIds.has(task.eventId || ''))),
     activity: data.activity.filter(entry => entry.familyId !== familyId || !entry.personIds.includes(personId)),
     transportationRequests: data.transportationRequests.filter(request => !removedEventIds.has(request.eventId)).map(request => request.familyId === familyId ? { ...request, eligibleMemberIds: request.eligibleMemberIds.filter(id => id !== personId), responses: Object.fromEntries(Object.entries(request.responses).filter(([id]) => id !== personId)), selectedDriverId: request.selectedDriverId === personId ? '' : request.selectedDriverId } : request),
+    integrationLogs: data.integrationLogs.filter(entry => entry.familyId !== familyId || (!entry.personIds.includes(personId) && !removedEventIds.has(entry.eventId || ''))),
+    calendarMirrors: data.calendarMirrors.filter(entry => entry.familyId !== familyId || (entry.personId !== personId && !removedEventIds.has(entry.eventId))),
   }
 }
 

@@ -35,7 +35,7 @@ export function reconcileTransportation(data: AppData): AppData {
   })
   const events = data.events.map(event => {
     const request = transportationRequests.find(item => item.eventId === event.id)
-    return request ? { ...event, responsibleId: request.selectedDriverId, needsAttention: !request.selectedDriverId, details: request.selectedDriverId ? `${data.families.find(f => f.id === event.familyId)?.people.find(p => p.id === request.selectedDriverId)?.name || 'בן משפחה'} אחראי/ת להסעה` : request.status === 'UNRESOLVED' ? 'אין כרגע נהג/ת להסעה' : 'בקשת הסעה ממתינה לתשובות' } : event
+    return request ? { ...event, responsibleId: request.selectedDriverId, needsAttention: !request.selectedDriverId, issueReason: request.selectedDriverId ? undefined : event.issueReason, details: request.selectedDriverId ? `${data.families.find(f => f.id === event.familyId)?.people.find(p => p.id === request.selectedDriverId)?.name || 'בן משפחה'} אחראי/ת להסעה` : request.status === 'UNRESOLVED' ? 'אין כרגע נהג/ת להסעה' : 'בקשת הסעה ממתינה לתשובות' } : event
   })
   return { ...data, transportationRequests, events }
 }
@@ -66,12 +66,43 @@ export function recommendDriver(data: AppData, request: TransportationRequest): 
   const event = data.events.find(item => item.id === request.eventId)
   if (!family || !event) return null
   const candidates = family.people.filter(person => request.responses[person.id] === 'CAN_DO' && !pickupIneligibility(person, event, data))
+  const travelMinutes = (person: Person) => person.id === 'adam' ? 12 : person.id === 'maya' ? 18 : 15
   candidates.sort((a, b) => {
     const load = (person: Person) => data.events.filter(item => item.familyId === family.id && item.date === event.date && item.responsibleId === person.id).length
-    return load(a) - load(b) || a.name.localeCompare(b.name, 'he') || a.id.localeCompare(b.id)
+    return load(a) - load(b) || travelMinutes(a) - travelMinutes(b) || a.name.localeCompare(b.name, 'he') || a.id.localeCompare(b.id)
   })
   const person = candidates[0]
   if (!person) return null
   const load = data.events.filter(item => item.familyId === family.id && item.date === event.date && item.responsibleId === person.id).length
-  return { person, reason: `${person.name} אישר/ה זמינות, עומד/ת בתנאי גיל, רישיון ורכב, ויש לו/ה ${load} שיבוצים אחרים באותו יום. מבין המאשרים נבחר העומס הנמוך ביותר.` }
+  return { person, reason: `${person.name} אישר/ה זמינות, עומד/ת בתנאי גיל, רישיון ורכב, ויש לו/ה ${load} שיבוצים אחרים באותו יום. זמן הנסיעה המשוער הוא ${travelMinutes(person)} דקות. מבין המאשרים נבחר קודם העומס הנמוך ביותר, ואז זמן הנסיעה הקצר יותר.` }
+}
+
+export function alternativeForRequest(data: AppData, request: TransportationRequest) {
+  const event = data.events.find(item => item.id === request.eventId)
+  if (!event || request.status !== 'UNRESOLVED') return null
+  if (!request.eligibleMemberIds.length) return null
+  const task = data.tasks.find(item => item.familyId === request.familyId && item.due === event.date && !item.done && request.eligibleMemberIds.includes(item.ownerId) && request.responses[item.ownerId] === 'CANNOT_DO' && !item.eventId)
+  if (task) return { kind: 'task' as const, taskId: task.id, title: `לדחות את ״${task.title}״ ליום הבא ולשאול שוב את מי שאחראי/ת לה`, reason: 'המשימה האישית נמצאת באותו יום כמו ההסעה. שינוי המועד מפנה מקום בתוכנית, אבל עדיין נדרשת תשובה חדשה מהנהג/ת.' }
+  const [hour, minute] = event.time.split(':').map(Number)
+  const newTime = `${String(Math.floor((hour * 60 + minute + 15) / 60) % 24).padStart(2, '0')}:${String((minute + 15) % 60).padStart(2, '0')}`
+  return { kind: 'time' as const, title: `לבדוק איסוף בשעה ${newTime} ולבקש תשובות מחדש`, newTime, reason: 'שינוי של רבע שעה עשוי לפתור חפיפה, אך אינו מבטיח שנהג/ת יוכלו להגיע. יש לתאם את השעה עם המקום לפני אישור.' }
+}
+
+export function applyAlternativePlan(data: AppData, requestId: string): AppData {
+  const request = data.transportationRequests.find(item => item.id === requestId)
+  if (!request) return data
+  const alternative = alternativeForRequest(data, request)
+  if (!alternative) return data
+  let tasks = data.tasks
+  let events = data.events
+  if (alternative.kind === 'task') {
+    const event = events.find(item => item.id === request.eventId)!
+    const following = new Date(`${event.date}T12:00:00`)
+    following.setDate(following.getDate() + 1)
+    const due = `${following.getFullYear()}-${String(following.getMonth() + 1).padStart(2, '0')}-${String(following.getDate()).padStart(2, '0')}`
+    tasks = tasks.map(task => task.id === alternative.taskId ? { ...task, due } : task)
+  }
+  else events = events.map(event => event.id === request.eventId ? { ...event, time: alternative.newTime } : event)
+  const transportationRequests = data.transportationRequests.map(item => item.id === requestId ? { ...item, selectedDriverId: '', responses: Object.fromEntries(item.eligibleMemberIds.map(id => [id, alternative.kind === 'task' && id !== data.tasks.find(task => task.id === alternative.taskId)?.ownerId ? item.responses[id] : 'PENDING' as const])), status: 'OPEN' as const } : item)
+  return reconcileTransportation({ ...data, tasks, events, transportationRequests })
 }
