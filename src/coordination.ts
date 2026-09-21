@@ -44,7 +44,7 @@ export function ensureRequests(data: AppData, actorId: string): AppData {
   const invalidIds = new Set(data.events.filter(event => event.requiresDriver && event.responsibleId && !!pickupIneligibility(data.families.find(f => f.id === event.familyId)?.people.find(p => p.id === event.responsibleId) || { id: '', name: '', role: 'בן', color: '', age: 0, hasLicense: false, hasCar: false, availableForPickup: false }, event, data)).map(event => event.id))
   let next = invalidIds.size ? { ...data, events: data.events.map(event => invalidIds.has(event.id) ? { ...event, responsibleId: '', needsAttention: true, issueReason: event.issueReason || 'הנהג/ת ששובץ/ה אינו/ה יכול/ה להגיע בזמן היציאה המעודכן' } : event) } : data
   for (const event of next.events.filter(item => item.requiresDriver && !item.responsibleId && !requestForEvent(next, item.id))) {
-    next = { ...next, transportationRequests: [...next.transportationRequests, createRequest(next, event, actorId)] }
+    next = { ...next, transportationRequests: [...next.transportationRequests, createRequest(next, event, actorId)], activity: [{ id: uid(), familyId: event.familyId, text: `נפתחה בקשת הסעה עבור ${event.title}`, personIds: event.participantIds, eventId: event.id, source: 'family', createdAt: new Date().toISOString() }, ...next.activity] }
   }
   return reconcileTransportation(next)
 }

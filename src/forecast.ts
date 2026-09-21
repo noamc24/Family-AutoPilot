@@ -75,12 +75,12 @@ export function suggestForecastSolution(data: AppData, risk: ForecastRisk): Fore
 export function applyForecastSolution(data: AppData, risk: ForecastRisk): AppData {
   const solution = suggestForecastSolution(data, risk)
   if (!solution) return data
-  if (solution.kind === 'task' && solution.taskId && solution.date) return { ...data, tasks: data.tasks.map(task => task.id === solution.taskId ? { ...task, due: solution.date! } : task), activity: [{ id: uid(), familyId: data.tasks.find(task => task.id === solution.taskId)!.familyId, text: solution.title, personIds: [data.tasks.find(task => task.id === solution.taskId)!.ownerId] }, ...data.activity] }
+  if (solution.kind === 'task' && solution.taskId && solution.date) return { ...data, tasks: data.tasks.map(task => task.id === solution.taskId ? { ...task, due: solution.date! } : task), activity: [{ id: uid(), familyId: data.tasks.find(task => task.id === solution.taskId)!.familyId, text: solution.title, personIds: [data.tasks.find(task => task.id === solution.taskId)!.ownerId], createdAt: new Date().toISOString() }, ...data.activity] }
   const event = data.events.find(item => item.id === risk.eventId)
   if (!event || !solution.date || !solution.time) return data
   const offset = minutes(solution.time) - minutes(event.time)
   const updated = { ...event, date: solution.date, time: solution.time, departureTime: event.departureTime ? clock(minutes(event.departureTime) + offset) : undefined, responsibleId: event.requiresDriver ? '' : event.responsibleId, needsAttention: event.requiresDriver, issueReason: undefined }
   const saved = saveEventAndDependents(data, updated)
   const requests = saved.transportationRequests.map(request => request.eventId === event.id ? { ...request, selectedDriverId: '', responses: Object.fromEntries(request.eligibleMemberIds.map(id => [id, 'PENDING' as const])), status: 'OPEN' as const } : request)
-  return ensureRequests({ ...saved, transportationRequests: requests, activity: [{ id: uid(), familyId: event.familyId, text: solution.title, personIds: event.participantIds }, ...saved.activity] }, event.createdById || event.participantIds[0] || '')
+  return ensureRequests({ ...saved, transportationRequests: requests, activity: [{ id: uid(), familyId: event.familyId, text: solution.title, personIds: event.participantIds, createdAt: new Date().toISOString() }, ...saved.activity] }, event.createdById || event.participantIds[0] || '')
 }

@@ -51,7 +51,7 @@ export function applyScheduleSolution(data: AppData, eventId: string): AppData {
   const saved = saveEventAndDependents(data, updated)
   const requests = saved.transportationRequests.map(request => request.eventId === eventId ? { ...request, selectedDriverId: '', responses: Object.fromEntries(request.eligibleMemberIds.map(id => [id, 'PENDING' as const])), status: 'OPEN' as const } : request)
   const events = saved.events.map(item => item.id === eventId && item.requiresDriver ? { ...item, responsibleId: '', needsAttention: true } : item)
-  return ensureRequests({ ...saved, events, transportationRequests: requests, activity: [{ id: uid(), familyId: event.familyId, text: `${event.title} הועבר ל־${solution.time} כדי למנוע התנגשות`, personIds: event.participantIds }, ...saved.activity] }, event.createdById || event.participantIds[0] || '')
+  return ensureRequests({ ...saved, events, transportationRequests: requests, activity: [{ id: uid(), familyId: event.familyId, text: `${event.title} הועבר ל־${solution.time} כדי למנוע התנגשות`, personIds: event.participantIds, createdAt: new Date().toISOString() }, ...saved.activity] }, event.createdById || event.participantIds[0] || '')
 }
 
 function record(data: AppData, familyId: string, scenarioKey: string, message: string, personIds: string[], trigger: 'manual' | 'automatic', source: IntegrationSource = 'family'): AppData {

@@ -118,7 +118,7 @@ export function applyBirthdayPlan(data: AppData, family: FamilyUnit, actorId: st
     ...data,
     events: [...data.events, event],
     tasks: task ? [...data.tasks, task] : data.tasks,
-    activity: [{ id: uid(), familyId: family.id, text: `${plan.title} נוסף לתוכנית`, personIds: participantIds }, ...data.activity],
+    activity: [{ id: uid(), familyId: family.id, text: `${plan.title} נוסף לתוכנית`, personIds: participantIds, createdAt: new Date().toISOString() }, ...data.activity],
   }
 }
 
@@ -147,5 +147,5 @@ export function applyLatePlan(data: AppData, family: FamilyUnit, actorId: string
   const unavailableUntil = `${localDate()}T${String(Math.floor(untilMinute / 60)).padStart(2, '0')}:${String(untilMinute % 60).padStart(2, '0')}`
   const families = data.families.map(item => item.id === family.id ? { ...item, people: item.people.map(person => person.id === actorId ? { ...person, availability: 'work' as const, unavailableUntil } : person) } : item)
   const actions = [impact.pickup ? `נפתחה בקשת הסעה עבור ${impact.pickup.title}` : '', impact.groceries.length ? 'הקניות נדחו למחר' : '', impact.dinner ? 'שעת ההגעה לארוחה עודכנה' : ''].filter(Boolean)
-  return { ...data, families, events, tasks, activity: [{ id: uid(), familyId: family.id, text: actions.join(' · '), personIds: [actorId] }, ...data.activity] }
+  return { ...data, families, events, tasks, activity: [{ id: uid(), familyId: family.id, text: actions.join(' · '), personIds: [actorId], createdAt: new Date().toISOString() }, ...data.activity] }
 }
