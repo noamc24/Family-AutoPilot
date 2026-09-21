@@ -2,9 +2,9 @@ import { localDate, uid, type AppData, type FamilyEvent, type IntegrationLog, ty
 import { ensureRequests } from './coordination'
 import { saveEventAndDependents } from './domain'
 
-export type IntegrationScenario = Exclude<IntegrationSource, 'family'>
+export type IntegrationScenario = 'waze' | 'whatsapp' | 'school' | 'university'
 export const integrationNames: Record<IntegrationSource, string> = {
-  waze: 'וויז', whatsapp: 'וואטסאפ', school: 'בית הספר', university: 'האוניברסיטה', family: 'המשפחה',
+  waze: 'וויז', whatsapp: 'וואטסאפ', school: 'בית הספר', university: 'האוניברסיטה', family: 'המשפחה', calendar: 'יומן גוגל', email: 'מייל', weather: 'מזג האוויר', location: 'מיקום', work: 'העבודה', club: 'החוג', transit: 'תחבורה ציבורית',
 }
 
 export function detectIntegrationScenario(text: string): IntegrationScenario | null {
@@ -21,7 +21,7 @@ function shiftTime(value: string, minutes: number) {
   return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
 }
 
-function addLog(data: AppData, familyId: string, source: IntegrationSource, scenarioKey: string, sourceText: string, action: string, personIds: string[], eventId?: string, trigger: 'manual' | 'automatic' = 'manual'): AppData {
+export function addLog(data: AppData, familyId: string, source: IntegrationSource, scenarioKey: string, sourceText: string, action: string, personIds: string[], eventId?: string, trigger: 'manual' | 'automatic' = 'manual'): AppData {
   const log: IntegrationLog = { id: uid(), familyId, scenarioKey, source, sourceText, action, personIds: [...new Set(personIds.filter(Boolean))], eventId, createdAt: new Date().toISOString(), trigger }
   return { ...data, integrationLogs: [log, ...data.integrationLogs], activity: [{ id: uid(), familyId, text: action, personIds: log.personIds }, ...data.activity] }
 }
@@ -40,8 +40,8 @@ export function simulateIntegration(data: AppData, familyId: string, actorId: st
     if (data.integrationLogs.some(item => item.scenarioKey === scenarioKey)) return { data, message: 'עדכון התנועה הזה כבר הוחל על ההסעה.', applied: false }
     const departureTime = shiftTime(event.time, -45)
     const updated: FamilyEvent = { ...event, departureTime, routeMinutes: 35, sourceNote: 'זוהה עומס תנועה בוויז', details: `שעת היציאה עודכנה ל־${departureTime} בגלל עומס בדרך` }
-    const next = saveEventAndDependents(data, updated)
-    const action = `זיהיתי בוויז עומס בדרך ל${event.title}. שעת היציאה עודכנה ל־${departureTime}.`
+    const next = ensureRequests(saveEventAndDependents(data, updated), actorId)
+    const action = `זיהיתי בוויז עומס בדרך ל${event.title}. שעת היציאה עודכנה ל-${departureTime}.${next.events.find(item => item.id === event.id)?.responsibleId ? '' : ' הנהג הקודם לא יספיק ונפתחה בקשת הסעה חדשה.'}`
     return { data: addLog(next, familyId, source, scenarioKey, `וויז: זמן הנסיעה המשוער הוא 35 דקות.`, action, [event.responsibleId, ...event.participantIds], event.id, trigger), message: action, applied: true }
   }
 
@@ -56,7 +56,7 @@ export function simulateIntegration(data: AppData, familyId: string, actorId: st
     const event: FamilyEvent = { id: uid(), familyId, title, date, time: '18:00', icon: '👁️', participantIds: [...new Set([actorId, sender.id, child?.id].filter((id): id is string => !!id))], responsibleId: actorId, sourceNote: `זוהתה הודעת וואטסאפ מ${sender.name}`, details: 'התור נוסף ללוח המשפחתי וליומן גוגל' }
     const next = { ...data, events: [...data.events, event], calendarMirrors: [...data.calendarMirrors, { id: uid(), familyId, eventId: event.id, personId: actorId, provider: 'google' as const, createdAt: new Date().toISOString() }] }
     const action = `זיהיתי בוואטסאפ הודעה מ${sender.name} על ${title}. האירוע נוסף ללוח וליומן גוגל למחר ב־18:00.`
-    return { data: addLog(next, familyId, source, scenarioKey, `וואטסאפ · ${sender.name}: ״קבענו ${title} למחר בשש, תוכל/י להוסיף ליומן?״`, action, event.participantIds, event.id, trigger), message: action, applied: true }
+    return { data: addLog(next, familyId, source, scenarioKey, `וואטסאפ · ${sender.name}: "קבענו ${title} למחר בשש, תוכל/י להוסיף ליומן?"`, action, event.participantIds, event.id, trigger), message: action, applied: true }
   }
 
   if (source === 'school') {
@@ -71,9 +71,9 @@ export function simulateIntegration(data: AppData, familyId: string, actorId: st
     dueDate.setDate(dueDate.getDate() - 1)
     const due = `${dueDate.getFullYear()}-${String(dueDate.getMonth() + 1).padStart(2, '0')}-${String(dueDate.getDate()).padStart(2, '0')}`
     const updatedData = saveEventAndDependents(data, updated)
-    const next = { ...updatedData, tasks: [...updatedData.tasks, { id: uid(), familyId, title: 'להביא אישור חתום לטיול', ownerId: guardian?.id || '', due, done: false, eventId: trip.id, requiresAdult: true }] }
+    const next = ensureRequests({ ...updatedData, tasks: [...updatedData.tasks, { id: uid(), familyId, title: 'להביא אישור חתום לטיול', ownerId: guardian?.id || '', due, done: false, eventId: trip.id, requiresAdult: true }] }, actorId)
     const action = `זיהיתי מייל מבית הספר: ${trip.title} יתחיל ב־${newTime}. הוספתי משימה להביא אישור חתום.`
-    return { data: addLog(next, familyId, source, scenarioKey, `מייל מבית הספר: ״${trip.title} יתחיל שעה מאוחר יותר. יש להביא אישור חתום.״`, action, [...trip.participantIds, guardian?.id || ''], trip.id, trigger), message: action, applied: true }
+    return { data: addLog(next, familyId, source, scenarioKey, `מייל מבית הספר: "${trip.title} יתחיל שעה מאוחר יותר. יש להביא אישור חתום."`, action, [...trip.participantIds, guardian?.id || ''], trip.id, trigger), message: action, applied: true }
   }
 
   const student = actor.age >= 18 ? actor : family.people.find(person => person.age >= 18)
@@ -84,7 +84,7 @@ export function simulateIntegration(data: AppData, familyId: string, actorId: st
   const event: FamilyEvent = { id: uid(), familyId, title: 'הרצאה באוניברסיטה', date, time: '09:00', icon: '🎓', participantIds: [student.id], responsibleId: student.id, sourceNote: 'זוהה מייל ממערכת האוניברסיטה', details: 'ההרצאה נוספה ללוח וליומן גוגל' }
   const next = ensureRequests({ ...data, events: [...data.events, event], calendarMirrors: [...data.calendarMirrors, { id: uid(), familyId, eventId: event.id, personId: student.id, provider: 'google' as const, createdAt: new Date().toISOString() }] }, actorId)
   const action = `זיהיתי מייל ממערכת האוניברסיטה על הרצאה חדשה. האירוע נוסף ללוח וליומן גוגל של ${student.name}.`
-  return { data: addLog(next, familyId, source, scenarioKey, 'מייל ממערכת האוניברסיטה: ״הרצאה חדשה בעוד יומיים בשעה 09:00.״', action, [student.id], event.id, trigger), message: action, applied: true }
+  return { data: addLog(next, familyId, source, scenarioKey, 'מייל ממערכת האוניברסיטה: "הרצאה חדשה בעוד יומיים בשעה 09:00."', action, [student.id], event.id, trigger), message: action, applied: true }
 }
 
 export function advanceAutomaticIntegrations(data: AppData, familyId: string, actorId: string) {

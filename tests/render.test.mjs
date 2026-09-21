@@ -20,18 +20,18 @@ test('מסך הבית משתנה בין הורה לילד ומציג תוכן מ
   globalThis.localStorage = { getItem: key => key === 'family-autopilot-person' ? person : null }
   try {
     const parent = render()
-    assert.match(parent, /שלום מאיה/)
+    assert.match(parent, /שלום מור/)
     assert.match(parent, /בקשות הסעה במשפחה/)
     assert.match(parent, /המשפחה היום/)
     assert.match(parent, /עדכונים ממקורות/)
     assert.match(parent, /וויז/)
     person = 'adam'
     const otherParent = render()
-    assert.match(otherParent, /שלום אדם/)
+    assert.match(otherParent, /שלום אוראל/)
     assert.notEqual(otherParent, parent)
     person = 'yuval'
     const child = render()
-    assert.match(child, /שלום, יובל/)
+    assert.match(child, /שלום, איתמר/)
     assert.match(child, /ההסעות שלי/)
     assert.match(child, /המשימות שלי/)
     assert.match(child, /הוספת אירוע/)

@@ -41,8 +41,9 @@ export function reconcileTransportation(data: AppData): AppData {
 }
 
 export function ensureRequests(data: AppData, actorId: string): AppData {
-  let next = data
-  for (const event of data.events.filter(item => item.requiresDriver && !item.responsibleId && !requestForEvent(next, item.id))) {
+  const invalidIds = new Set(data.events.filter(event => event.requiresDriver && event.responsibleId && !!pickupIneligibility(data.families.find(f => f.id === event.familyId)?.people.find(p => p.id === event.responsibleId) || { id: '', name: '', role: 'בן', color: '', age: 0, hasLicense: false, hasCar: false, availableForPickup: false }, event, data)).map(event => event.id))
+  let next = invalidIds.size ? { ...data, events: data.events.map(event => invalidIds.has(event.id) ? { ...event, responsibleId: '', needsAttention: true, issueReason: event.issueReason || 'הנהג/ת ששובץ/ה אינו/ה יכול/ה להגיע בזמן היציאה המעודכן' } : event) } : data
+  for (const event of next.events.filter(item => item.requiresDriver && !item.responsibleId && !requestForEvent(next, item.id))) {
     next = { ...next, transportationRequests: [...next.transportationRequests, createRequest(next, event, actorId)] }
   }
   return reconcileTransportation(next)
@@ -61,28 +62,52 @@ export function confirmDriver(data: AppData, requestId: string, personId: string
   return reconcileTransportation({ ...data, transportationRequests: data.transportationRequests.map(item => item.id === requestId ? { ...item, selectedDriverId: personId, status: 'COVERED' } : item) })
 }
 
-export function recommendDriver(data: AppData, request: TransportationRequest): { person: Person; reason: string } | null {
+export type DriverOption = { person: Person; reason: string; score: number }
+export function rankedDrivers(data: AppData, request: TransportationRequest): DriverOption[] {
   const family = data.families.find(item => item.id === request.familyId)
   const event = data.events.find(item => item.id === request.eventId)
-  if (!family || !event) return null
+  if (!family || !event) return []
   const candidates = family.people.filter(person => request.responses[person.id] === 'CAN_DO' && !pickupIneligibility(person, event, data))
-  const travelMinutes = (person: Person) => person.id === 'adam' ? 12 : person.id === 'maya' ? 18 : 15
-  candidates.sort((a, b) => {
-    const load = (person: Person) => data.events.filter(item => item.familyId === family.id && item.date === event.date && item.responsibleId === person.id).length
-    return load(a) - load(b) || travelMinutes(a) - travelMinutes(b) || a.name.localeCompare(b.name, 'he') || a.id.localeCompare(b.id)
-  })
-  const person = candidates[0]
-  if (!person) return null
-  const load = data.events.filter(item => item.familyId === family.id && item.date === event.date && item.responsibleId === person.id).length
-  return { person, reason: `${person.name} אישר/ה זמינות, עומד/ת בתנאי גיל, רישיון ורכב, ויש לו/ה ${load} שיבוצים אחרים באותו יום. זמן הנסיעה המשוער הוא ${travelMinutes(person)} דקות. מבין המאשרים נבחר קודם העומס הנמוך ביותר, ואז זמן הנסיעה הקצר יותר.` }
+  return candidates.map(person => {
+    const load = data.events.filter(item => item.id !== event.id && item.familyId === family.id && item.date === event.date && item.requiresDriver && item.responsibleId === person.id).length
+    const travel = person.travelMinutes
+    const reasons = ['אישר/ה שהוא/היא יכול/ה להסיע ועומד/ת בתנאי הנהיגה והזמן']
+    let score = 100
+    if (event.preferredDriverId === person.id) { score += 30; reasons.push('זה הנהג המועדף לאירוע') }
+    if (family.preferences?.preferNearbyDriver !== false && travel !== undefined) { score -= Math.min(travel, 90) * 0.8; reasons.push(`זמן ההגעה הידוע הוא כ-${travel} דקות`) }
+    if (family.preferences?.balanceRides !== false) { score -= load * 14; reasons.push(`כבר משובץ/ת ל-${load} הסעות נוספות באותו יום`) }
+    if (family.preferences?.preferFewerTrips && load > 0) { score += 8; reasons.push('כבר מתוכננת לו/ה נסיעה באותו יום') }
+    if (person.preferredMaxRides !== undefined && load >= person.preferredMaxRides) { score -= 35; reasons.push('הגיע/ה למספר ההסעות המועדף ליום') }
+    if (person.lastResortDriver) { score -= 45; reasons.push('מוגדר/ת כאפשרות אחרונה') }
+    if (person.role !== 'אב' && person.role !== 'אם') score -= 8
+    return { person, score, reason: `${person.name} נבחר/ה כי: ${reasons.join('; ')}.` }
+  }).sort((a, b) => b.score - a.score || a.person.name.localeCompare(b.person.name, 'he') || a.person.id.localeCompare(b.person.id))
+}
+export function recommendDriver(data: AppData, request: TransportationRequest): DriverOption | null { return rankedDrivers(data, request)[0] || null }
+
+export function transitAlternative(data: AppData, request: TransportationRequest): { title: string; reason: string } | null {
+  const event = data.events.find(item => item.id === request.eventId)
+  const family = data.families.find(item => item.id === request.familyId)
+  const passenger = family?.people.find(item => item.id === request.passengerId)
+  if (!event?.transitAvailable || !family?.preferences?.allowPublicTransit || !passenger?.canUseTransit || !passenger.canTravelAlone || passenger.age < 12) return null
+  if (event.sourceNote?.includes('ביטול בתחבורה הציבורית')) return null
+  if (data.integrationLogs.some(log => log.familyId === family.id && log.source === 'weather' && /גשם כבד/.test(log.action) && log.action.includes(event.title))) return null
+  return { title: `${passenger.name} יגיע/תגיע בתחבורה ציבורית`, reason: 'המשפחה מאפשרת תחבורה ציבורית, קיימת חלופה לאירוע, ובן/בת המשפחה רשאי/ת לנסוע לבד. אישור יסגור את בקשת ההסעה ברכב.' }
+}
+export function applyTransitAlternative(data: AppData, requestId: string): AppData {
+  const request = data.transportationRequests.find(item => item.id === requestId)
+  if (!request || !transitAlternative(data, request)) return data
+  return reconcileTransportation({ ...data, events: data.events.map(event => event.id === request.eventId ? { ...event, requiresDriver: false, responsibleId: '', needsAttention: false, details: 'הגעה בתחבורה ציבורית באישור המשפחה' } : event), transportationRequests: data.transportationRequests.filter(item => item.id !== requestId) })
 }
 
 export function alternativeForRequest(data: AppData, request: TransportationRequest) {
   const event = data.events.find(item => item.id === request.eventId)
   if (!event || request.status !== 'UNRESOLVED') return null
   if (!request.eligibleMemberIds.length) return null
-  const task = data.tasks.find(item => item.familyId === request.familyId && item.due === event.date && !item.done && request.eligibleMemberIds.includes(item.ownerId) && request.responses[item.ownerId] === 'CANNOT_DO' && !item.eventId)
-  if (task) return { kind: 'task' as const, taskId: task.id, title: `לדחות את ״${task.title}״ ליום הבא ולשאול שוב את מי שאחראי/ת לה`, reason: 'המשימה האישית נמצאת באותו יום כמו ההסעה. שינוי המועד מפנה מקום בתוכנית, אבל עדיין נדרשת תשובה חדשה מהנהג/ת.' }
+  const family = data.families.find(item => item.id === request.familyId)
+  const task = family?.preferences?.moveFlexibleTasks === false ? undefined : data.tasks.find(item => item.familyId === request.familyId && item.due === event.date && !item.done && item.flexible !== false && item.priority !== 'critical' && item.priority !== 'high' && request.eligibleMemberIds.includes(item.ownerId) && request.responses[item.ownerId] === 'CANNOT_DO' && !item.eventId)
+  if (task) return { kind: 'task' as const, taskId: task.id, title: `לדחות את "${task.title}" ליום הבא ולשאול שוב את מי שאחראי/ת לה`, reason: 'המשימה גמישה ונמצאת באותו יום כמו ההסעה. דחייתה מפנה זמן, אך עדיין נדרשת תשובה חדשה מהנהג/ת.' }
+  if (event.priority === 'critical') return null
   const [hour, minute] = event.time.split(':').map(Number)
   const newTime = `${String(Math.floor((hour * 60 + minute + 15) / 60) % 24).padStart(2, '0')}:${String((minute + 15) % 60).padStart(2, '0')}`
   return { kind: 'time' as const, title: `לבדוק איסוף בשעה ${newTime} ולבקש תשובות מחדש`, newTime, reason: 'שינוי של רבע שעה עשוי לפתור חפיפה, אך אינו מבטיח שנהג/ת יוכלו להגיע. יש לתאם את השעה עם המקום לפני אישור.' }

@@ -28,10 +28,10 @@ export function scheduleConflicts(data: AppData, event: FamilyEvent): FamilyEven
 }
 
 export function suggestScheduleSolution(data: AppData, event: FamilyEvent): { time: string; date: string; reason: string } | null {
-  if (!scheduleConflicts(data, event).length) return null
+  if (event.priority === 'critical' || !scheduleConflicts(data, event).length) return null
   for (const date of [event.date, localDate(1)]) {
     for (let offset = date === event.date ? 75 : 0; offset <= 240; offset += 15) {
-      const candidate = { ...event, date, time: clock(minutes(event.time) + offset) }
+      const candidate = { ...event, date, time: clock(minutes(event.time) + offset), departureTime: event.departureTime ? clock(minutes(event.departureTime) + offset) : undefined }
       if (date === event.date && minutes(candidate.time) <= minutes(event.time)) continue
       if (!scheduleConflicts(data, candidate).length && (!event.requiresDriver || data.families.find(f => f.id === event.familyId)?.people.some(p => !pickupIneligibility(p, candidate, data)))) {
         return { date, time: candidate.time, reason: `${dateLabel(date)} בשעה ${candidate.time} אין חפיפה לבני המשפחה המשתתפים${event.requiresDriver ? ', ויש נהג/ת כשיר/ה שאפשר לבקש ממנו/ה אישור' : ''}.` }
@@ -46,7 +46,8 @@ export function applyScheduleSolution(data: AppData, eventId: string): AppData {
   if (!event) return data
   const solution = suggestScheduleSolution(data, event)
   if (!solution) return data
-  const updated = { ...event, date: solution.date, time: solution.time, details: `${event.details ? `${event.details} · ` : ''}השעה עודכנה כדי למנוע התנגשות` }
+  const offset = minutes(solution.time) - minutes(event.time)
+  const updated = { ...event, date: solution.date, time: solution.time, departureTime: event.departureTime ? clock(minutes(event.departureTime) + offset) : undefined, details: `${event.details ? `${event.details} · ` : ''}השעה עודכנה כדי למנוע התנגשות` }
   const saved = saveEventAndDependents(data, updated)
   const requests = saved.transportationRequests.map(request => request.eventId === eventId ? { ...request, selectedDriverId: '', responses: Object.fromEntries(request.eligibleMemberIds.map(id => [id, 'PENDING' as const])), status: 'OPEN' as const } : request)
   const events = saved.events.map(item => item.id === eventId && item.requiresDriver ? { ...item, responsibleId: '', needsAttention: true } : item)
@@ -60,7 +61,7 @@ function record(data: AppData, familyId: string, scenarioKey: string, message: s
 
 function childFor(family: FamilyUnit, scenario: AutopilotScenario): Person | undefined {
   const children = family.people.filter(person => person.age < 18)
-  if (scenario === 'basketball') return children.find(person => person.name === 'נועה') || children[0]
+  if (scenario === 'basketball') return children.find(person => person.name === 'עומר') || children[0]
   if (scenario === 'friends') return children.find(person => person.name === 'יואב') || children.find(person => person.role === 'בן') || children[0]
   return children.find(person => person.role === 'בן') || children[0]
 }

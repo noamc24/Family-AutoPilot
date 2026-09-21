@@ -2,8 +2,9 @@ import { localDate, uid, type AppData, type FamilyEvent, type FamilyTask, type F
 
 const isAdult = (person: Person) => person.age >= 18
 const localNow = () => { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}T${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}` }
-export const canDrive = (person: Person) => person.age >= 18 && person.hasLicense && person.hasCar && person.availableForPickup && (!person.availability || person.availability === 'available' || person.availability === 'home' || !!person.unavailableUntil && person.unavailableUntil <= localNow())
+export const canDrive = (person: Person) => person.activeDriver !== false && person.age >= 18 && person.hasLicense && person.hasCar && person.availableForPickup && (!person.availability || person.availability === 'available' || person.availability === 'home' || !!person.unavailableUntil && person.unavailableUntil <= localNow())
 export function drivingIneligibility(person: Person): string | null {
+  if (person.activeDriver === false) return 'אינו/ה נהג/ת פעיל/ה'
   if (person.age < 18) return 'מתחת לגיל 18'
   if (!person.hasLicense) return 'ללא רישיון נהיגה'
   if (!person.hasCar) return 'ללא גישה לרכב'
@@ -12,12 +13,27 @@ export function drivingIneligibility(person: Person): string | null {
   return null
 }
 
-export function pickupIneligibility(person: Person, event: Pick<FamilyEvent, 'id' | 'familyId' | 'date' | 'time'>, data: AppData): string | null {
+export function pickupIneligibility(person: Person, event: Pick<FamilyEvent, 'id' | 'familyId' | 'date' | 'time'> & Partial<Pick<FamilyEvent, 'departureTime' | 'routeMinutes'>>, data: AppData): string | null {
   const basicReason = drivingIneligibility({ ...person, availability: 'available' })
   if (basicReason) return basicReason
   if (person.availability && !['available', 'home'].includes(person.availability) && (!person.unavailableUntil || person.unavailableUntil > `${event.date}T${event.time}`)) return person.availability === 'work' ? 'בעבודה בזמן האירוע' : person.availability === 'travel' ? 'בנסיעה בזמן האירוע' : 'לא זמין/ה בזמן האירוע'
   const minutes = (time: string) => { const [hour, minute] = time.split(':').map(Number); return hour * 60 + minute }
-  const busy = data.events.some(other => other.id !== event.id && other.familyId === event.familyId && other.date === event.date && other.responsibleId === person.id && Math.abs(minutes(other.time) - minutes(event.time)) < 45)
+  const departure = event.departureTime ? minutes(event.departureTime) : minutes(event.time) - (event.routeMinutes || 20) - 10
+  if (person.unavailableFrom && person.unavailableTo) {
+    const blockedFrom = minutes(person.unavailableFrom)
+    const blockedTo = minutes(person.unavailableTo)
+    const blocked = blockedFrom <= blockedTo ? departure < blockedTo && minutes(event.time) >= blockedFrom : departure >= blockedFrom || minutes(event.time) < blockedTo
+    if (blocked) return 'לא זמין/ה בשעות האלה בדרך כלל'
+  }
+  const busy = data.events.some(other => {
+    if (other.id === event.id || other.familyId !== event.familyId || other.date !== event.date || other.responsibleId !== person.id && !other.participantIds.includes(person.id)) return false
+    if (other.endTime || event.departureTime) {
+      const otherStart = other.departureTime ? minutes(other.departureTime) : minutes(other.time)
+      const otherEnd = other.endTime ? minutes(other.endTime) : minutes(other.time) + 25
+      return departure < otherEnd + 10 && otherStart < minutes(event.time) + 20
+    }
+    return Math.abs(minutes(other.time) - minutes(event.time)) < 45
+  })
   return busy ? 'אירוע אחר באותה שעה' : null
 }
 

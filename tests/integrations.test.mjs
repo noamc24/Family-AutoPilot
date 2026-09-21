@@ -20,7 +20,8 @@ test('פקק מדומה משנה שעת יציאה אך לא את שעת האי�
   assert.equal(updated.time, original.time)
   assert.equal(updated.departureTime, '16:15')
   assert.equal(updated.routeMinutes, 35)
-  assert.match(updated.details, /וויז/)
+  assert.match(updated.sourceNote, /וויז/)
+  assert.match(first.message, /זיהיתי בוויז/)
   assert.ok(first.data.integrationLogs.some(entry => entry.source === 'waze' && entry.eventId === 'football'))
   const second = integrations.simulateIntegration(first.data, 'cohen', 'adam', 'waze')
   assert.equal(second.applied, false)
@@ -49,6 +50,32 @@ test('בית הספר מעדכן טיול ויוצר משימה; אוניברס�
   assert.equal(data.events.length, count + 1)
   const event = data.events.find(item => item.title === 'הרצאה באוניברסיטה')
   assert.ok(data.calendarMirrors.some(mirror => mirror.eventId === event.id && mirror.personId === 'maya'))
+  assert.match(data.events.find(item => item.id === 'trip').sourceNote, /מייל מבית הספר/)
+  assert.match(event.sourceNote, /מייל ממערכת האוניברסיטה/)
+})
+
+test('מקור המידע נשמר באירוע גם אחרי טעינה מחדש', () => {
+  const data = integrations.simulateIntegration(fresh(), 'cohen', 'adam', 'whatsapp').data
+  const event = data.events.find(item => /בדיקת עיניים/.test(item.title))
+  assert.match(event.sourceNote, /וואטסאפ/)
+  const previousStorage = globalThis.localStorage
+  globalThis.localStorage = { getItem: () => JSON.stringify(data) }
+  try { assert.equal(model.readData().events.find(item => item.id === event.id).sourceNote, event.sourceNote) }
+  finally { globalThis.localStorage = previousStorage }
+})
+
+test('נתונים ישנים מקבלים ציון מקור ללא טקסט טכני', () => {
+  const data = integrations.simulateIntegration(fresh(), 'cohen', 'adam', 'whatsapp').data
+  const event = data.events.find(item => /בדיקת עיניים/.test(item.title))
+  delete event.sourceNote
+  event.details = 'תואם בוואטסאפ · נוסף ליומן גוגל המדומה'
+  const previousStorage = globalThis.localStorage
+  globalThis.localStorage = { getItem: () => JSON.stringify(data) }
+  try {
+    const restored = model.readData().events.find(item => item.id === event.id)
+    assert.match(restored.sourceNote, /וואטסאפ/)
+    assert.doesNotMatch(restored.details, /מדומה/)
+  } finally { globalThis.localStorage = previousStorage }
 })
 
 test('זיהוי טקסט מפנה למקור המדומה הנכון', () => {
