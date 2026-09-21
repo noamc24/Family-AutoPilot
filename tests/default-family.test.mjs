@@ -7,6 +7,7 @@ const data = await import(`data:text/javascript;base64,${Buffer.from(result.outp
 
 test('המשפחה הראשונה כוללת את שני ההורים ושלושת הילדים עם שנות לידה', () => {
   const family = data.initialData.families[0]
+  assert.equal(family.name, 'משפחת אברהמי')
   assert.deepEqual(family.people.map(person => [person.name, person.birthYear, person.role]), [
     ['אוראל', 1988, 'אב'], ['מור', 1993, 'אם'], ['איתמר', 2018, 'בן'], ['עומר', 2020, 'בן'], ['יהונתן', 2022, 'בן'],
   ])
@@ -24,8 +25,21 @@ test('טעינת המשפחה הישנה מחליפה רק את ברירת המ�
   try {
     const restored = data.readData()
     assert.equal(restored.families[0].people.length, 5)
+    assert.equal(restored.families[0].name, 'משפחת אברהמי')
     assert.equal(restored.families[0].people.find(person => person.id === 'maya').name, 'מור')
     assert.equal(restored.events.find(event => event.id === 'pickup').title, 'איסוף איתמר מכדורגל')
     assert.ok(restored.events.some(event => event.id === 'custom'))
+  } finally { globalThis.localStorage = originalStorage }
+})
+
+test('שם משפחת ברירת המחדל מתעדכן בנתונים קיימים בלי לשנות שם מותאם אישית', () => {
+  const originalStorage = globalThis.localStorage
+  try {
+    for (const [savedName, expectedName] of [['המשפחה של אוראל ומור', 'משפחת אברהמי'], ['משפחת לוי', 'משפחת לוי']]) {
+      const saved = structuredClone(data.initialData)
+      saved.families[0].name = savedName
+      globalThis.localStorage = { getItem: () => JSON.stringify(saved) }
+      assert.equal(data.readData().families[0].name, expectedName)
+    }
   } finally { globalThis.localStorage = originalStorage }
 })

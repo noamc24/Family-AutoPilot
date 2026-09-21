@@ -38,7 +38,7 @@ export const cleanStoredText = (value: string | null | undefined) => (value || '
   .replace(/\uFFFD/g, '').trim()
 
 export const initialData: AppData = {
-  families: [{ id: 'cohen', name: 'המשפחה של אוראל ומור', people: [
+  families: [{ id: 'cohen', name: 'משפחת אברהמי', people: [
     { id: 'adam', name: 'אוראל', role: 'אב', color: 'sage', birthYear: 1988, age: ageFromBirthYear(1988), hasLicense: true, hasCar: true, availableForPickup: true },
     { id: 'maya', name: 'מור', role: 'אם', color: 'peach', birthYear: 1993, age: ageFromBirthYear(1993), hasLicense: true, hasCar: true, availableForPickup: true },
     { id: 'yuval', name: 'איתמר', role: 'בן', color: 'lavender', birthYear: 2018, age: ageFromBirthYear(2018), hasLicense: false, hasCar: false, availableForPickup: false },
@@ -103,7 +103,7 @@ export function readData(): AppData {
     if (saved && Array.isArray(saved.families) && Array.isArray(saved.events) && Array.isArray(saved.tasks) && Array.isArray(saved.activity) && saved.families.length) {
       return sanitizeAppData({
         ...saved,
-        families: saved.families.map(family => ({ ...family, name: cleanStoredText(family.name), people: family.people.map(person => {
+        families: saved.families.map(family => ({ ...family, name: family.id === 'cohen' && (family.name === 'המשפחה של אוראל ומור' || family.name === 'משפחת כהן') ? seedFamily.name : cleanStoredText(family.name), people: family.people.map(person => {
           const seed = initialData.families.flatMap(item => item.people).find(item => item.id === person.id)
           const role = person.role === 'אם' || person.role.startsWith('אמא') ? 'אם' : person.role === 'אב' || person.role.startsWith('אבא') ? 'אב' : person.role.startsWith('בת') ? 'בת' : 'בן'
           return { ...person, name: cleanStoredText(person.name), role, age: person.birthYear ? ageFromBirthYear(person.birthYear) : person.age ?? seed?.age ?? 0, hasLicense: person.hasLicense ?? seed?.hasLicense ?? false, hasCar: person.hasCar ?? seed?.hasCar ?? false, availableForPickup: person.availableForPickup ?? seed?.availableForPickup ?? false }

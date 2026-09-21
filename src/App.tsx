@@ -345,8 +345,12 @@ function ModalHeading({ title, description }: { title: string; description: stri
 function ModalActions({ onSave, onDelete, disabled }: { onSave: () => void; onDelete?: () => void; disabled?: boolean }) { return <div className="modal-actions">{onDelete && <button className="delete-button" onClick={onDelete}><Trash2 size={15}/> מחיקה</button>}<button className="dark-button" disabled={disabled} onClick={onSave}>שמירה <Check size={16}/></button></div> }
 function Empty({ text }: { text: string }) { return <div className="empty-state">{text}</div> }
 function DecisionCenter({ data, family, actorId, futureRisks, onRespond, onConfirm, onFind }: { data: AppData; family: FamilyUnit; actorId: string; futureRisks: ForecastRisk[]; onRespond: (id: string, response: 'CAN_DO' | 'CANNOT_DO') => void; onConfirm: (id: string, driverId: string) => void; onFind: (eventId: string, riskId?: string) => void }) {
-  const soon = Date.now() + 2 * 60 * 60_000
-  const issues = data.events.filter(event => event.familyId === family.id && new Date(`${event.date}T${event.time}:00`).getTime() <= soon && (scheduleConflicts(data, event).length > 0 && !!event.createdById || !!requestForEvent(data, event.id) && requestForEvent(data, event.id)?.status !== 'COVERED')).reverse().slice(0, 6)
+  const now = Date.now()
+  const soon = now + 2 * 60 * 60_000
+  const issues = data.events.filter(event => {
+    const time = new Date(`${event.date}T${event.time}:00`).getTime()
+    return event.familyId === family.id && time >= now - 60 * 60_000 && time <= soon && (scheduleConflicts(data, event).length > 0 && !!event.createdById || !!requestForEvent(data, event.id) && requestForEvent(data, event.id)?.status !== 'COVERED')
+  }).reverse().slice(0, 6)
   if (!issues.length && !futureRisks.length) return null
   const name = (id: string) => family.people.find(person => person.id === id)?.name || 'בן משפחה'
   return <section className="section-card decision-center" id="decisions"><div className="section-heading"><div><span className="section-kicker">האוטופיילוט זיהה</span><h2>דורש החלטה</h2></div><span className="count-badge">{issues.length + futureRisks.length}</span></div><div className="decision-list">{issues.map(event => {
