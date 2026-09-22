@@ -62,7 +62,7 @@ test('תפקיד בן בוגר אינו חוסם נהיגה, וזמינות מב
 test('מחיקת אירוע או אדם מנקה את הבקשות התלויות', () => {
   const data = fresh()
   assert.equal(domain.removeEventAndDependents(data, 'pickup').transportationRequests.length, 0)
-  assert.equal(dataModule.removePersonAndTheirData(data, 'cohen', 'yuval').transportationRequests.length, 0)
+  assert.equal(dataModule.removePersonAndTheirData(data, 'Avrahami', 'yuval').transportationRequests.length, 0)
 })
 
 test('תרחיש איחור משנה זמינות, דוחה קניות ופותח בקשה חדשה', () => {

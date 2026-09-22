@@ -14,7 +14,7 @@ const forecast = await load('src/forecast.ts')
 const fresh = () => structuredClone(model.initialData)
 
 test('תרחיש ההחלטה מדרג שני נהגים לפי עומס ומרחק ומציג את הסיבות האמיתיות', () => {
-  const result = integrations.runExternalScenario(fresh(), 'cohen', 'maya', 'decision-demo')
+  const result = integrations.runExternalScenario(fresh(), 'Avrahami', 'maya', 'decision-demo')
   assert.equal(result.applied, true)
   const event = result.data.events.find(item => item.sourceNote === 'זמני הגעה עודכנו בוויז')
   const request = coordination.requestForEvent(result.data, event.id)
@@ -27,12 +27,12 @@ test('תרחיש ההחלטה מדרג שני נהגים לפי עומס ומר�
   assert.match(options[1].reason, /2 הסעות/)
   const approved = coordination.confirmDriver(result.data, request.id, options[0].person.id)
   assert.equal(approved.events.find(item => item.id === event.id).responsibleId, 'adam')
-  assert.equal(integrations.runExternalScenario(approved, 'cohen', 'maya', 'decision-demo').applied, false)
+  assert.equal(integrations.runExternalScenario(approved, 'Avrahami', 'maya', 'decision-demo').applied, false)
 })
 
 test('מגבלות נהיגה הן חובה והעדפה לנהג אינה עוקפת אותן', () => {
   let data = fresh()
-  data.events = [{ id: 'ride', familyId: 'cohen', title: 'אימון', date: model.localDate(1), time: '18:00', icon: '🚗', participantIds: ['noa'], responsibleId: '', requiresDriver: true, details: '', preferredDriverId: 'maya' }]
+  data.events = [{ id: 'ride', familyId: 'Avrahami', title: 'אימון', date: model.localDate(1), time: '18:00', icon: '🚗', participantIds: ['noa'], responsibleId: '', requiresDriver: true, details: '', preferredDriverId: 'maya' }]
   data.families[0].people.find(person => person.id === 'maya').unavailableFrom = '17:00'
   data.families[0].people.find(person => person.id === 'maya').unavailableTo = '21:00'
   data = coordination.ensureRequests(data, 'noa')
@@ -47,7 +47,7 @@ test('מגבלות נהיגה הן חובה והעדפה לנהג אינה עו�
 
 test('תחבורה ציבורית מוצעת רק עם אישור המשפחה והרשאה אישית', () => {
   let data = fresh()
-  data.events = [{ id: 'ride', familyId: 'cohen', title: 'אימון', date: model.localDate(1), time: '18:00', icon: '🚗', participantIds: ['yuval'], responsibleId: '', requiresDriver: true, transitAvailable: true, details: '' }]
+  data.events = [{ id: 'ride', familyId: 'Avrahami', title: 'אימון', date: model.localDate(1), time: '18:00', icon: '🚗', participantIds: ['yuval'], responsibleId: '', requiresDriver: true, transitAvailable: true, details: '' }]
   data = coordination.ensureRequests(data, 'yuval')
   const request = coordination.requestForEvent(data, 'ride')
   assert.equal(coordination.transitAlternative(data, request), null)
@@ -67,7 +67,7 @@ test('אירוע קריטי ומשימה שאינה גמישה אינם מוזז
   const data = fresh()
   data.families[0].preferences = { balanceRides: true, moveFlexibleTasks: false }
   data.families[0].people.find(person => person.id === 'maya').preferredMaxRides = 2
-  data.events = [{ id: 'critical', familyId: 'cohen', title: 'רופא', date: model.localDate(1), time: '17:00', icon: '🦷', participantIds: ['maya'], responsibleId: '', details: '', priority: 'critical' }]
+  data.events = [{ id: 'critical', familyId: 'Avrahami', title: 'רופא', date: model.localDate(1), time: '17:00', icon: '🦷', participantIds: ['maya'], responsibleId: '', details: '', priority: 'critical' }]
   const risk = { id: 'overlap:critical:x', kind: 'overlap', eventId: 'critical', date: model.localDate(1), time: '17:00', title: '', detail: '' }
   assert.equal(forecast.suggestForecastSolution(data, risk), null)
   const storage = globalThis.localStorage

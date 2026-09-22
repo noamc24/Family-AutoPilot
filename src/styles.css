@@ -77,3 +77,20 @@
 .feed-list{display:grid;gap:0}.feed-row{display:grid;grid-template-columns:52px minmax(0,1fr);gap:12px;padding:11px 0;border-bottom:1px solid #edf0e9;align-items:start}.feed-row:last-child{border-bottom:0}.feed-row time{direction:ltr;text-align:right;font-size:12px;font-weight:700;color:#55705e;padding-top:2px}.feed-row strong{display:block;font-size:13px;line-height:1.55;color:#2b3d32;font-weight:600}.feed-row small{display:block;margin-top:2px;font-size:11px;color:#7a887d}
 .feed-row>div{min-width:0;overflow-wrap:anywhere}
 .pulse-card.family-status{min-height:116px;padding:20px 24px}.pulse-card.family-status .pulse-copy h2{font-size:21px}.pulse-card.family-status .pulse-copy p{font-size:13px;line-height:1.6}
+/* Clear secondary information without changing the existing visual language. */
+.advanced-options,.decision-details{border-top:1px solid #e9eee7;margin-top:15px;padding-top:12px}
+.advanced-options>summary,.decision-details>summary{cursor:pointer;color:#386a4a;font-size:12px;font-weight:800;list-style-position:inside}
+.advanced-options[open]>summary,.decision-details[open]>summary{margin-bottom:14px}
+.advanced-options .form-grid{margin-top:12px}
+.decision-details p{font-size:11px;color:#718474;margin:5px 0}
+.decision-summary{display:block;font-size:12px;font-weight:700;color:#805d32;margin-top:4px}
+.source-badge,.item-badge{display:inline-block;border-radius:6px;padding:2px 6px;margin-inline-start:7px;font-size:10px;font-weight:700;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle}
+.source-badge{background:#f0f4ef;color:#50735b}.item-badge{background:#f7efe2;color:#815c30}
+.event-row>svg{opacity:1;color:#81998a}
+.event-info,.event-info small,.decision-item>div,.workflow-item>div{min-width:0}
+.event-info strong,.event-info small,.decision-item strong,.workflow-item strong{overflow-wrap:anywhere}
+.family-feed .feed-list{max-height:285px;overflow:auto}
+.child-actions{margin:18px 0}
+.plan-modal{max-height:min(90vh,900px);overflow-y:auto}
+@media(max-width:900px){.dashboard-grid{grid-template-columns:minmax(0,1fr)}.right-stack{grid-row:auto}.content{padding-inline:24px}}
+@media(max-width:600px){.content{padding-inline:16px}.section-card,.attention-card{padding:18px}.pulse-card{min-height:0;padding:20px;align-items:flex-start}.pulse-copy h2{font-size:21px}.pulse-action{align-self:flex-start}.decision-item,.workflow-item{min-width:0}.workflow-actions,.decision-actions{flex-wrap:wrap}.advanced-options .form-grid{grid-template-columns:minmax(0,1fr)}.plan-modal{width:calc(100vw - 24px);max-height:calc(100dvh - 24px)}.source-badge{max-width:110px}}

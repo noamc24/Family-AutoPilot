@@ -21,9 +21,9 @@ test('מסך הבית משתנה בין הורה לילד ומציג תוכן מ
   try {
     const parent = render()
     assert.match(parent, /שלום מור/)
-    assert.match(parent, /צריך את תשומת הלב שלך/)
+    assert.match(parent, /צריך טיפול/)
     assert.match(parent, /בקשות הסעה במשפחה/)
-    assert.match(parent, /המשפחה היום/)
+    assert.match(parent, /דורש החלטה/)
     assert.match(parent, /עדכונים ממקורות/)
     assert.match(parent, /מה קרה היום/)
     assert.match(parent, /וויז/)
@@ -52,7 +52,6 @@ test('כרטיס מצב משפחתי תקין מציג רק נתונים קיי�
     const markup = render()
     assert.match(markup, /הכל בשליטה/)
     assert.match(markup, /0 אירועים היום/)
-    assert.match(markup, /0 הסעות/)
-    assert.match(markup, /אין בעיות פתוחות/)
+    assert.match(markup, /אין נושאים פתוחים/)
   } finally { globalThis.localStorage = originalStorage }
 })

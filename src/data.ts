@@ -1,6 +1,6 @@
 export type Priority = 'low' | 'normal' | 'high' | 'critical'
 export type RoutineKind = 'work' | 'study' | 'activity'
-export type WeeklyRoutine = { id: string; kind: RoutineKind; label: string; day: number; start: string; end: string; location?: string; prepTitle?: string; prepOwnerId?: string }
+export type WeeklyRoutine = { id: string; kind: RoutineKind; label: string; day?: number; days?: number[]; start: string; end: string; location?: string; prepTitle?: string; prepOwnerId?: string }
 export type EventAcknowledgement = { eventId: string; personId: string; signature: string; status: 'pending' | 'seen' | 'approved' | 'declined'; updatedAt?: string }
 export type PendingAction = { id: string; familyId: string; source: 'external' | 'scenario'; scenarioId: string; message: string; createdAt: string }
 export type FamilyPreferences = { preferFewerTrips?: boolean; balanceRides?: boolean; preferNearbyDriver?: boolean; moveFlexibleTasks?: boolean; allowPublicTransit?: boolean; autonomy?: 'conservative' | 'balanced' | 'autopilot' }
@@ -17,6 +17,7 @@ export type AppData = { families: FamilyUnit[]; events: FamilyEvent[]; tasks: Fa
 
 export const uid = () => Math.random().toString(36).slice(2, 10)
 export const ageFromBirthYear = (year: number) => new Date().getFullYear() - year
+export const DEFAULT_FAMILY_ID = 'Avrahami'
 export function validBirthDate(value: string, today = localDate()): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value < '1900-01-01' || value > today) return false
   const [year, month, day] = value.split('-').map(Number)
@@ -54,29 +55,34 @@ export const cleanStoredText = (value: string | null | undefined) => (value || '
   .replace(/[\u00a0\u200b\ufeff]/g, ' ')
   .replace(/\uFFFD/g, '').trim()
 
+const weeklyCare = (personId: string, label: string): WeeklyRoutine[] => [
+  { id: `default-${personId}-weekdays`, kind: 'study', label, day: 0, days: [0, 1, 2, 3, 4], start: '08:00', end: '16:00' },
+  { id: `default-${personId}-friday`, kind: 'study', label, day: 5, days: [5], start: '08:00', end: '13:30' },
+]
+
 export const initialData: AppData = {
-  families: [{ id: 'cohen', name: 'משפחת אברהמי', people: [
-    { id: 'adam', name: 'אוראל', role: 'אב', color: 'sage', birthYear: 1988, age: ageFromBirthYear(1988), hasLicense: true, hasCar: true, availableForPickup: true },
-    { id: 'maya', name: 'מור', role: 'אם', color: 'peach', birthYear: 1993, age: ageFromBirthYear(1993), hasLicense: true, hasCar: true, availableForPickup: true },
-    { id: 'yuval', name: 'איתמר', role: 'בן', color: 'lavender', birthYear: 2018, age: ageFromBirthYear(2018), hasLicense: false, hasCar: false, availableForPickup: false },
-    { id: 'noa', name: 'עומר', role: 'בן', color: 'butter', birthYear: 2020, age: ageFromBirthYear(2020), hasLicense: false, hasCar: false, availableForPickup: false },
-    { id: 'yehonatan', name: 'יהונתן', role: 'בן', color: 'sage', birthYear: 2022, age: ageFromBirthYear(2022), hasLicense: false, hasCar: false, availableForPickup: false },
+  families: [{ id: DEFAULT_FAMILY_ID, name: 'משפחת אברהמי', people: [
+    { id: 'adam', name: 'אוראל', role: 'אב', color: 'sage', birthDate: '1988-11-06', birthYear: 1988, age: ageFromBirthDate('1988-11-06'), hasLicense: true, hasCar: true, availableForPickup: true },
+    { id: 'maya', name: 'מור', role: 'אם', color: 'peach', birthDate: '1993-12-12', birthYear: 1993, age: ageFromBirthDate('1993-12-12'), hasLicense: true, hasCar: true, availableForPickup: true },
+    { id: 'yuval', name: 'איתמר', role: 'בן', color: 'lavender', birthDate: '2018-10-06', birthYear: 2018, age: ageFromBirthDate('2018-10-06'), hasLicense: false, hasCar: false, availableForPickup: false, routines: weeklyCare('yuval', 'בית ספר') },
+    { id: 'noa', name: 'עומר', role: 'בן', color: 'butter', birthDate: '2021-12-30', birthYear: 2021, age: ageFromBirthDate('2021-12-30'), hasLicense: false, hasCar: false, availableForPickup: false, routines: weeklyCare('noa', 'בית ספר') },
+    { id: 'yehonatan', name: 'יהונתן', role: 'בן', color: 'sage', birthDate: '2024-11-11', birthYear: 2024, age: ageFromBirthDate('2024-11-11'), hasLicense: false, hasCar: false, availableForPickup: false, routines: weeklyCare('yehonatan', 'מעון') },
   ] }],
   events: [
-    { id: 'dentist', familyId: 'cohen', title: 'תור לרופא שיניים', date: localDate(), time: '10:30', icon: '🦷', participantIds: ['maya'], responsibleId: 'maya', details: 'מור הולכת לתור', priority: 'critical' },
-    { id: 'dance', familyId: 'cohen', title: 'חוג ריקוד', date: localDate(), time: '16:00', icon: '💃', participantIds: ['noa', 'maya'], responsibleId: 'maya', details: 'מור מסיעה את עומר', requiresDriver: true },
-    { id: 'football', familyId: 'cohen', title: 'אימון כדורגל', date: localDate(), time: '17:00', icon: '⚽', participantIds: ['yuval', 'adam'], responsibleId: 'adam', details: 'אוראל מסיע · יציאה ב־16:32', requiresDriver: true },
-    { id: 'dinner', familyId: 'cohen', title: 'ארוחת ערב משפחתית', date: localDate(), time: '19:30', icon: '🍽️', participantIds: ['maya', 'adam', 'yuval', 'noa', 'yehonatan'], responsibleId: '', details: 'כולם יחד' },
-    { id: 'pickup', familyId: 'cohen', title: 'איסוף איתמר מכדורגל', date: localDate(4), time: '18:30', icon: '🚗', participantIds: ['yuval'], responsibleId: '', details: 'דרוש נהג/ת לאיסוף', needsAttention: true, requiresDriver: true },
-    { id: 'trip', familyId: 'cohen', title: 'טיול בית ספר', date: localDate(6), time: '08:00', icon: '🎒', participantIds: ['yuval'], responsibleId: 'maya', details: 'צפוי גשם · כדאי לארוז מעיל' },
+    { id: 'dentist', familyId: DEFAULT_FAMILY_ID, title: 'תור לרופא שיניים', date: localDate(), time: '10:30', icon: '🦷', participantIds: ['maya'], responsibleId: 'maya', details: 'מור הולכת לתור', priority: 'critical' },
+    { id: 'dance', familyId: DEFAULT_FAMILY_ID, title: 'חוג ריקוד', date: localDate(), time: '16:00', icon: '💃', participantIds: ['noa', 'maya'], responsibleId: 'maya', details: 'מור מסיעה את עומר', requiresDriver: true },
+    { id: 'football', familyId: DEFAULT_FAMILY_ID, title: 'אימון כדורגל', date: localDate(), time: '17:00', icon: '⚽', participantIds: ['yuval', 'adam'], responsibleId: 'adam', details: 'אוראל מסיע · יציאה ב־16:32', requiresDriver: true },
+    { id: 'dinner', familyId: DEFAULT_FAMILY_ID, title: 'ארוחת ערב משפחתית', date: localDate(), time: '19:30', icon: '🍽️', participantIds: ['maya', 'adam', 'yuval', 'noa', 'yehonatan'], responsibleId: '', details: 'כולם יחד' },
+    { id: 'pickup', familyId: DEFAULT_FAMILY_ID, title: 'איסוף איתמר מכדורגל', date: localDate(4), time: '18:30', icon: '🚗', participantIds: ['yuval'], responsibleId: '', details: 'דרוש נהג/ת לאיסוף', needsAttention: true, requiresDriver: true },
+    { id: 'trip', familyId: DEFAULT_FAMILY_ID, title: 'טיול בית ספר', routineOverride: true, date: localDate(6), time: '08:00', icon: '🎒', participantIds: ['yuval'], responsibleId: 'maya', details: 'צפוי גשם · כדאי לארוז מעיל' },
   ],
   tasks: [
-    { id: 'groceries', familyId: 'cohen', title: 'קניות לבית', ownerId: 'maya', due: localDate(), done: false, requiresAdult: true, priority: 'low', flexible: true },
-    { id: 'schoolbag', familyId: 'cohen', title: 'לארוז תיק לטיול', ownerId: 'maya', due: localDate(5), done: false },
+    { id: 'groceries', familyId: DEFAULT_FAMILY_ID, title: 'קניות לבית', ownerId: 'maya', due: localDate(), done: false, requiresAdult: true, priority: 'low', flexible: true },
+    { id: 'schoolbag', familyId: DEFAULT_FAMILY_ID, title: 'לארוז תיק לטיול', ownerId: 'maya', due: localDate(5), done: false },
   ],
   activity: [
-    { id: 'activity-1', familyId: 'cohen', text: 'נוספה תזכורת לאוראל על האימון', personIds: ['adam'] },
-    { id: 'activity-2', familyId: 'cohen', text: 'התור של מור מופיע בלוח המשפחתי', personIds: ['maya'] },
+    { id: 'activity-1', familyId: DEFAULT_FAMILY_ID, text: 'נוספה תזכורת לאוראל על האימון', personIds: ['adam'] },
+    { id: 'activity-2', familyId: DEFAULT_FAMILY_ID, text: 'התור של מור מופיע בלוח המשפחתי', personIds: ['maya'] },
   ],
   transportationRequests: [],
   integrationLogs: [],
@@ -113,6 +119,34 @@ export function sanitizeAppData(data: AppData): AppData {
   return { ...data, families, events, tasks, activity, transportationRequests, integrationLogs, calendarMirrors, acknowledgements, suppressedRoutineTaskIds: data.suppressedRoutineTaskIds || [], pendingActions: (data.pendingActions || []).filter(action => membersByFamily.has(action.familyId)), dismissedActionIds: data.dismissedActionIds || [] }
 }
 
+/** Move the original demo family to its new ID without dropping local edits. */
+export function migrateDefaultFamily(data: AppData): AppData {
+  const original = data.families.find(family => family.id === 'cohen' || family.id === DEFAULT_FAMILY_ID)
+  if (!original) return data
+  const previousId = original.id
+  const seedPeople = new Map(initialData.families[0].people.map(person => [person.id, person]))
+  const familyId = (id: string) => id === previousId ? DEFAULT_FAMILY_ID : id
+  const replaceKey = (value: string) => previousId === 'cohen' ? value.split('cohen').join(DEFAULT_FAMILY_ID) : value
+  return {
+    ...data,
+    families: data.families.map(family => family !== original ? family : { ...family, id: DEFAULT_FAMILY_ID, people: family.people.map(person => {
+      const seed = seedPeople.get(person.id)
+      if (!seed) return person
+      const birthDate = previousId === 'cohen' ? seed.birthDate : person.birthDate
+      const routines = previousId === 'cohen' && seed.routines?.length && !(person.routines || []).some(routine => routine.kind === 'study') ? [...(person.routines || []), ...seed.routines] : person.routines
+      return { ...person, birthDate, birthYear: birthDate ? Number(birthDate.slice(0, 4)) : person.birthYear, age: birthDate ? ageFromBirthDate(birthDate) : person.age, routines }
+    }) }),
+    events: data.events.map(event => ({ ...event, familyId: familyId(event.familyId) })),
+    tasks: data.tasks.map(task => ({ ...task, familyId: familyId(task.familyId) })),
+    activity: data.activity.map(entry => ({ ...entry, familyId: familyId(entry.familyId) })),
+    transportationRequests: data.transportationRequests.map(request => ({ ...request, familyId: familyId(request.familyId) })),
+    integrationLogs: data.integrationLogs.map(entry => ({ ...entry, familyId: familyId(entry.familyId), scenarioKey: entry.familyId === previousId ? replaceKey(entry.scenarioKey) : entry.scenarioKey })),
+    calendarMirrors: data.calendarMirrors.map(entry => ({ ...entry, familyId: familyId(entry.familyId) })),
+    pendingActions: (data.pendingActions || []).map(action => action.familyId === previousId ? { ...action, familyId: DEFAULT_FAMILY_ID, id: replaceKey(action.id) } : action),
+    dismissedActionIds: (data.dismissedActionIds || []).map(replaceKey),
+  }
+}
+
 export function readData(): AppData {
   try {
     const stored = JSON.parse(localStorage.getItem('family-autopilot-he-v1') || 'null') as AppData | null
@@ -124,7 +158,7 @@ export function readData(): AppData {
       activity: stored.activity.map(entry => entry.familyId === 'cohen' && ['activity-1', 'activity-2'].includes(entry.id) ? { ...entry, text: entry.text.replace(/מאיה/g, 'מור').replace(/אדם/g, 'אוראל') } : entry),
     } : stored
     if (saved && Array.isArray(saved.families) && Array.isArray(saved.events) && Array.isArray(saved.tasks) && Array.isArray(saved.activity) && saved.families.length) {
-      return sanitizeAppData({
+      return sanitizeAppData(migrateDefaultFamily({
         ...saved,
         families: saved.families.map(family => ({ ...family, name: family.id === 'cohen' && (family.name === 'המשפחה של אוראל ומור' || family.name === 'משפחת כהן') ? seedFamily.name : cleanStoredText(family.name), people: family.people.map(person => {
           const seed = initialData.families.flatMap(item => item.people).find(item => item.id === person.id)
@@ -145,7 +179,7 @@ export function readData(): AppData {
         suppressedRoutineTaskIds: saved.suppressedRoutineTaskIds || [],
         pendingActions: saved.pendingActions || [],
         dismissedActionIds: saved.dismissedActionIds || [],
-      })
+      }))
     }
   } catch { /* use demo state */ }
   return sanitizeAppData(initialData)

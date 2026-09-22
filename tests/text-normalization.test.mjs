@@ -21,8 +21,8 @@ test('טעינה מתקנת סימני פיסוק פגומים בכל שדות �
   saved.events[0].issueReason = `${left}עדכון${right}`
   saved.tasks[0].title = `${left}קניות${right}`
   saved.activity[0].text = `${left}תזכורת${right}`
-  saved.integrationLogs.push({ id: 'log', familyId: 'cohen', scenarioKey: 'text', source: 'waze', sourceText: `${left}פקק${right}`, action: `זמן${chars(0x2013)}נסיעה`, personIds: ['adam'], createdAt: new Date().toISOString() })
-  saved.transportationRequests.push({ id: 'request', familyId: 'cohen', eventId: 'pickup', passengerId: 'yuval', eligibleMemberIds: ['adam'], responses: { adam: 'PENDING' }, selectedDriverId: '', status: 'OPEN', createdById: 'adam', origin: `${left}בית${right}`, destination: `${left}חוג${right}`, requiredAt: `${model.localDate(4)}T18:30` })
+  saved.integrationLogs.push({ id: 'log', familyId: 'Avrahami', scenarioKey: 'text', source: 'waze', sourceText: `${left}פקק${right}`, action: `זמן${chars(0x2013)}נסיעה`, personIds: ['adam'], createdAt: new Date().toISOString() })
+  saved.transportationRequests.push({ id: 'request', familyId: 'Avrahami', eventId: 'pickup', passengerId: 'yuval', eligibleMemberIds: ['adam'], responses: { adam: 'PENDING' }, selectedDriverId: '', status: 'OPEN', createdById: 'adam', origin: `${left}בית${right}`, destination: `${left}חוג${right}`, requiredAt: `${model.localDate(4)}T18:30` })
   const originalStorage = globalThis.localStorage
   globalThis.localStorage = { getItem: () => JSON.stringify(saved) }
   try {

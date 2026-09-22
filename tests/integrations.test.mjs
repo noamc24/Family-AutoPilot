@@ -13,7 +13,7 @@ const fresh = () => structuredClone(model.initialData)
 
 test('פקק מדומה משנה שעת יציאה אך לא את שעת האירוע ונמנע מכפילות', () => {
   const data = fresh()
-  const first = integrations.simulateIntegration(data, 'cohen', 'adam', 'waze')
+  const first = integrations.simulateIntegration(data, 'Avrahami', 'adam', 'waze')
   assert.equal(first.applied, true)
   const original = data.events.find(event => event.id === 'football')
   const updated = first.data.events.find(event => event.id === 'football')
@@ -23,13 +23,13 @@ test('פקק מדומה משנה שעת יציאה אך לא את שעת האי�
   assert.match(updated.sourceNote, /וויז/)
   assert.match(first.message, /זיהיתי בוויז/)
   assert.ok(first.data.integrationLogs.some(entry => entry.source === 'waze' && entry.eventId === 'football'))
-  const second = integrations.simulateIntegration(first.data, 'cohen', 'adam', 'waze')
+  const second = integrations.simulateIntegration(first.data, 'Avrahami', 'adam', 'waze')
   assert.equal(second.applied, false)
   assert.equal(second.data.events.length, first.data.events.length)
 })
 
 test('הודעת וואטסאפ יוצרת אירוע ביומן המדומה ונמחקת איתו', () => {
-  const result = integrations.simulateIntegration(fresh(), 'cohen', 'adam', 'whatsapp')
+  const result = integrations.simulateIntegration(fresh(), 'Avrahami', 'adam', 'whatsapp')
   assert.equal(result.applied, true)
   const event = result.data.events.find(item => /בדיקת עיניים/.test(item.title))
   assert.ok(event)
@@ -42,11 +42,11 @@ test('הודעת וואטסאפ יוצרת אירוע ביומן המדומה ו
 })
 
 test('בית הספר מעדכן טיול ויוצר משימה; אוניברסיטה יוצרת אירוע נפרד', () => {
-  let data = integrations.simulateIntegration(fresh(), 'cohen', 'maya', 'school').data
+  let data = integrations.simulateIntegration(fresh(), 'Avrahami', 'maya', 'school').data
   assert.equal(data.events.find(event => event.id === 'trip').time, '09:00')
   assert.ok(data.tasks.some(task => task.eventId === 'trip' && /אישור חתום/.test(task.title) && task.ownerId === 'maya'))
   const count = data.events.length
-  data = integrations.simulateIntegration(data, 'cohen', 'maya', 'university').data
+  data = integrations.simulateIntegration(data, 'Avrahami', 'maya', 'university').data
   assert.equal(data.events.length, count + 1)
   const event = data.events.find(item => item.title === 'הרצאה באוניברסיטה')
   assert.ok(data.calendarMirrors.some(mirror => mirror.eventId === event.id && mirror.personId === 'maya'))
@@ -55,7 +55,7 @@ test('בית הספר מעדכן טיול ויוצר משימה; אוניברס�
 })
 
 test('מקור המידע נשמר באירוע גם אחרי טעינה מחדש', () => {
-  const data = integrations.simulateIntegration(fresh(), 'cohen', 'adam', 'whatsapp').data
+  const data = integrations.simulateIntegration(fresh(), 'Avrahami', 'adam', 'whatsapp').data
   const event = data.events.find(item => /בדיקת עיניים/.test(item.title))
   assert.match(event.sourceNote, /וואטסאפ/)
   const previousStorage = globalThis.localStorage
@@ -65,7 +65,7 @@ test('מקור המידע נשמר באירוע גם אחרי טעינה מחד�
 })
 
 test('נתונים ישנים מקבלים ציון מקור ללא טקסט טכני', () => {
-  const data = integrations.simulateIntegration(fresh(), 'cohen', 'adam', 'whatsapp').data
+  const data = integrations.simulateIntegration(fresh(), 'Avrahami', 'adam', 'whatsapp').data
   const event = data.events.find(item => /בדיקת עיניים/.test(item.title))
   delete event.sourceNote
   event.details = 'תואם בוואטסאפ · נוסף ליומן גוגל המדומה'
@@ -86,14 +86,14 @@ test('זיהוי טקסט מפנה למקור המדומה הנכון', () => {
 })
 
 test('מחיקת בן משפחה מנקה רישומי אינטגרציה תלויים', () => {
-  const data = integrations.simulateIntegration(fresh(), 'cohen', 'adam', 'whatsapp').data
-  const cleaned = model.removePersonAndTheirData(data, 'cohen', 'yuval')
+  const data = integrations.simulateIntegration(fresh(), 'Avrahami', 'adam', 'whatsapp').data
+  const cleaned = model.removePersonAndTheirData(data, 'Avrahami', 'yuval')
   assert.equal(cleaned.integrationLogs.length, 0)
   assert.equal(cleaned.calendarMirrors.length, 0)
 })
 
 test('עדכוני ההדמיה ויומן גוגל המדומה נשמרים בטעינה מחדש', () => {
-  const data = integrations.simulateIntegration(fresh(), 'cohen', 'adam', 'whatsapp').data
+  const data = integrations.simulateIntegration(fresh(), 'Avrahami', 'adam', 'whatsapp').data
   const originalStorage = globalThis.localStorage
   globalThis.localStorage = { getItem: () => JSON.stringify(data) }
   try {
@@ -110,16 +110,16 @@ test('הדמיית מקור משפיעה רק על התא המשפחתי הפע�
   const result = integrations.simulateIntegration(data, 'levi', 'lee', 'university')
   assert.equal(result.applied, true)
   assert.ok(result.data.events.some(event => event.familyId === 'levi' && event.title === 'הרצאה באוניברסיטה'))
-  assert.equal(result.data.events.filter(event => event.familyId === 'cohen').length, data.events.length)
+  assert.equal(result.data.events.filter(event => event.familyId === 'Avrahami').length, data.events.length)
   assert.ok(result.data.integrationLogs.every(entry => entry.familyId === 'levi'))
 })
 
 test('עדכונים אוטומטיים מופעלים אחד בכל פעם ואינם יוצרים כפילות', () => {
-  const first = integrations.advanceAutomaticIntegrations(fresh(), 'cohen', 'adam')
+  const first = integrations.advanceAutomaticIntegrations(fresh(), 'Avrahami', 'adam')
   assert.equal(first.applied, true)
   assert.equal(first.data.integrationLogs[0].source, 'waze')
   assert.equal(first.data.integrationLogs[0].trigger, 'automatic')
-  const second = integrations.advanceAutomaticIntegrations(first.data, 'cohen', 'adam')
+  const second = integrations.advanceAutomaticIntegrations(first.data, 'Avrahami', 'adam')
   assert.equal(second.applied, true)
   assert.equal(second.data.integrationLogs[0].source, 'school')
   assert.equal(second.data.integrationLogs.filter(item => item.source === 'waze').length, 1)

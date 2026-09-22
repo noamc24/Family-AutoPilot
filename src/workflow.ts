@@ -3,10 +3,28 @@ import { scanFutureRisks } from './forecast'
 
 const minutes = (time: string) => { const [hour, minute] = time.split(':').map(Number); return hour * 60 + minute }
 export const routineDays = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת']
+export const routineDaysList = (routine: WeeklyRoutine): number[] => {
+  if (Array.isArray(routine.days) && routine.days.length) return [...new Set(routine.days.filter(day => Number.isInteger(day) && day >= 0 && day < 7).sort((a, b) => a - b))]
+  if (Number.isInteger(routine.day) && routine.day >= 0 && routine.day < 7) return [routine.day]
+  return []
+}
+export const formatRoutineDayRange = (days: number[]) => {
+  if (!days.length) return 'לא נקבע'
+  if (days.length === 1) return routineDays[days[0]]
+  const ranges: string[] = []
+  let start = days[0], prev = days[0]
+  for (let index = 1; index < days.length; index++) {
+    const current = days[index]
+    if (current === prev + 1) prev = current
+    else { ranges.push(start === prev ? routineDays[start] : `${routineDays[start]}–${routineDays[prev]}`); start = current; prev = current }
+  }
+  ranges.push(start === prev ? routineDays[start] : `${routineDays[start]}–${routineDays[prev]}`)
+  return ranges.join(', ')
+}
 
 export function routineAt(person: Person, date: string, start: string, end: string): WeeklyRoutine | undefined {
   const day = new Date(`${date}T12:00:00`).getDay()
-  return (person.routines || []).find(routine => routine.day === day && minutes(start) < minutes(routine.end) && minutes(routine.start) <= minutes(end))
+  return (person.routines || []).find(routine => routineDaysList(routine).includes(day) && minutes(start) < minutes(routine.end) && minutes(routine.start) <= minutes(end))
 }
 
 export function eventSignature(event: FamilyEvent): string {
@@ -48,9 +66,11 @@ export function materializeRoutineTasks(data: AppData, today = localDate()): App
   let tasks = data.tasks.filter(task => !task.routineId || active.has(task.routineId))
   for (const family of data.families) for (const person of family.people) for (const routine of person.routines || []) {
     if (!routine.prepTitle?.trim()) continue
+    const selectedDays = routineDaysList(routine)
     for (let offset = 0; offset <= 7; offset++) {
       const date = localDate(offset)
-      if (new Date(`${date}T12:00:00`).getDay() !== routine.day) continue
+      const scheduledDay = new Date(`${date}T12:00:00`).getDay()
+      if (!selectedDays.includes(scheduledDay)) continue
       const dueDate = new Date(`${date}T12:00:00`)
       if (routine.kind === 'study') dueDate.setDate(dueDate.getDate() - 1)
       const due = `${dueDate.getFullYear()}-${String(dueDate.getMonth() + 1).padStart(2, '0')}-${String(dueDate.getDate()).padStart(2, '0')}`
