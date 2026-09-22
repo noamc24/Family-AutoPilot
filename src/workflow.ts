@@ -40,6 +40,29 @@ export function routineGroupKey(routine: Pick<WeeklyRoutine, 'kind' | 'start' | 
   return `${routine.kind}|${routine.start}|${routine.end}`
 }
 
+export function routineDisplayRows(person: Pick<Person, 'id' | 'routines'>): Array<{ key: string; label: string; dayLabel: string; time: string; prepTitle?: string }> {
+  const grouped = new Map<string, WeeklyRoutine>()
+  for (const routine of person.routines || []) {
+    const days = routineDaysList(routine)
+    if (!days.length) continue
+    const key = `${person.id}:${routineGroupKey(routine)}`
+    const current = grouped.get(key)
+    grouped.set(key, {
+      ...routine,
+      label: routine.label || current?.label || 'לו״ז קבוע',
+      prepTitle: routine.prepTitle || current?.prepTitle,
+      days: [...new Set([...(current?.days || []), ...days])].sort((a, b) => a - b),
+    })
+  }
+  return [...grouped.values()].map(routine => ({
+    key: `${person.id}:${routine.id}:${routine.start}:${routine.end}`,
+    label: routine.label || 'לו״ז קבוע',
+    dayLabel: formatRoutineDayRange(routine.days || routineDaysList(routine)),
+    time: `${routine.start}–${routine.end}`,
+    prepTitle: routine.prepTitle,
+  }))
+}
+
 export function eventSignature(event: FamilyEvent): string {
   return [event.date, event.time, event.endTime || '', event.title, event.responsibleId, [...event.participantIds].sort().join(','), event.details, event.requiresDriver ? 'ride' : ''].join('|')
 }
