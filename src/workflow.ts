@@ -4,8 +4,11 @@ import { scanFutureRisks } from './forecast'
 const minutes = (time: string) => { const [hour, minute] = time.split(':').map(Number); return hour * 60 + minute }
 export const routineDays = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת']
 export const routineDaysList = (routine: WeeklyRoutine): number[] => {
-  if (Array.isArray(routine.days) && routine.days.length) return [...new Set(routine.days.filter(day => Number.isInteger(day) && day >= 0 && day < 7).sort((a, b) => a - b))]
-  if (Number.isInteger(routine.day) && routine.day >= 0 && routine.day < 7) return [routine.day]
+  const explicitDays = Array.isArray(routine.days)
+    ? routine.days.filter((day): day is number => typeof day === 'number' && Number.isInteger(day) && day >= 0 && day < 7)
+    : []
+  if (explicitDays.length) return [...new Set(explicitDays)].sort((a, b) => a - b)
+  if (typeof routine.day === 'number' && Number.isInteger(routine.day) && routine.day >= 0 && routine.day < 7) return [routine.day]
   return []
 }
 export const formatRoutineDayRange = (days: number[]) => {

@@ -38,6 +38,8 @@ test('הרשומות מסודרות לפי זמן ומופרדות בין משפ
   const entries = feed.activityFeed(data, 'Avrahami', day)
   assert.deepEqual(entries.map(item => item.text), ['זוהה עומס', 'נוסף אירוע'])
   assert.equal(entries[0].source, 'waze')
+  assert.equal(entries[0].personName, 'אוראל')
+  assert.equal(entries[1].personName, 'אוראל')
   assert.equal(feed.activityFeed(data, 'other', day).length, 1)
   assert.equal(feed.activityFeed(data, 'Avrahami', day, 1).length, 1)
 })
