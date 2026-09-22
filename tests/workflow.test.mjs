@@ -18,6 +18,21 @@ test('שגרה מרובת ימים נחשבת כקבועה לכל אחד מהי�
   assert.equal(workflow.routineAt(person, localDate(2), '07:30', '08:30')?.id, undefined)
 })
 
+test('אירועי בית ספר ועבודה של אותו אדם מתאחדים לשגרה אחת גם כשימים ותוויות שונים', () => {
+  const schoolOne = { id: 'school-1', kind: 'study', label: 'בית ספר', day: 0, days: [0, 2], start: '08:00', end: '16:00', prepTitle: 'להכין תיק' }
+  const schoolTwo = { id: 'school-2', kind: 'study', label: 'לימודים', day: 4, days: [4], start: '08:00', end: '16:00', prepTitle: 'להכין תיק' }
+  const workOne = { id: 'work-1', kind: 'work', label: 'עבודה', day: 0, days: [0, 1, 2], start: '09:00', end: '18:00' }
+  const workTwo = { id: 'work-2', kind: 'work', label: 'עבודה', day: 3, days: [3], start: '09:00', end: '18:00' }
+  assert.equal(workflow.routineGroupKey(schoolOne), workflow.routineGroupKey(schoolTwo))
+  assert.equal(workflow.routineGroupKey(workOne), workflow.routineGroupKey(workTwo))
+  assert.notEqual(workflow.routineGroupKey(schoolOne), workflow.routineGroupKey(workOne))
+  assert.equal(workflow.routineGroupKey({ ...schoolOne, days: [1, 3] }), workflow.routineGroupKey(schoolTwo))
+  const merged = { families: [{ id: 'family', name: 'test', people: [{ id: 'p1', name: 'A', role: 'בן', color: 'sage', age: 10, hasLicense: false, hasCar: false, availableForPickup: false, routines: [schoolOne, schoolTwo] }] }], events: [], tasks: [], activity: [], transportationRequests: [], integrationLogs: [], calendarMirrors: [], acknowledgements: [], suppressedRoutineTaskIds: [], pendingActions: [], dismissedActionIds: [] }
+  const normalized = modules['data.js'].sanitizeAppData(merged)
+  assert.equal(normalized.families[0].people[0].routines.length, 1)
+  assert.deepEqual(normalized.families[0].people[0].routines[0].days, [0, 2, 4])
+})
+
 test('לו״ז שבועי חוסם הסעה באותה שעה ואפשר לאשר חריגה חד־פעמית', () => {
   const data = structuredClone(initialData)
   const day = new Date(`${localDate()}T12:00:00`).getDay()

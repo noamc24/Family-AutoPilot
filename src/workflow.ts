@@ -30,6 +30,10 @@ export function routineAt(person: Person, date: string, start: string, end: stri
   return (person.routines || []).find(routine => routineDaysList(routine).includes(day) && minutes(start) < minutes(routine.end) && minutes(routine.start) <= minutes(end))
 }
 
+export function routineGroupKey(routine: Pick<WeeklyRoutine, 'kind' | 'start' | 'end'>): string {
+  return `${routine.kind}|${routine.start}|${routine.end}`
+}
+
 export function eventSignature(event: FamilyEvent): string {
   return [event.date, event.time, event.endTime || '', event.title, event.responsibleId, [...event.participantIds].sort().join(','), event.details, event.requiresDriver ? 'ride' : ''].join('|')
 }

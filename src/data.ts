@@ -36,6 +36,28 @@ export const localDate = (offset = 0) => {
   date.setDate(date.getDate() + offset)
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
+export function mergeRoutineEntries(routines: WeeklyRoutine[] = []): WeeklyRoutine[] {
+  const grouped = new Map<string, WeeklyRoutine>()
+  for (const routine of routines) {
+    const explicitDays = Array.isArray(routine.days)
+      ? routine.days.filter((day): day is number => typeof day === 'number' && Number.isInteger(day) && day >= 0 && day < 7)
+      : []
+    const fallbackDay = typeof routine.day === 'number' && Number.isInteger(routine.day) && routine.day >= 0 && routine.day < 7 ? [routine.day] : []
+    const days = [...new Set([...explicitDays, ...fallbackDay])].sort((a, b) => a - b)
+    const key = `${routine.kind}|${routine.start}|${routine.end}`
+    const current = grouped.get(key)
+    const mergedDays = [...new Set([...(current?.days || []), ...days])].sort((a, b) => a - b)
+    grouped.set(key, {
+      ...routine,
+      id: current?.id || routine.id,
+      label: current?.label || routine.label || 'לו״ז קבוע',
+      prepTitle: current?.prepTitle || routine.prepTitle,
+      day: current?.day ?? routine.day,
+      days: mergedDays,
+    })
+  }
+  return [...grouped.values()]
+}
 export const dateLabel = (value: string) => {
   if (value === localDate()) return 'היום'
   if (value === localDate(1)) return 'מחר'
@@ -95,7 +117,11 @@ export const initialData: AppData = {
 
 /** Keeps persisted records tied to a real member of their own family unit. */
 export function sanitizeAppData(data: AppData): AppData {
-  const families = data.families.map(family => ({ ...family, people: family.people.map(person => person.birthDate && validBirthDate(person.birthDate) ? { ...person, age: ageFromBirthDate(person.birthDate), birthYear: Number(person.birthDate.slice(0, 4)) } : person) }))
+  const families = data.families.map(family => ({ ...family, people: family.people.map(person => ({
+    ...person,
+    routines: mergeRoutineEntries(person.routines || []),
+    ...(person.birthDate && validBirthDate(person.birthDate) ? { age: ageFromBirthDate(person.birthDate), birthYear: Number(person.birthDate.slice(0, 4)) } : {}),
+  })) }))
   const membersByFamily = new Map(families.map(family => [family.id, new Set(family.people.map(person => person.id))]))
   const events = data.events.flatMap(event => {
     const members = membersByFamily.get(event.familyId)
