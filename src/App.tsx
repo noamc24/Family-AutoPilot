@@ -25,9 +25,11 @@ function reminderTitle(input: string, recipient?: Person) {
   return text.replace(new RegExp(`^${prefix}\\s*`), '').trim() || 'תזכורת אישית'
 }
 function eligibleDriverOptions(family: FamilyUnit, data: AppData, event: Partial<Pick<FamilyEvent, 'id' | 'familyId' | 'date' | 'time' | 'departureTime' | 'routeMinutes' | 'routineOverride'>> = {}) {
+  const adults = family.people.filter(person => person.age >= 18)
+  if (event.routineOverride || !event.date) return adults
   const date = event.date || localDate()
   const time = event.time || '17:00'
-  return family.people.filter(person => person.age >= 18 && !pickupIneligibility(person, {
+  return adults.filter(person => !pickupIneligibility(person, {
     id: event.id || '', familyId: event.familyId || family.id, date, time,
     departureTime: event.departureTime, routeMinutes: event.routeMinutes, routineOverride: event.routineOverride,
   }, data))

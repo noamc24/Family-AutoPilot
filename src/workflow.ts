@@ -2,7 +2,7 @@ import { localDate, type AppData, type EventAcknowledgement, type FamilyEvent, t
 import { scanFutureRisks } from './forecast'
 
 const minutes = (time: string) => { const [hour, minute] = time.split(':').map(Number); return hour * 60 + minute }
-export const routineDays = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת']
+export const routineDays = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש']
 export const routineDaysList = (routine: WeeklyRoutine): number[] => {
   const explicitDays = Array.isArray(routine.days)
     ? routine.days.filter((day): day is number => typeof day === 'number' && Number.isInteger(day) && day >= 0 && day < 7)
