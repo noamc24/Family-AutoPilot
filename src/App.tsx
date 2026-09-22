@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, Bell, CalendarDays, Check, CheckCircle2, ChevronDown, ClipboardList, Home, Mic, MoreHorizontal, Pencil, Plus, Settings2, ShieldCheck, Sparkles, Trash2, Users, X } from 'lucide-react'
 import { ageFromBirthDate, dateLabel, DEFAULT_FAMILY_ID, detectScenario, initialData, localDate, readData, removePersonAndTheirData, sanitizeAppData, uid, validBirthDate, type AppData, type FamilyEvent, type FamilyPreferences, type FamilyTask, type FamilyUnit, type PendingAction, type Person, type Priority, type RoutineKind, type WeeklyRoutine, type TransportationRequest } from './data'
-import { applyBirthdayPlan, applyLatePlan, canDrive, drivingIneligibility, getLateImpact, pickupIneligibility, prepareBirthdayPlan, removeEventAndDependents, saveEventAndDependents, updatePersonAndRevalidate } from './domain'
+import { applyBirthdayPlan, applyLatePlan, canDrive, drivingIneligibility, expandEventDates, getLateImpact, pickupIneligibility, prepareBirthdayPlan, removeEventAndDependents, saveEventAndDependents, updatePersonAndRevalidate } from './domain'
 import { alternativeForRequest, applyAlternativePlan, applyTransitAlternative, confirmDriver, ensureRequests, rankedDrivers, reconcileTransportation, recommendDriver, requestForEvent, respondToRequest, transitAlternative } from './coordination'
 import { detectIntegrationScenario, integrationNames, simulateIntegration, type IntegrationScenario } from './integrations'
 import { advanceAutomaticScenarios, applyScheduleSolution, autopilotScenarios, runAutopilotScenario, scheduleConflicts, suggestScheduleSolution, type AutopilotScenario } from './autopilot'
@@ -102,6 +102,15 @@ function App() {
     const actorId = family.people.find(person => person.age >= 18)?.id || activePersonId
     if (!actorId) return
     const storageKey = `family-autopilot-auto-${family.id}`
+    const randomInterval = () => 90_000 + Math.floor(Math.random() * 90_000)
+    let timeoutId: number | undefined
+    const scheduleNext = () => {
+      const delay = randomInterval()
+      timeoutId = window.setTimeout(() => {
+        check()
+        scheduleNext()
+      }, delay)
+    }
     const check = () => {
       if (document.visibilityState !== 'visible') return
       const now = Date.now()
@@ -134,13 +143,22 @@ function App() {
       setData(result.data)
       setToast(result.message)
     }
-    const initial = window.setTimeout(check, 15_000)
-    const interval = window.setInterval(check, 90_000)
-    return () => { window.clearTimeout(initial); window.clearInterval(interval) }
+    const initial = window.setTimeout(() => { check(); scheduleNext() }, 15_000)
+    scheduleNext()
+    return () => { window.clearTimeout(initial); if (timeoutId) window.clearTimeout(timeoutId) }
   }, [family.id, family.people, activePersonId, autonomy])
   useEffect(() => {
     if (autonomy !== 'autopilot') return
     if (!family.people.some(person => person.age < 18)) return
+    const randomInterval = () => 90_000 + Math.floor(Math.random() * 90_000)
+    let timeoutId: number | undefined
+    const scheduleNext = () => {
+      const delay = randomInterval()
+      timeoutId = window.setTimeout(() => {
+        check()
+        scheduleNext()
+      }, delay)
+    }
     const check = () => {
       if (document.visibilityState !== 'visible') return
       const excluded = [...(dataRef.current.dismissedActionIds || []), ...(dataRef.current.pendingActions || []).map(action => action.id)]
@@ -156,9 +174,9 @@ function App() {
       setData(result.data)
       setToast(result.message)
     }
-    const initial = window.setTimeout(check, 25_000)
-    const interval = window.setInterval(check, 75_000)
-    return () => { window.clearTimeout(initial); window.clearInterval(interval) }
+    const initial = window.setTimeout(() => { check(); scheduleNext() }, 25_000)
+    scheduleNext()
+    return () => { window.clearTimeout(initial); if (timeoutId) window.clearTimeout(timeoutId) }
   }, [family.id, family.people, autonomy])
 
   function askConfirmation(message: string, onConfirm: () => void) { setConfirmation({ message, onConfirm }) }
@@ -244,7 +262,7 @@ function App() {
   function openEvent(item?: FamilyEvent) {
     if (item && !canEditEvents) { setToast('עריכת אירועים זמינה להורים'); return }
     if (!activePersonId) { setToast('בחרו בן משפחה כדי להוסיף אירוע'); return }
-    setForm(item ? { title: item.title, date: item.date, time: item.time, endTime: item.endTime || '', icon: item.icon, responsibleId: item.responsibleId, passengerId: requestForEvent(data, item.id)?.passengerId || item.participantIds[0] || '', details: item.details, requiresDriver: item.requiresDriver ? 'true' : 'false', priority: item.priority || 'normal', preferredDriverId: item.preferredDriverId || '', transitAvailable: String(!!item.transitAvailable), routineOverride: String(!!item.routineOverride) } : { title: '', date: localDate(), time: '17:00', endTime: '', icon: '📅', responsibleId: '', passengerId: family.people.find(person => person.age < 18)?.id || activePersonId, details: '', requiresDriver: 'false', priority: 'normal', preferredDriverId: '', transitAvailable: 'false', routineOverride: 'false' })
+    setForm(item ? { title: item.title, date: item.date, endDate: item.endDate || item.date, time: item.time, endTime: item.endTime || '', icon: item.icon, responsibleId: item.responsibleId, passengerId: requestForEvent(data, item.id)?.passengerId || item.participantIds[0] || '', details: item.details, requiresDriver: item.requiresDriver ? 'true' : 'false', priority: item.priority || 'normal', preferredDriverId: item.preferredDriverId || '', transitAvailable: String(!!item.transitAvailable), routineOverride: String(!!item.routineOverride) } : { title: '', date: localDate(), endDate: localDate(), time: '17:00', endTime: '', icon: '📅', responsibleId: '', passengerId: family.people.find(person => person.age < 18)?.id || activePersonId, details: '', requiresDriver: 'false', priority: 'normal', preferredDriverId: '', transitAvailable: 'false', routineOverride: 'false' })
     setParticipants(item?.participantIds || (activePersonId ? [activePersonId] : []))
     setResponsibilities(data.tasks.filter(task => task.eventId === item?.id && task.responsibility).map(task => ({ id: task.id, title: task.title, ownerId: task.ownerId })))
     setDialog({ type: 'event', item })
@@ -264,12 +282,17 @@ function App() {
        const previousRequest = dialog.item && requestForEvent(data, dialog.item.id)
        const changedNeed = !!previousRequest && (dialog.item?.date !== form.date || dialog.item?.time !== form.time || previousRequest.passengerId !== form.passengerId)
        if (changedNeed && !confirmed) { askConfirmation('שינוי פרטי ההסעה יבטל את השיבוץ והתשובות הקודמות. הבקשה תיפתח מחדש לנהגים כשירים. להמשיך?', () => saveForm(true)); return }
-       const event: FamilyEvent = { id: dialog.item?.id || uid(), familyId: family.id, title: form.title.trim(), date: form.date, time: form.time, endTime: form.endTime || undefined, icon: form.icon || '📅', participantIds: requiresDriver ? [form.passengerId, ...participants.filter(id => id !== form.passengerId)] : participants, responsibleId: requiresDriver ? (dialog.item?.responsibleId || '') : form.responsibleId || '', details: form.details?.trim() || '', requiresDriver, needsAttention: requiresDriver && !dialog.item?.responsibleId, createdById: dialog.item?.createdById || activePersonId, sourceNote: dialog.item?.sourceNote, priority: form.priority as Priority, preferredDriverId: form.preferredDriverId || undefined, transitAvailable: form.transitAvailable === 'true', routineOverride: form.routineOverride === 'true' }
+       const baseEvent: FamilyEvent = { id: dialog.item?.id || uid(), familyId: family.id, title: form.title.trim(), date: form.date, time: form.time, endDate: form.endDate && form.endDate > form.date ? form.endDate : undefined, endTime: form.endTime || undefined, icon: form.icon || '📅', participantIds: requiresDriver ? [form.passengerId, ...participants.filter(id => id !== form.passengerId)] : participants, responsibleId: requiresDriver ? (dialog.item?.responsibleId || '') : form.responsibleId || '', details: form.details?.trim() || '', requiresDriver, needsAttention: requiresDriver && !dialog.item?.responsibleId, createdById: dialog.item?.createdById || activePersonId, sourceNote: dialog.item?.sourceNote, priority: form.priority as Priority, preferredDriverId: form.preferredDriverId || undefined, transitAvailable: form.transitAvailable === 'true', routineOverride: form.routineOverride === 'true' }
+       const generated = baseEvent.endDate ? expandEventDates(baseEvent) : [baseEvent]
        setData(previous => {
-         const next = saveEventAndDependents(previous, event)
-          const transportationRequests = changedNeed ? next.transportationRequests.map(request => request.eventId === event.id ? { ...request, selectedDriverId: '', status: 'OPEN' as const, responses: Object.fromEntries(request.eligibleMemberIds.map(id => [id, 'PENDING' as const])) } : request) : next.transportationRequests
-          const tasks = [...next.tasks.filter(task => task.eventId !== event.id || !task.responsibility), ...responsibilities.filter(item => item.title.trim()).map(item => ({ id: item.id, familyId: family.id, title: item.title.trim(), ownerId: item.ownerId, due: event.date, done: next.tasks.find(task => task.id === item.id)?.done || false, eventId: event.id, responsibility: true, priority: 'high' as const }))]
-          return ensureRequests({ ...next, tasks, transportationRequests, events: changedNeed && event.requiresDriver ? next.events.map(item => item.id === event.id ? { ...item, responsibleId: '', needsAttention: true } : item) : next.events, activity: [log(`${dialog.item ? 'עודכן' : 'נוסף'} אירוע: ${event.title}`, [activePersonId]), ...next.activity] }, activePersonId)
+         let next = previous
+         for (const event of generated) {
+           next = saveEventAndDependents(next, event)
+         }
+         const primary = generated[0]
+         const transportationRequests = changedNeed && primary.requiresDriver ? next.transportationRequests.map(request => request.eventId === primary.id ? { ...request, selectedDriverId: '', status: 'OPEN' as const, responses: Object.fromEntries(request.eligibleMemberIds.map(id => [id, 'PENDING' as const])) } : request) : next.transportationRequests
+         const tasks = [...next.tasks.filter(task => !generated.some(event => event.id === task.eventId) || !task.responsibility), ...responsibilities.filter(item => item.title.trim()).map(item => ({ id: item.id, familyId: family.id, title: item.title.trim(), ownerId: item.ownerId, due: primary.date, done: next.tasks.find(task => task.id === item.id)?.done || false, eventId: primary.id, responsibility: true, priority: 'high' as const }))]
+         return ensureRequests({ ...next, tasks, transportationRequests, events: changedNeed && primary.requiresDriver ? next.events.map(item => item.id === primary.id ? { ...item, responsibleId: '', needsAttention: true } : item) : next.events, activity: [log(`${dialog.item ? 'עודכן' : 'נוסף'} אירוע: ${primary.title}`, [activePersonId]), ...next.activity] }, activePersonId)
        })
       setToast(dialog.item ? 'האירוע עודכן' : 'האירוע נוסף ללוח')
     } else if (dialog.type === 'task') {

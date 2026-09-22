@@ -27,6 +27,15 @@ test('לו״ז שבועי חוסם הסעה באותה שעה ואפשר לאש�
   assert.equal(domain.pickupIneligibility(person, { ...event, routineOverride: true }, data), null)
 })
 
+test('אירוע מרובה ימים נוצר ככפילות יומיות בלוח', () => {
+  const start = localDate()
+  const end = localDate(2)
+  const entries = domain.expandEventDates({ id: 'multi-day', familyId: 'Avrahami', title: 'מחנה קיץ', date: start, endDate: end, time: '09:00', icon: '🏕️', participantIds: ['yuval'], responsibleId: 'maya', details: '', requiresDriver: false })
+  assert.equal(entries.length, 3)
+  assert.deepEqual(entries.map(item => item.date), [start, localDate(1), end])
+  assert.ok(entries.every(item => item.title === 'מחנה קיץ'))
+})
+
 test('שגרה עם הכנה יוצרת משימה אחת בלבד ומשמרת השלמה', () => {
   let data = structuredClone(initialData)
   const day = new Date(`${localDate()}T12:00:00`).getDay()

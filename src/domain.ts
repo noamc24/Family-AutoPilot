@@ -53,17 +53,37 @@ export function updatePersonAndRevalidate(data: AppData, familyId: string, perso
   }
 }
 
+export function expandEventDates(event: FamilyEvent): FamilyEvent[] {
+  const start = new Date(`${event.date}T12:00:00`)
+  const end = event.endDate ? new Date(`${event.endDate}T12:00:00`) : start
+  if (!event.date || Number.isNaN(start.getTime())) return [event]
+  if (!event.endDate || end < start) return [event]
+  const days: FamilyEvent[] = []
+  const cursor = new Date(start)
+  while (cursor <= end) {
+    const current = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}-${String(cursor.getDate()).padStart(2, '0')}`
+    days.push({ ...event, id: days.length === 0 ? event.id : `${event.id}-${current}`, date: current, endDate: undefined })
+    cursor.setDate(cursor.getDate() + 1)
+  }
+  return days
+}
+
 export function saveEventAndDependents(data: AppData, event: FamilyEvent): AppData {
-  const exists = data.events.some(item => item.id === event.id)
+  const entries = event.endDate && event.endDate > event.date ? expandEventDates(event) : [event]
+  const nextEvents = entries.reduce((all, entry) => {
+    const current = all.some(item => item.id === entry.id)
+    return current ? all.map(item => item.id === entry.id ? entry : item) : [...all, entry]
+  }, data.events.filter(item => !entries.some(entry => entry.id === item.id) && item.id !== event.id && !item.id.startsWith(`${event.id}-`)))
+  const updated = entries.length > 1 ? data.tasks.map(task => task.eventId === event.id ? { ...task, due: event.date } : task) : data.tasks
   return {
     ...data,
-    events: exists ? data.events.map(item => item.id === event.id ? event : item) : [...data.events, event],
-    tasks: exists ? data.tasks.map(task => task.eventId === event.id ? { ...task, due: event.date } : task) : data.tasks,
+    events: nextEvents,
+    tasks: updated,
   }
 }
 
 export function removeEventAndDependents(data: AppData, eventId: string): AppData {
-  return { ...data, events: data.events.filter(event => event.id !== eventId), tasks: data.tasks.filter(task => task.eventId !== eventId), transportationRequests: data.transportationRequests.filter(request => request.eventId !== eventId), integrationLogs: data.integrationLogs.filter(entry => entry.eventId !== eventId), calendarMirrors: data.calendarMirrors.filter(entry => entry.eventId !== eventId), acknowledgements: (data.acknowledgements || []).filter(entry => entry.eventId !== eventId) }
+  return { ...data, events: data.events.filter(event => event.id !== eventId && !event.id.startsWith(`${eventId}-`)), tasks: data.tasks.filter(task => task.eventId !== eventId), transportationRequests: data.transportationRequests.filter(request => request.eventId !== eventId), integrationLogs: data.integrationLogs.filter(entry => entry.eventId !== eventId), calendarMirrors: data.calendarMirrors.filter(entry => entry.eventId !== eventId), acknowledgements: (data.acknowledgements || []).filter(entry => entry.eventId !== eventId) }
 }
 const weekdayNames: Record<string, number> = { ראשון: 0, שני: 1, שלישי: 2, רביעי: 3, חמישי: 4, שישי: 5, שבת: 6 }
 
