@@ -11,18 +11,24 @@ export const routineDaysList = (routine: WeeklyRoutine): number[] => {
   if (typeof routine.day === 'number' && Number.isInteger(routine.day) && routine.day >= 0 && routine.day < 7) return [routine.day]
   return []
 }
-export const formatRoutineDayRange = (days: number[]) => {
-  if (!days.length) return 'לא נקבע'
-  if (days.length === 1) return routineDays[days[0]]
-  const ranges: string[] = []
-  let start = days[0], prev = days[0]
-  for (let index = 1; index < days.length; index++) {
-    const current = days[index]
-    if (current === prev + 1) prev = current
-    else { ranges.push(start === prev ? routineDays[start] : `${routineDays[start]}–${routineDays[prev]}`); start = current; prev = current }
+export const routineDaySegments = (days: number[]) => {
+  if (!days.length) return [] as Array<{ start: number; end: number; label: string }>
+  const unique = [...new Set(days)].sort((a, b) => a - b)
+  const segments: Array<{ start: number; end: number; label: string }> = []
+  let start = unique[0], prev = unique[0]
+  for (let index = 1; index < unique.length; index++) {
+    const current = unique[index]
+    if (current === prev + 1) { prev = current; continue }
+    segments.push({ start, end: prev, label: start === prev ? routineDays[start] : `${routineDays[start]}–${routineDays[prev]}` })
+    start = current; prev = current
   }
-  ranges.push(start === prev ? routineDays[start] : `${routineDays[start]}–${routineDays[prev]}`)
-  return ranges.join(', ')
+  segments.push({ start, end: prev, label: start === prev ? routineDays[start] : `${routineDays[start]}–${routineDays[prev]}` })
+  return segments
+}
+export const formatRoutineDayRange = (days: number[]) => {
+  const segments = routineDaySegments(days)
+  if (!segments.length) return 'לא נקבע'
+  return segments.map(segment => segment.label).join(', ')
 }
 
 export function routineAt(person: Person, date: string, start: string, end: string): WeeklyRoutine | undefined {

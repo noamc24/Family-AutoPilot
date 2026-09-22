@@ -9,7 +9,7 @@ import { advanceAutomaticExternalScenarios, externalScenarios, runExternalScenar
 import { applyForecastSolution, scanFutureRisks, suggestForecastSolution, type ForecastRisk } from './forecast'
 import { activityFeed } from './activityFeed'
 import { upcomingBirthdays, type BirthdayReminder } from './birthdays'
-import { closureIssues, formatRoutineDayRange, materializeRoutineTasks, nextRepeatDate, routineAt, routineConflictingEvents, routineDays, routineDaysList, routineGroupKey, sensitiveAutomaticChange, syncAcknowledgements } from './workflow'
+import { closureIssues, formatRoutineDayRange, materializeRoutineTasks, nextRepeatDate, routineAt, routineConflictingEvents, routineDaySegments, routineDays, routineDaysList, routineGroupKey, sensitiveAutomaticChange, syncAcknowledgements } from './workflow'
 
 type View = 'home' | 'events' | 'family' | 'tasks' | 'assistant' | 'more'
 type Dialog = { type: 'event'; item?: FamilyEvent } | { type: 'task'; item?: FamilyTask } | { type: 'person'; item?: Person } | { type: 'family'; item?: FamilyUnit } | { type: 'plan'; scenario: 'birthday' | 'late' | 'reminder'; input: string } | { type: 'resolve'; item: FamilyEvent } | { type: 'alternative'; requestId: string } | { type: 'withdraw'; requestId: string } | { type: 'solution'; eventId: string; riskId?: string } | { type: 'unknown' } | null
@@ -546,7 +546,16 @@ function WeeklySchedule({ family, actorId, scope }: { family: FamilyUnit; actorI
     return { person, routines: [...grouped.values()] }
   }).filter(block => block.routines.length > 0)
 
-  return <section className="section-card weekly-schedule"><div className="section-heading"><div><span className="section-kicker">שעות שחוזרות מדי שבוע</span><h2>לו״ז קבוע</h2></div></div>{personBlocks.length ? <div className="weekly-family-grid">{personBlocks.map(({ person, routines }) => <div className="weekly-person-block" key={person.id}><div className="weekly-person-header">{person.name}</div>{routines.map(routine => <div className="weekly-routine-group" key={`${person.id}:${routine.label}:${routine.start}:${routine.end}`}><div className="weekly-routine-name">{routine.label}</div><div className="weekly-routine-table"><div className="weekly-routine-day"><span>{formatRoutineDayRange(routine.days)}</span><span>{routine.start}–{routine.end}</span></div></div>{routine.prepTitle && <small className="weekly-routine-meta">הכנה: {routine.prepTitle}</small>}</div>)}</div>)}</div> : <Empty text="עדיין לא הוגדר לו״ז קבוע. אפשר להוסיף אותו בעריכת בן משפחה."/>}</section>
+  return <section className="section-card weekly-schedule"><div className="section-heading"><div><span className="section-kicker">שעות שחוזרות מדי שבוע</span><h2>לו״ז קבוע</h2></div></div>{personBlocks.length ? <div className="weekly-family-grid">{personBlocks.map(({ person, routines }) => {
+    const first = routines[0]
+    const rows = routines.flatMap(routine => routineDaySegments(routine.days).map(segment => ({
+      key: `${person.id}:${routine.label}:${routine.start}:${routine.end}:${segment.start}-${segment.end}`,
+      dayLabel: segment.label,
+      time: `${routine.start}–${routine.end}`,
+      prepTitle: routine.prepTitle,
+    })))
+    return <div className="weekly-person-block" key={person.id}><div className="weekly-person-header">{person.name}</div><div className="weekly-routine-table"><div className="weekly-routine-header"><span>עיסוק</span><span>ימים</span><span>שעות</span>{first?.prepTitle && <span>הערות</span>}</div>{first && <div className="weekly-routine-row is-header-row" key={`${person.id}:${first.label}:header`}><span className="weekly-routine-label">{first.label}</span><span className="weekly-routine-days">{formatRoutineDayRange(first.days)}</span><span className="weekly-routine-time">{first.start}–{first.end}</span>{first.prepTitle ? <small className="weekly-routine-meta">{first.prepTitle}</small> : <span className="weekly-routine-empty" aria-hidden="true">—</span>}</div>}{rows.map(row => <div className="weekly-routine-row" key={row.key}><span className="weekly-routine-label muted">—</span><span className="weekly-routine-days">{row.dayLabel}</span><span className="weekly-routine-time">{row.time}</span>{row.prepTitle ? <small className="weekly-routine-meta">{row.prepTitle}</small> : <span className="weekly-routine-empty" aria-hidden="true">—</span>}</div>)}</div></div>
+  })}</div> : <Empty text="עדיין לא הוגדר לו״ז קבוע. אפשר להוסיף אותו בעריכת בן משפחה."/>}</section>
 }
 function BirthdayReminderPanel({ reminders }: { reminders: BirthdayReminder[] }) {
   if (!reminders.length) return null
