@@ -456,11 +456,19 @@ function ModalHeading({ title, description }: { title: string; description: stri
 function ModalActions({ onSave, onDelete, disabled }: { onSave: () => void; onDelete?: () => void; disabled?: boolean }) { return <div className="modal-actions">{onDelete && <button className="delete-button" onClick={onDelete}><Trash2 size={15}/> מחיקה</button>}<button className="dark-button" disabled={disabled} onClick={onSave}>שמירה <Check size={16}/></button></div> }
 function Empty({ text }: { text: string }) { return <div className="empty-state">{text}</div> }
 function WeeklySchedule({ family, actorId, scope }: { family: FamilyUnit; actorId: string; scope: 'mine' | 'family' }) {
-  const rows = family.people.filter(person => scope === 'family' || person.id === actorId).flatMap(person => (person.routines || []).flatMap(routine => {
-    const days = Array.isArray(routine.days) && routine.days.length ? routine.days : Number.isInteger(routine.day) && routine.day! >= 0 ? [routine.day!] : []
-    return days.map(day => ({ person, routine, day }))
-  })).sort((a, b) => a.day - b.day || a.routine.start.localeCompare(b.routine.start))
-  return <section className="section-card weekly-schedule"><div className="section-heading"><div><span className="section-kicker">שעות שחוזרות מדי שבוע</span><h2>לו״ז קבוע</h2></div></div>{rows.length ? <div className="weekly-rows">{rows.map(({ person, routine, day }) => <div key={`${person.id}:${routine.id}:${day}`}><strong>{routineDays[day]} · {routine.start}–{routine.end}</strong><span>{routine.label} · {person.name}</span>{routine.prepTitle && <small>הכנה: {routine.prepTitle}</small>}</div>)}</div> : <Empty text="עדיין לא הוגדר לו״ז קבוע. אפשר להוסיף אותו בעריכת בן משפחה."/>}</section>
+  const people = family.people.filter(person => scope === 'family' || person.id === actorId)
+  const personBlocks = people.map(person => {
+    const routines = (person.routines || []).map(routine => {
+      const days = Array.isArray(routine.days) && routine.days.length ? routine.days : Number.isInteger(routine.day) && routine.day! >= 0 ? [routine.day!] : []
+      return {
+        routine,
+        dayRows: days.map(day => ({ day, label: routineDays[day], time: `${routine.start}–${routine.end}` })).sort((a, b) => a.day - b.day)
+      }
+    }).filter(entry => entry.dayRows.length > 0)
+    return { person, routines }
+  }).filter(block => block.routines.length > 0)
+
+  return <section className="section-card weekly-schedule"><div className="section-heading"><div><span className="section-kicker">שעות שחוזרות מדי שבוע</span><h2>לו״ז קבוע</h2></div></div>{personBlocks.length ? <div className="weekly-family-grid">{personBlocks.map(({ person, routines }) => <div className="weekly-person-block" key={person.id}><h3 className="weekly-person-header">{person.name}</h3><div className="weekly-person-table">{routines.map(({ routine, dayRows }) => <div className="weekly-routine-group" key={routine.id}><div className="weekly-routine-name">{routine.label}</div>{dayRows.map(({ day, label, time }) => <div className="weekly-routine-day" key={`${routine.id}:${day}`}><span>{label}</span><span>{time}</span></div>)}{routine.prepTitle && <small className="weekly-routine-meta">הכנה: {routine.prepTitle}</small>}</div>)}</div></div>)}</div> : <Empty text="עדיין לא הוגדר לו״ז קבוע. אפשר להוסיף אותו בעריכת בן משפחה."/>}</section>
 }
 function BirthdayReminderPanel({ reminders }: { reminders: BirthdayReminder[] }) {
   if (!reminders.length) return null
