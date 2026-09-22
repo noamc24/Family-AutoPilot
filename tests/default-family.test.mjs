@@ -13,13 +13,14 @@ test('משפחת ברירת המחדל כוללת תאריכי לידה ושגר
     ['אוראל', '1988-11-06', 'אב'], ['מור', '1993-12-12', 'אם'], ['איתמר', '2018-10-06', 'בן'], ['עומר', '2021-12-30', 'בן'], ['יהונתן', '2024-11-11', 'בן'],
   ])
   for (const person of family.people.filter(person => person.age < 18)) {
-    const expected = person.id === 'yehonatan'
-      ? [[0, 1, 2, 3, 4, 5], '08:00', '16:00']
-      : [[0, 1, 2, 3, 4], [5], '08:00', '16:00']
     const days = person.routines.map(routine => routine.days || [routine.day]).flat()
     assert.ok(days.length >= 5)
-    assert.ok(person.routines.every(routine => routine.start === '08:00'))
-    assert.ok(person.routines.every(routine => routine.end === '16:00' || routine.end === '13:30'))
+    if (person.id === 'yehonatan') {
+      assert.ok(person.routines.some(routine => routine.label === 'מעון'))
+    } else {
+      assert.ok(person.routines.some(routine => routine.label === 'בית ספר'))
+      assert.ok(person.routines.some(routine => /כדורגל|שחייה/.test(routine.label)))
+    }
   }
   assert.ok(family.people.find(person => person.id === 'yehonatan').routines.every(routine => routine.label === 'מעון'))
   assert.ok(data.initialData.events.find(event => event.id === 'dinner').participantIds.includes('yehonatan'))
@@ -42,7 +43,8 @@ test('טעינת המשפחה הישנה מחליפה רק את ברירת המ�
     assert.equal(restored.families[0].name, 'משפחת אברהמי')
     assert.equal(restored.families[0].people.find(person => person.id === 'maya').name, 'מור')
     assert.equal(restored.families[0].people.find(person => person.id === 'noa').birthDate, '2021-12-30')
-    assert.equal(restored.families[0].people.find(person => person.id === 'yuval').routines.length, 2)
+    assert.equal(restored.families[0].people.find(person => person.id === 'yuval').routines.length, 3)
+    assert.equal(restored.families[0].people.find(person => person.id === 'noa').routines.length, 3)
     assert.equal(restored.events.find(event => event.id === 'pickup').title, 'איסוף איתמר מכדורגל')
     assert.equal(restored.events.find(event => event.id === 'custom').familyId, 'Avrahami')
   } finally { globalThis.localStorage = originalStorage }

@@ -92,12 +92,16 @@ export function transitAlternative(data: AppData, request: TransportationRequest
   if (!event?.transitAvailable || !family?.preferences?.allowPublicTransit || !passenger?.canUseTransit || !passenger.canTravelAlone || passenger.age < 12) return null
   if (event.sourceNote?.includes('ביטול בתחבורה הציבורית')) return null
   if (data.integrationLogs.some(log => log.familyId === family.id && log.source === 'weather' && /גשם כבד/.test(log.action) && log.action.includes(event.title))) return null
-  return { title: `${passenger.name} יגיע/תגיע בתחבורה ציבורית`, reason: 'המשפחה מאפשרת תחבורה ציבורית, קיימת חלופה לאירוע, ובן/בת המשפחה רשאי/ת לנסוע לבד. אישור יסגור את בקשת ההסעה ברכב.' }
+  return { title: `${passenger.name} יגיע/תגיע בתחבורה ציבורית`, reason: 'המשפחה מאפשרת תחבורה ציבורית, קיימת חלופה לאירוע, ובן/בת המשפחה רשאי/ת לנסוע לבד. ב-Moovit נבדוק את הקו, התחנה ואת שעת היציאה עד הבית/היעד.' }
 }
 export function applyTransitAlternative(data: AppData, requestId: string): AppData {
   const request = data.transportationRequests.find(item => item.id === requestId)
   if (!request || !transitAlternative(data, request)) return data
-  return reconcileTransportation({ ...data, events: data.events.map(event => event.id === request.eventId ? { ...event, requiresDriver: false, responsibleId: '', needsAttention: false, details: 'הגעה בתחבורה ציבורית באישור המשפחה' } : event), transportationRequests: data.transportationRequests.filter(item => item.id !== requestId) })
+  return reconcileTransportation({ ...data, events: data.events.map(event => event.id === request.eventId ? { ...event, requiresDriver: false, responsibleId: '', needsAttention: false, details: 'הגעה בתחבורה ציבורית באישור המשפחה · יש לבדוק קו ב-Moovit' } : event), transportationRequests: data.transportationRequests.filter(item => item.id !== requestId) })
+}
+
+function isSchoolEvent(event: FamilyEvent | undefined) {
+  return !!event && /בית\s*ספר|טיול|לימודים|מסגרת\s*לימודית|שיעור|בית-ספר/i.test(`${event.title} ${event.details || ''}`)
 }
 
 export function alternativeForRequest(data: AppData, request: TransportationRequest) {
@@ -105,6 +109,10 @@ export function alternativeForRequest(data: AppData, request: TransportationRequ
   if (!event || request.status !== 'UNRESOLVED') return null
   if (!request.eligibleMemberIds.length) return null
   const family = data.families.find(item => item.id === request.familyId)
+  const transit = transitAlternative(data, request)
+  if (isSchoolEvent(event) && transit) {
+    return { kind: 'transit' as const, title: `${event.title} · תחבורה ציבורית`, reason: 'לשינוי של יותר מ-30 דקות מבית הספר לא מוצע שינוי בשעה. לפי הכלל, בוחרים תחבורה ציבורית, בודקים קו ב-Moovit, ומעדכנים את הילד ואת ההורים לגבי התחנה והשעה.' }
+  }
   const task = family?.preferences?.moveFlexibleTasks === false ? undefined : data.tasks.find(item => item.familyId === request.familyId && item.due === event.date && !item.done && item.flexible !== false && item.priority !== 'critical' && item.priority !== 'high' && request.eligibleMemberIds.includes(item.ownerId) && request.responses[item.ownerId] === 'CANNOT_DO' && !item.eventId)
   if (task) return { kind: 'task' as const, taskId: task.id, title: `לדחות את "${task.title}" ליום הבא ולשאול שוב את מי שאחראי/ת לה`, reason: 'המשימה גמישה ונמצאת באותו יום כמו ההסעה. דחייתה מפנה זמן, אך עדיין נדרשת תשובה חדשה מהנהג/ת.' }
   if (event.priority === 'critical') return null
@@ -118,6 +126,7 @@ export function applyAlternativePlan(data: AppData, requestId: string): AppData 
   if (!request) return data
   const alternative = alternativeForRequest(data, request)
   if (!alternative) return data
+  if (alternative.kind === 'transit') return applyTransitAlternative(data, requestId)
   let tasks = data.tasks
   let events = data.events
   if (alternative.kind === 'task') {

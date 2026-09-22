@@ -62,6 +62,8 @@ test('מייל על סיום מוקדם מוסיף איסוף ואינו מוכ�
 test('סריקה מראש מזהה שתי הסעות, משימה חשובה ויום עמוס; אישור פתרון מזיז נתונים', () => {
   const date = model.localDate(1)
   let data = fresh()
+  data.families[0].people.find(person => person.id === 'maya').routines = []
+  data.families[0].people.find(person => person.id === 'adam').routines = []
   data.events = [makeEvent('הסעה א', date, '15:00', ['yuval'], 'maya', true), makeEvent('הסעה ב', date, '16:00', ['noa'], 'maya', true), makeEvent('הסעה ג', date, '18:00', ['yuval'], 'adam', true)]
   data.tasks = [{ id: 'קניות', familyId: 'Avrahami', title: 'קניות', ownerId: 'maya', due: date, done: false, requiresAdult: true }]
   data = coordination.ensureRequests(data, 'maya')

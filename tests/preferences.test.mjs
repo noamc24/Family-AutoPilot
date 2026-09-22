@@ -14,7 +14,13 @@ const forecast = await load('src/forecast.ts')
 const fresh = () => structuredClone(model.initialData)
 
 test('תרחיש ההחלטה מדרג שני נהגים לפי עומס ומרחק ומציג את הסיבות האמיתיות', () => {
-  const result = integrations.runExternalScenario(fresh(), 'Avrahami', 'maya', 'decision-demo')
+  const data = fresh()
+  for (const person of data.families[0].people.filter(item => item.age >= 18)) person.routines = []
+  data.families[0].people.find(person => person.id === 'maya').travelMinutes = 13
+  data.families[0].people.find(person => person.id === 'maya').availableForPickup = true
+  data.families[0].people.find(person => person.id === 'adam').travelMinutes = 8
+  data.families[0].people.find(person => person.id === 'adam').availableForPickup = true
+  const result = integrations.runExternalScenario(data, 'Avrahami', 'maya', 'decision-demo')
   assert.equal(result.applied, true)
   const event = result.data.events.find(item => item.sourceNote === 'זמני הגעה עודכנו בוויז')
   const request = coordination.requestForEvent(result.data, event.id)
@@ -61,6 +67,26 @@ test('תחבורה ציבורית מוצעת רק עם אישור המשפחה �
   const next = coordination.applyTransitAlternative(data, request.id)
   assert.equal(next.events[0].requiresDriver, false)
   assert.equal(coordination.requestForEvent(next, 'ride'), undefined)
+})
+
+test('לשינוי של יותר מ־30 דקות לבית ספר מוצעת תחבורה ציבורית ולא הזזה בשעה', () => {
+  let data = fresh()
+  data.events = [{ id: 'school-ride', familyId: 'Avrahami', title: 'בית ספר', date: model.localDate(1), time: '08:00', icon: '🏫', participantIds: ['yuval'], responsibleId: '', requiresDriver: true, transitAvailable: true, details: 'יום ראשון · דחייה של 45 דקות נדרשת' }]
+  data.families[0].preferences = { allowPublicTransit: true }
+  const child = data.families[0].people.find(person => person.id === 'yuval')
+  child.canUseTransit = true
+  child.canTravelAlone = true
+  child.age = 12
+  data = coordination.ensureRequests(data, 'yuval')
+  let request = coordination.requestForEvent(data, 'school-ride')
+  for (const id of request.eligibleMemberIds) data = coordination.respondToRequest(data, request.id, id, 'CANNOT_DO')
+  request = coordination.requestForEvent(data, 'school-ride')
+  const alternative = coordination.alternativeForRequest(data, request)
+  assert.equal(alternative.kind, 'transit')
+  assert.match(alternative.title, /תחבורה ציבורית|Moovit|קו/)
+  const next = coordination.applyAlternativePlan(data, request.id)
+  assert.equal(next.events.find(item => item.id === 'school-ride').requiresDriver, false)
+  assert.equal(coordination.requestForEvent(next, 'school-ride'), undefined)
 })
 
 test('אירוע קריטי ומשימה שאינה גמישה אינם מוזזים אוטומטית; ההעדפות נשמרות ברענון', () => {

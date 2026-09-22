@@ -82,12 +82,19 @@ const weeklyCare = (personId: string, label: string): WeeklyRoutine[] => [
   { id: `default-${personId}-friday`, kind: 'study', label, day: 5, days: [5], start: '08:00', end: '13:30' },
 ]
 
+const defaultFamilyRoutines: Record<string, WeeklyRoutine[]> = {
+  yuval: [{ id: 'default-yuval-soccer', kind: 'activity', label: 'חוג כדורגל', day: 2, days: [2], start: '18:00', end: '20:00' }],
+  noa: [{ id: 'default-noa-swim', kind: 'activity', label: 'חוג שחייה', day: 3, days: [3], start: '18:00', end: '19:30' }],
+  maya: [{ id: 'default-maya-work', kind: 'work', label: 'עבודה', day: 0, days: [0, 1, 2, 3, 4], start: '09:00', end: '15:30' }],
+  adam: [{ id: 'default-adam-work', kind: 'work', label: 'עבודה', day: 0, days: [0, 1, 2, 3, 4], start: '07:00', end: '16:00' }],
+}
+
 export const initialData: AppData = {
   families: [{ id: DEFAULT_FAMILY_ID, name: 'משפחת אברהמי', people: [
-    { id: 'adam', name: 'אוראל', role: 'אב', color: 'sage', birthDate: '1988-11-06', birthYear: 1988, age: ageFromBirthDate('1988-11-06'), hasLicense: true, hasCar: true, availableForPickup: true },
-    { id: 'maya', name: 'מור', role: 'אם', color: 'peach', birthDate: '1993-12-12', birthYear: 1993, age: ageFromBirthDate('1993-12-12'), hasLicense: true, hasCar: true, availableForPickup: true },
-    { id: 'yuval', name: 'איתמר', role: 'בן', color: 'lavender', birthDate: '2018-10-06', birthYear: 2018, age: ageFromBirthDate('2018-10-06'), hasLicense: false, hasCar: false, availableForPickup: false, routines: weeklyCare('yuval', 'בית ספר') },
-    { id: 'noa', name: 'עומר', role: 'בן', color: 'butter', birthDate: '2021-12-30', birthYear: 2021, age: ageFromBirthDate('2021-12-30'), hasLicense: false, hasCar: false, availableForPickup: false, routines: weeklyCare('noa', 'בית ספר') },
+    { id: 'adam', name: 'אוראל', role: 'אב', color: 'sage', birthDate: '1988-11-06', birthYear: 1988, age: ageFromBirthDate('1988-11-06'), hasLicense: true, hasCar: true, availableForPickup: true, routines: defaultFamilyRoutines.adam },
+    { id: 'maya', name: 'מור', role: 'אם', color: 'peach', birthDate: '1993-12-12', birthYear: 1993, age: ageFromBirthDate('1993-12-12'), hasLicense: true, hasCar: true, availableForPickup: true, routines: defaultFamilyRoutines.maya },
+    { id: 'yuval', name: 'איתמר', role: 'בן', color: 'lavender', birthDate: '2018-10-06', birthYear: 2018, age: ageFromBirthDate('2018-10-06'), hasLicense: false, hasCar: false, availableForPickup: false, routines: [...weeklyCare('yuval', 'בית ספר'), ...defaultFamilyRoutines.yuval] },
+    { id: 'noa', name: 'עומר', role: 'בן', color: 'butter', birthDate: '2021-12-30', birthYear: 2021, age: ageFromBirthDate('2021-12-30'), hasLicense: false, hasCar: false, availableForPickup: false, routines: [...weeklyCare('noa', 'בית ספר'), ...defaultFamilyRoutines.noa] },
     { id: 'yehonatan', name: 'יהונתן', role: 'בן', color: 'sage', birthDate: '2024-11-11', birthYear: 2024, age: ageFromBirthDate('2024-11-11'), hasLicense: false, hasCar: false, availableForPickup: false, routines: weeklyCare('yehonatan', 'מעון') },
   ] }],
   events: [
