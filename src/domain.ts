@@ -1,4 +1,5 @@
 import { localDate, uid, type AppData, type FamilyEvent, type FamilyTask, type FamilyUnit, type Person } from './data'
+import { routineAt } from './workflow'
 
 const isAdult = (person: Person) => person.age >= 18
 const localNow = () => { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}T${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}` }
@@ -13,12 +14,14 @@ export function drivingIneligibility(person: Person): string | null {
   return null
 }
 
-export function pickupIneligibility(person: Person, event: Pick<FamilyEvent, 'id' | 'familyId' | 'date' | 'time'> & Partial<Pick<FamilyEvent, 'departureTime' | 'routeMinutes'>>, data: AppData): string | null {
+export function pickupIneligibility(person: Person, event: Pick<FamilyEvent, 'id' | 'familyId' | 'date' | 'time'> & Partial<Pick<FamilyEvent, 'departureTime' | 'routeMinutes' | 'routineOverride'>>, data: AppData): string | null {
   const basicReason = drivingIneligibility({ ...person, availability: 'available' })
   if (basicReason) return basicReason
   if (person.availability && !['available', 'home'].includes(person.availability) && (!person.unavailableUntil || person.unavailableUntil > `${event.date}T${event.time}`)) return person.availability === 'work' ? 'בעבודה בזמן האירוע' : person.availability === 'travel' ? 'בנסיעה בזמן האירוע' : 'לא זמין/ה בזמן האירוע'
   const minutes = (time: string) => { const [hour, minute] = time.split(':').map(Number); return hour * 60 + minute }
   const departure = event.departureTime ? minutes(event.departureTime) : minutes(event.time) - (event.routeMinutes || 20) - 10
+  const routine = routineAt(person, event.date, event.departureTime || event.time, event.time)
+  if (routine && !event.routineOverride) return `בלו״ז קבוע: ${routine.label}`
   if (person.unavailableFrom && person.unavailableTo) {
     const blockedFrom = minutes(person.unavailableFrom)
     const blockedTo = minutes(person.unavailableTo)
@@ -60,7 +63,7 @@ export function saveEventAndDependents(data: AppData, event: FamilyEvent): AppDa
 }
 
 export function removeEventAndDependents(data: AppData, eventId: string): AppData {
-  return { ...data, events: data.events.filter(event => event.id !== eventId), tasks: data.tasks.filter(task => task.eventId !== eventId), transportationRequests: data.transportationRequests.filter(request => request.eventId !== eventId), integrationLogs: data.integrationLogs.filter(entry => entry.eventId !== eventId), calendarMirrors: data.calendarMirrors.filter(entry => entry.eventId !== eventId) }
+  return { ...data, events: data.events.filter(event => event.id !== eventId), tasks: data.tasks.filter(task => task.eventId !== eventId), transportationRequests: data.transportationRequests.filter(request => request.eventId !== eventId), integrationLogs: data.integrationLogs.filter(entry => entry.eventId !== eventId), calendarMirrors: data.calendarMirrors.filter(entry => entry.eventId !== eventId), acknowledgements: (data.acknowledgements || []).filter(entry => entry.eventId !== eventId) }
 }
 const weekdayNames: Record<string, number> = { ראשון: 0, שני: 1, שלישי: 2, רביעי: 3, חמישי: 4, שישי: 5, שבת: 6 }
 

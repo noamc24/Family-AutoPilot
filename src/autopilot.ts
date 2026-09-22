@@ -118,10 +118,11 @@ export function runAutopilotScenario(data: AppData, familyId: string, scenario: 
   return { data: record(next, familyId, scenarioKey, message, [child.id, ...conflict.flatMap(item => item.participantIds)], trigger), message, applied: true }
 }
 
-export function advanceAutomaticScenarios(data: AppData, familyId: string): ScenarioResult {
+export function advanceAutomaticScenarios(data: AppData, familyId: string, excludedIds: string[] = []): ScenarioResult & { scenarioId?: AutopilotScenario } {
   for (const scenario of automaticScenarios) {
+    if (excludedIds.includes(`scenario:${familyId}:${scenario}`)) continue
     const result = runAutopilotScenario(data, familyId, scenario, 'automatic')
-    if (result.applied) return result
+    if (result.applied) return { ...result, scenarioId: scenario }
   }
   return unchanged(data, '')
 }

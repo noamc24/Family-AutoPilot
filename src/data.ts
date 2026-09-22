@@ -1,18 +1,35 @@
 export type Priority = 'low' | 'normal' | 'high' | 'critical'
-export type FamilyPreferences = { preferFewerTrips?: boolean; balanceRides?: boolean; preferNearbyDriver?: boolean; moveFlexibleTasks?: boolean; allowPublicTransit?: boolean }
-export type Person = { id: string; name: string; role: 'אב' | 'אם' | 'בן' | 'בת'; color: string; age: number; birthYear?: number; hasLicense: boolean; hasCar: boolean; availableForPickup: boolean; availability?: 'available' | 'home' | 'work' | 'travel' | 'unavailable'; unavailableUntil?: string; travelMinutes?: number; activeDriver?: boolean; unavailableFrom?: string; unavailableTo?: string; preferredMaxRides?: number; lastResortDriver?: boolean; canUseTransit?: boolean; canTravelAlone?: boolean }
+export type RoutineKind = 'work' | 'study' | 'activity'
+export type WeeklyRoutine = { id: string; kind: RoutineKind; label: string; day: number; start: string; end: string; location?: string; prepTitle?: string; prepOwnerId?: string }
+export type EventAcknowledgement = { eventId: string; personId: string; signature: string; status: 'pending' | 'seen' | 'approved' | 'declined'; updatedAt?: string }
+export type PendingAction = { id: string; familyId: string; source: 'external' | 'scenario'; scenarioId: string; message: string; createdAt: string }
+export type FamilyPreferences = { preferFewerTrips?: boolean; balanceRides?: boolean; preferNearbyDriver?: boolean; moveFlexibleTasks?: boolean; allowPublicTransit?: boolean; autonomy?: 'conservative' | 'balanced' | 'autopilot' }
+export type Person = { id: string; name: string; role: 'אב' | 'אם' | 'בן' | 'בת'; color: string; age: number; birthYear?: number; birthDate?: string; hasLicense: boolean; hasCar: boolean; availableForPickup: boolean; availability?: 'available' | 'home' | 'work' | 'travel' | 'unavailable'; unavailableUntil?: string; travelMinutes?: number; activeDriver?: boolean; unavailableFrom?: string; unavailableTo?: string; preferredMaxRides?: number; lastResortDriver?: boolean; canUseTransit?: boolean; canTravelAlone?: boolean; routines?: WeeklyRoutine[] }
 export type FamilyUnit = { id: string; name: string; people: Person[]; preferences?: FamilyPreferences }
-export type FamilyEvent = { id: string; familyId: string; title: string; date: string; time: string; endTime?: string; icon: string; participantIds: string[]; responsibleId: string; details: string; needsAttention?: boolean; requiresDriver?: boolean; departureTime?: string; routeMinutes?: number; createdById?: string; issueReason?: string; sourceNote?: string; priority?: Priority; preferredDriverId?: string; transitAvailable?: boolean }
-export type FamilyTask = { id: string; familyId: string; title: string; ownerId: string; due: string; done: boolean; eventId?: string; requiresAdult?: boolean; priority?: Priority; flexible?: boolean }
+export type FamilyEvent = { id: string; familyId: string; title: string; date: string; time: string; endTime?: string; icon: string; participantIds: string[]; responsibleId: string; details: string; needsAttention?: boolean; requiresDriver?: boolean; departureTime?: string; routeMinutes?: number; createdById?: string; issueReason?: string; sourceNote?: string; priority?: Priority; preferredDriverId?: string; transitAvailable?: boolean; routineOverride?: boolean }
+export type FamilyTask = { id: string; familyId: string; title: string; ownerId: string; due: string; done: boolean; eventId?: string; requiresAdult?: boolean; priority?: Priority; flexible?: boolean; repeatDays?: number[]; responsibility?: boolean; routineId?: string }
 export type Activity = { id: string; familyId: string; text: string; personIds: string[]; createdAt?: string; source?: IntegrationSource; eventId?: string }
 export type TransportationRequest = { id: string; familyId: string; eventId: string; passengerId: string; eligibleMemberIds: string[]; responses: Record<string, 'PENDING' | 'CAN_DO' | 'CANNOT_DO'>; selectedDriverId: string; status: 'OPEN' | 'PARTIALLY_RESPONDED' | 'COVERED' | 'UNRESOLVED' | 'CANCELLED'; createdById: string; origin: string; destination: string; requiredAt: string }
 export type IntegrationSource = 'waze' | 'whatsapp' | 'school' | 'university' | 'family' | 'calendar' | 'email' | 'weather' | 'location' | 'work' | 'club' | 'transit'
-export type IntegrationLog = { id: string; familyId: string; scenarioKey: string; source: IntegrationSource; sourceText: string; action: string; personIds: string[]; eventId?: string; createdAt: string; trigger?: 'manual' | 'automatic' }
+export type IntegrationLog = { id: string; familyId: string; scenarioKey: string; source: IntegrationSource; sourceText: string; action: string; personIds: string[]; eventId?: string; createdAt: string; trigger?: 'manual' | 'automatic'; handledAt?: string }
 export type CalendarMirror = { id: string; familyId: string; eventId: string; personId: string; provider: 'google'; createdAt: string }
-export type AppData = { families: FamilyUnit[]; events: FamilyEvent[]; tasks: FamilyTask[]; activity: Activity[]; transportationRequests: TransportationRequest[]; integrationLogs: IntegrationLog[]; calendarMirrors: CalendarMirror[] }
+export type AppData = { families: FamilyUnit[]; events: FamilyEvent[]; tasks: FamilyTask[]; activity: Activity[]; transportationRequests: TransportationRequest[]; integrationLogs: IntegrationLog[]; calendarMirrors: CalendarMirror[]; acknowledgements?: EventAcknowledgement[]; suppressedRoutineTaskIds?: string[]; pendingActions?: PendingAction[]; dismissedActionIds?: string[] }
 
 export const uid = () => Math.random().toString(36).slice(2, 10)
 export const ageFromBirthYear = (year: number) => new Date().getFullYear() - year
+export function validBirthDate(value: string, today = localDate()): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value < '1900-01-01' || value > today) return false
+  const [year, month, day] = value.split('-').map(Number)
+  const date = new Date(year, month - 1, day)
+  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day
+}
+export function ageFromBirthDate(value: string, today = localDate()): number {
+  if (!validBirthDate(value, today)) return NaN
+  const [year, month, day] = value.split('-').map(Number)
+  const [currentYear, currentMonth, currentDay] = today.split('-').map(Number)
+  const birthdayDay = month === 2 && day === 29 && !(currentYear % 4 === 0 && (currentYear % 100 !== 0 || currentYear % 400 === 0)) ? 28 : day
+  return currentYear - year - (currentMonth < month || currentMonth === month && currentDay < birthdayDay ? 1 : 0)
+}
 export const localDate = (offset = 0) => {
   const date = new Date()
   date.setDate(date.getDate() + offset)
@@ -64,11 +81,16 @@ export const initialData: AppData = {
   transportationRequests: [],
   integrationLogs: [],
   calendarMirrors: [],
+  acknowledgements: [],
+  suppressedRoutineTaskIds: [],
+  pendingActions: [],
+  dismissedActionIds: [],
 }
 
 /** Keeps persisted records tied to a real member of their own family unit. */
 export function sanitizeAppData(data: AppData): AppData {
-  const membersByFamily = new Map(data.families.map(family => [family.id, new Set(family.people.map(person => person.id))]))
+  const families = data.families.map(family => ({ ...family, people: family.people.map(person => person.birthDate && validBirthDate(person.birthDate) ? { ...person, age: ageFromBirthDate(person.birthDate), birthYear: Number(person.birthDate.slice(0, 4)) } : person) }))
+  const membersByFamily = new Map(families.map(family => [family.id, new Set(family.people.map(person => person.id))]))
   const events = data.events.flatMap(event => {
     const members = membersByFamily.get(event.familyId)
     if (!members) return []
@@ -87,7 +109,8 @@ export function sanitizeAppData(data: AppData): AppData {
   const integrationLogs = (data.integrationLogs || []).filter(entry => membersByFamily.has(entry.familyId) && (!entry.eventId || eventIds.has(entry.eventId)))
     .map(entry => ({ ...entry, personIds: entry.personIds.filter(id => membersByFamily.get(entry.familyId)!.has(id)) }))
   const calendarMirrors = (data.calendarMirrors || []).filter(entry => eventIds.has(entry.eventId) && membersByFamily.get(entry.familyId)?.has(entry.personId))
-  return { ...data, events, tasks, activity, transportationRequests, integrationLogs, calendarMirrors }
+  const acknowledgements = (data.acknowledgements || []).filter(entry => eventIds.has(entry.eventId) && membersByFamily.get(events.find(event => event.id === entry.eventId)?.familyId || '')?.has(entry.personId))
+  return { ...data, families, events, tasks, activity, transportationRequests, integrationLogs, calendarMirrors, acknowledgements, suppressedRoutineTaskIds: data.suppressedRoutineTaskIds || [], pendingActions: (data.pendingActions || []).filter(action => membersByFamily.has(action.familyId)), dismissedActionIds: data.dismissedActionIds || [] }
 }
 
 export function readData(): AppData {
@@ -106,7 +129,7 @@ export function readData(): AppData {
         families: saved.families.map(family => ({ ...family, name: family.id === 'cohen' && (family.name === 'המשפחה של אוראל ומור' || family.name === 'משפחת כהן') ? seedFamily.name : cleanStoredText(family.name), people: family.people.map(person => {
           const seed = initialData.families.flatMap(item => item.people).find(item => item.id === person.id)
           const role = person.role === 'אם' || person.role.startsWith('אמא') ? 'אם' : person.role === 'אב' || person.role.startsWith('אבא') ? 'אב' : person.role.startsWith('בת') ? 'בת' : 'בן'
-          return { ...person, name: cleanStoredText(person.name), role, age: person.birthYear ? ageFromBirthYear(person.birthYear) : person.age ?? seed?.age ?? 0, hasLicense: person.hasLicense ?? seed?.hasLicense ?? false, hasCar: person.hasCar ?? seed?.hasCar ?? false, availableForPickup: person.availableForPickup ?? seed?.availableForPickup ?? false }
+          return { ...person, name: cleanStoredText(person.name), role, age: person.birthDate && validBirthDate(person.birthDate) ? ageFromBirthDate(person.birthDate) : person.birthYear ? ageFromBirthYear(person.birthYear) : person.age ?? seed?.age ?? 0, hasLicense: person.hasLicense ?? seed?.hasLicense ?? false, hasCar: person.hasCar ?? seed?.hasCar ?? false, availableForPickup: person.availableForPickup ?? seed?.availableForPickup ?? false }
         }) })),
         events: saved.events.map(event => {
           const source = saved.integrationLogs?.find(entry => entry.eventId === event.id)?.source
@@ -118,6 +141,10 @@ export function readData(): AppData {
         transportationRequests: (saved.transportationRequests || []).map(request => ({ ...request, origin: cleanStoredText(request.origin), destination: cleanStoredText(request.destination) })),
         integrationLogs: (saved.integrationLogs || []).map(entry => ({ ...entry, sourceText: cleanStoredText(entry.sourceText), action: cleanStoredText(entry.action) })),
         calendarMirrors: saved.calendarMirrors || [],
+        acknowledgements: saved.acknowledgements || [],
+        suppressedRoutineTaskIds: saved.suppressedRoutineTaskIds || [],
+        pendingActions: saved.pendingActions || [],
+        dismissedActionIds: saved.dismissedActionIds || [],
       })
     }
   } catch { /* use demo state */ }
@@ -137,6 +164,10 @@ export function removePersonAndTheirData(data: AppData, familyId: string, person
     transportationRequests: data.transportationRequests.filter(request => !removedEventIds.has(request.eventId)).map(request => request.familyId === familyId ? { ...request, eligibleMemberIds: request.eligibleMemberIds.filter(id => id !== personId), responses: Object.fromEntries(Object.entries(request.responses).filter(([id]) => id !== personId)), selectedDriverId: request.selectedDriverId === personId ? '' : request.selectedDriverId } : request),
     integrationLogs: data.integrationLogs.filter(entry => entry.familyId !== familyId || (!entry.personIds.includes(personId) && !removedEventIds.has(entry.eventId || ''))),
     calendarMirrors: data.calendarMirrors.filter(entry => entry.familyId !== familyId || (entry.personId !== personId && !removedEventIds.has(entry.eventId))),
+    acknowledgements: (data.acknowledgements || []).filter(entry => entry.personId !== personId && !removedEventIds.has(entry.eventId)),
+    suppressedRoutineTaskIds: data.suppressedRoutineTaskIds || [],
+    pendingActions: data.pendingActions || [],
+    dismissedActionIds: data.dismissedActionIds || [],
   }
 }
 

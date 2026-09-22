@@ -179,10 +179,11 @@ export function runExternalScenario(data: AppData, familyId: string, actorId: st
   return noChange(data, 'אין עדכון זמין לתרחיש הזה')
 }
 
-export function advanceAutomaticExternalScenarios(data: AppData, familyId: string, actorId: string) {
+export function advanceAutomaticExternalScenarios(data: AppData, familyId: string, actorId: string, excludedIds: string[] = []) {
   for (const id of ['calendar-meeting', 'waze-accident', 'whatsapp-earlier', 'email-school-early', 'weather-rain', 'location-near'] as const) {
+    if (excludedIds.includes(`external:${familyId}:${id}`)) continue
     const result = runExternalScenario(data, familyId, actorId, id, 'automatic')
-    if (result.applied) return result
+    if (result.applied) return { ...result, scenarioId: id }
   }
   return { data, message: '', applied: false }
 }
