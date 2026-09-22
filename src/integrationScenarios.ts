@@ -66,7 +66,7 @@ export function runExternalScenario(data: AppData, familyId: string, actorId: st
       { id: uid(), familyId, title: `סידור בוקר של ${busy.name}`, date, time: '10:00', icon: '🚗', participantIds: [child.id], responsibleId: busy.id, requiresDriver: true, details: 'הסעה מתוכננת' },
       { id: uid(), familyId, title: `סידור צהריים של ${busy.name}`, date, time: '13:00', icon: '🚗', participantIds: [child.id], responsibleId: busy.id, requiresDriver: true, details: 'הסעה מתוכננת' },
     ]
-    const target: FamilyEvent = { id: uid(), familyId, title: `אימון אחר הצהריים של ${child.name}`, date, time: '17:00', icon: '🏀', participantIds: [child.id], responsibleId: '', requiresDriver: true, needsAttention: true, details: 'נדרשת הסעה לאימון', sourceNote: 'זמני הגעה עודכנו בוויז' }
+    const target: FamilyEvent = { id: uid(), familyId, title: `אימון אחר הצהריים של ${child.name}`, date, time: '17:00', icon: '🏀', participantIds: [child.id], responsibleId: '', createdById: family.people.find(person => person.id !== actorId && person.age > 4)?.id || actorId, requiresDriver: true, needsAttention: true, details: 'נדרשת הסעה לאימון', sourceNote: 'זמני הגעה עודכנו בוויז' }
     const families = data.families.map(item => item.id === familyId ? { ...item, people: item.people.map(person => person.id === busy.id ? { ...person, travelMinutes: 8 } : person.id === nearby.id ? { ...person, travelMinutes: 13 } : person) } : item)
     let next = ensureRequests({ ...data, families, events: [...data.events, ...events, target] }, actorId)
     const request = requestForEvent(next, target.id)
@@ -81,7 +81,7 @@ export function runExternalScenario(data: AppData, familyId: string, actorId: st
     const driver = family.people.find(person => person.id === ride.responsibleId)!
     const originalDeparture = ride.departureTime || shift(ride.time, -30)
     const endTime = shift(originalDeparture, ride.departureTime ? 10 : -15)
-    const meeting: FamilyEvent = { id: uid(), familyId, title: `פגישת עבודה של ${driver.name}`, date: ride.date, time: shift(endTime, -40), endTime, icon: '📅', participantIds: [driver.id], responsibleId: driver.id, details: `הפגישה מסתיימת ב-${endTime}`, sourceNote: 'זוהה שינוי ביומן גוגל' }
+    const meeting: FamilyEvent = { id: uid(), familyId, title: `פגישת עבודה של ${driver.name}`, date: ride.date, time: shift(endTime, -40), endTime, icon: '📅', participantIds: [driver.id], responsibleId: driver.id, createdById: family.people.find(person => person.id !== actorId && person.age > 4)?.id || actorId, details: `הפגישה מסתיימת ב-${endTime}`, sourceNote: 'זוהה שינוי ביומן גוגל' }
     const next = ensureRequests(saveEventAndDependents(data, meeting), actorId)
     const message = `זיהיתי ביומן גוגל שהפגישה של ${driver.name} תסתיים ב-${endTime}. בדקתי את ההשפעה על ההסעה ל${ride.title}.`
     return finish(next, familyId, id, 'calendar', `יומן גוגל: הפגישה מסתיימת ב-${endTime}.`, message, [driver.id, ...ride.participantIds], meeting.id, trigger)
@@ -119,7 +119,7 @@ export function runExternalScenario(data: AppData, familyId: string, actorId: st
   if (id === 'email-school-early') {
     const child = firstChild(data, familyId)
     if (!child) return noChange(data, 'אין ילד או ילדה בתא המשפחתי')
-    const event: FamilyEvent = { id: uid(), familyId, title: `איסוף מוקדם של ${child.name} מבית הספר`, date: localDate(1), time: '13:00', icon: '🏫', participantIds: [child.id], responsibleId: '', requiresDriver: true, needsAttention: true, details: 'הלימודים מסתיימים מוקדם', sourceNote: 'זוהה מייל מבית הספר' }
+    const event: FamilyEvent = { id: uid(), familyId, title: `איסוף מוקדם של ${child.name} מבית הספר`, date: localDate(1), time: '13:00', icon: '🏫', participantIds: [child.id], responsibleId: '', createdById: family.people.find(person => person.id !== actorId && person.age > 4)?.id || actorId, requiresDriver: true, needsAttention: true, details: 'הלימודים מסתיימים מוקדם', sourceNote: 'זוהה מייל מבית הספר' }
     const next = ensureRequests(saveEventAndDependents(data, event), actorId)
     const message = `זיהיתי מייל מבית הספר: הלימודים של ${child.name} יסתיימו מחר ב-13:00. הוספתי איסוף ופתחתי בקשת הסעה.`
     return finish(next, familyId, id, 'email', 'מייל מבית הספר: הלימודים מסתיימים מוקדם.', message, [child.id], event.id, trigger)
@@ -171,7 +171,7 @@ export function runExternalScenario(data: AppData, familyId: string, actorId: st
   if (id === 'transit-cancel') {
     const child = firstChild(data, familyId)
     if (!child) return noChange(data, 'אין ילד או ילדה בתא המשפחתי')
-    const event: FamilyEvent = { id: uid(), familyId, title: `הגעה חלופית ל${child.name}`, date: localDate(1), time: '08:15', icon: '🚌', participantIds: [child.id], responsibleId: '', requiresDriver: true, needsAttention: true, details: 'האוטובוס המתוכנן בוטל', sourceNote: 'זוהה ביטול בתחבורה הציבורית' }
+    const event: FamilyEvent = { id: uid(), familyId, title: `הגעה חלופית ל${child.name}`, date: localDate(1), time: '08:15', icon: '🚌', participantIds: [child.id], responsibleId: '', createdById: family.people.find(person => person.id !== actorId && person.age > 4)?.id || actorId, requiresDriver: true, needsAttention: true, details: 'האוטובוס המתוכנן בוטל', sourceNote: 'זוהה ביטול בתחבורה הציבורית' }
     const next = ensureRequests(saveEventAndDependents(data, event), actorId)
     const message = `זיהיתי שמחר בבוקר האוטובוס של ${child.name} בוטל. פתחתי בקשת הסעה חלופית ל-08:15.`
     return finish(next, familyId, id, 'transit', 'תחבורה ציבורית: האוטובוס בוטל.', message, [child.id], event.id, trigger)

@@ -9,7 +9,7 @@ import { advanceAutomaticExternalScenarios, externalScenarios, runExternalScenar
 import { applyForecastSolution, scanFutureRisks, suggestForecastSolution, type ForecastRisk } from './forecast'
 import { activityFeed } from './activityFeed'
 import { upcomingBirthdays, type BirthdayReminder } from './birthdays'
-import { closureIssues, materializeRoutineTasks, nextRepeatDate, routineAt, routineConflictingEvents, routineDays, sensitiveAutomaticChange, syncAcknowledgements } from './workflow'
+import { closureIssues, formatRoutineDayRange, materializeRoutineTasks, nextRepeatDate, routineAt, routineConflictingEvents, routineDays, routineDaysList, sensitiveAutomaticChange, syncAcknowledgements } from './workflow'
 
 type View = 'home' | 'events' | 'family' | 'tasks' | 'assistant' | 'more'
 type Dialog = { type: 'event'; item?: FamilyEvent } | { type: 'task'; item?: FamilyTask } | { type: 'person'; item?: Person } | { type: 'family'; item?: FamilyUnit } | { type: 'plan'; scenario: 'birthday' | 'late' | 'reminder'; input: string } | { type: 'resolve'; item: FamilyEvent } | { type: 'alternative'; requestId: string } | { type: 'withdraw'; requestId: string } | { type: 'solution'; eventId: string; riskId?: string } | { type: 'unknown' } | null
@@ -162,7 +162,7 @@ function App() {
     const check = () => {
       if (document.visibilityState !== 'visible') return
       const excluded = [...(dataRef.current.dismissedActionIds || []), ...(dataRef.current.pendingActions || []).map(action => action.id)]
-      const result = advanceAutomaticScenarios(dataRef.current, family.id, excluded)
+      const result = advanceAutomaticScenarios(dataRef.current, family.id, excluded, activePersonId)
       if (!result.applied) return
       if (sensitiveAutomaticChange(dataRef.current, result.data, family.id) && result.scenarioId) {
         const action: PendingAction = { id: `scenario:${family.id}:${result.scenarioId}`, familyId: family.id, source: 'scenario', scenarioId: result.scenarioId, message: result.message, createdAt: new Date().toISOString() }
@@ -262,7 +262,18 @@ function App() {
   function openEvent(item?: FamilyEvent) {
     if (item && !canEditEvents) { setToast('עריכת אירועים זמינה להורים'); return }
     if (!activePersonId) { setToast('בחרו בן משפחה כדי להוסיף אירוע'); return }
-    setForm(item ? { title: item.title, date: item.date, endDate: item.endDate || item.date, time: item.time, endTime: item.endTime || '', icon: item.icon, responsibleId: item.responsibleId, passengerId: requestForEvent(data, item.id)?.passengerId || item.participantIds[0] || '', details: item.details, requiresDriver: item.requiresDriver ? 'true' : 'false', priority: item.priority || 'normal', preferredDriverId: item.preferredDriverId || '', transitAvailable: String(!!item.transitAvailable), routineOverride: String(!!item.routineOverride) } : { title: '', date: localDate(), endDate: localDate(), time: '17:00', endTime: '', icon: '📅', responsibleId: '', passengerId: family.people.find(person => person.age < 18)?.id || activePersonId, details: '', requiresDriver: 'false', priority: 'normal', preferredDriverId: '', transitAvailable: 'false', routineOverride: 'false' })
+    const selectedDays = item && item.endDate && item.endDate > item.date ? (() => {
+      const start = new Date(`${item.date}T12:00:00`)
+      const end = new Date(`${item.endDate}T12:00:00`)
+      const days: number[] = []
+      const cursor = new Date(start)
+      while (cursor <= end) {
+        days.push(cursor.getDay())
+        cursor.setDate(cursor.getDate() + 1)
+      }
+      return [...new Set(days)].join(',')
+    })() : ''
+    setForm(item ? { title: item.title, date: item.date, endDate: item.endDate || item.date, time: item.time, endTime: item.endTime || '', icon: item.icon, responsibleId: item.responsibleId, passengerId: requestForEvent(data, item.id)?.passengerId || item.participantIds[0] || '', details: item.details, requiresDriver: item.requiresDriver ? 'true' : 'false', priority: item.priority || 'normal', preferredDriverId: item.preferredDriverId || '', transitAvailable: String(!!item.transitAvailable), routineOverride: String(!!item.routineOverride), eventDays: selectedDays } : { title: '', date: localDate(), endDate: localDate(), time: '17:00', endTime: '', icon: '📅', responsibleId: '', passengerId: family.people.find(person => person.age < 18)?.id || activePersonId, details: '', requiresDriver: 'false', priority: 'normal', preferredDriverId: '', transitAvailable: 'false', routineOverride: 'false', eventDays: '' })
     setParticipants(item?.participantIds || (activePersonId ? [activePersonId] : []))
     setResponsibilities(data.tasks.filter(task => task.eventId === item?.id && task.responsibility).map(task => ({ id: task.id, title: task.title, ownerId: task.ownerId })))
     setDialog({ type: 'event', item })
@@ -278,11 +289,23 @@ function App() {
     if (dialog.type === 'event') {
        if (!form.title?.trim() || !form.date || !form.time || (!participants.length && form.requiresDriver !== 'true')) return
        const requiresDriver = form.requiresDriver === 'true'
+       const selectedEventDays = (form.eventDays || '').split(',').map(Number).filter(day => Number.isInteger(day) && day >= 0 && day < 7)
+       const eventStartDate = selectedEventDays.length ? (() => {
+         const start = new Date(`${form.date || localDate()}T12:00:00`)
+         const Monday = new Date(start)
+         Monday.setDate(start.getDate() - start.getDay())
+         const dates = selectedEventDays.map(day => {
+           const value = new Date(Monday)
+           value.setDate(Monday.getDate() + day)
+           return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`
+         }).sort()
+         return { date: dates[0], endDate: dates[dates.length - 1] }
+       })() : { date: form.date, endDate: form.endDate && form.endDate > form.date ? form.endDate : undefined }
        if (requiresDriver && !family.people.some(person => person.id === form.passengerId)) { setToast('בחרו מי צריך/ה הסעה'); return }
        const previousRequest = dialog.item && requestForEvent(data, dialog.item.id)
        const changedNeed = !!previousRequest && (dialog.item?.date !== form.date || dialog.item?.time !== form.time || previousRequest.passengerId !== form.passengerId)
        if (changedNeed && !confirmed) { askConfirmation('שינוי פרטי ההסעה יבטל את השיבוץ והתשובות הקודמות. הבקשה תיפתח מחדש לנהגים כשירים. להמשיך?', () => saveForm(true)); return }
-       const baseEvent: FamilyEvent = { id: dialog.item?.id || uid(), familyId: family.id, title: form.title.trim(), date: form.date, time: form.time, endDate: form.endDate && form.endDate > form.date ? form.endDate : undefined, endTime: form.endTime || undefined, icon: form.icon || '📅', participantIds: requiresDriver ? [form.passengerId, ...participants.filter(id => id !== form.passengerId)] : participants, responsibleId: requiresDriver ? (dialog.item?.responsibleId || '') : form.responsibleId || '', details: form.details?.trim() || '', requiresDriver, needsAttention: requiresDriver && !dialog.item?.responsibleId, createdById: dialog.item?.createdById || activePersonId, sourceNote: dialog.item?.sourceNote, priority: form.priority as Priority, preferredDriverId: form.preferredDriverId || undefined, transitAvailable: form.transitAvailable === 'true', routineOverride: form.routineOverride === 'true' }
+       const baseEvent: FamilyEvent = { id: dialog.item?.id || uid(), familyId: family.id, title: form.title.trim(), date: eventStartDate.date, time: form.time, endDate: eventStartDate.endDate && eventStartDate.endDate > eventStartDate.date ? eventStartDate.endDate : undefined, endTime: form.endTime || undefined, icon: form.icon || '📅', participantIds: requiresDriver ? [form.passengerId, ...participants.filter(id => id !== form.passengerId)] : participants, responsibleId: requiresDriver ? (dialog.item?.responsibleId || '') : form.responsibleId || '', details: form.details?.trim() || '', requiresDriver, needsAttention: requiresDriver && !dialog.item?.responsibleId, createdById: dialog.item?.createdById || activePersonId, sourceNote: dialog.item?.sourceNote, priority: form.priority as Priority, preferredDriverId: form.preferredDriverId || undefined, transitAvailable: form.transitAvailable === 'true', routineOverride: form.routineOverride === 'true' }
        const generated = baseEvent.endDate ? expandEventDates(baseEvent) : [baseEvent]
        setData(previous => {
          let next = previous
@@ -481,17 +504,24 @@ function Empty({ text }: { text: string }) { return <div className="empty-state"
 function WeeklySchedule({ family, actorId, scope }: { family: FamilyUnit; actorId: string; scope: 'mine' | 'family' }) {
   const people = family.people.filter(person => scope === 'family' || person.id === actorId)
   const personBlocks = people.map(person => {
-    const routines = (person.routines || []).map(routine => {
-      const days = Array.isArray(routine.days) && routine.days.length ? routine.days : Number.isInteger(routine.day) && routine.day! >= 0 ? [routine.day!] : []
-      return {
-        routine,
-        dayRows: days.map(day => ({ day, label: routineDays[day], time: `${routine.start}–${routine.end}` })).sort((a, b) => a.day - b.day)
-      }
-    }).filter(entry => entry.dayRows.length > 0)
-    return { person, routines }
+    const grouped = new Map<string, { label: string; start: string; end: string; prepTitle?: string; days: number[] }>()
+    for (const routine of person.routines || []) {
+      const days = routineDaysList(routine)
+      if (!days.length) continue
+      const key = `${routine.label}|${routine.start}|${routine.end}|${routine.prepTitle || ''}`
+      const current = grouped.get(key)
+      grouped.set(key, {
+        label: routine.label,
+        start: routine.start,
+        end: routine.end,
+        prepTitle: routine.prepTitle,
+        days: [...new Set([...(current?.days || []), ...days])].sort((a, b) => a - b),
+      })
+    }
+    return { person, routines: [...grouped.values()] }
   }).filter(block => block.routines.length > 0)
 
-  return <section className="section-card weekly-schedule"><div className="section-heading"><div><span className="section-kicker">שעות שחוזרות מדי שבוע</span><h2>לו״ז קבוע</h2></div></div>{personBlocks.length ? <div className="weekly-family-grid">{personBlocks.map(({ person, routines }) => <div className="weekly-person-block" key={person.id}><div className="weekly-person-header">{person.name}</div>{routines.map(({ routine, dayRows }) => <div className="weekly-routine-group" key={routine.id}><div className="weekly-routine-name">{routine.label}</div>{dayRows.length > 0 && <div className="weekly-routine-table">{dayRows.map(({ day, label, time }) => <div className="weekly-routine-day" key={`${routine.id}:${day}`}><span>{label}</span><span>{time}</span></div>)}</div>}{routine.prepTitle && <small className="weekly-routine-meta">הכנה: {routine.prepTitle}</small>}</div>)}</div>)}</div> : <Empty text="עדיין לא הוגדר לו״ז קבוע. אפשר להוסיף אותו בעריכת בן משפחה."/>}</section>
+  return <section className="section-card weekly-schedule"><div className="section-heading"><div><span className="section-kicker">שעות שחוזרות מדי שבוע</span><h2>לו״ז קבוע</h2></div></div>{personBlocks.length ? <div className="weekly-family-grid">{personBlocks.map(({ person, routines }) => <div className="weekly-person-block" key={person.id}><div className="weekly-person-header">{person.name}</div>{routines.map(routine => <div className="weekly-routine-group" key={`${person.id}:${routine.label}:${routine.start}:${routine.end}`}><div className="weekly-routine-name">{routine.label}</div><div className="weekly-routine-table"><div className="weekly-routine-day"><span>{formatRoutineDayRange(routine.days)}</span><span>{routine.start}–{routine.end}</span></div></div>{routine.prepTitle && <small className="weekly-routine-meta">הכנה: {routine.prepTitle}</small>}</div>)}</div>)}</div> : <Empty text="עדיין לא הוגדר לו״ז קבוע. אפשר להוסיף אותו בעריכת בן משפחה."/>}</section>
 }
 function BirthdayReminderPanel({ reminders }: { reminders: BirthdayReminder[] }) {
   if (!reminders.length) return null

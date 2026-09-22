@@ -66,7 +66,13 @@ function childFor(family: FamilyUnit, scenario: AutopilotScenario): Person | und
   return children.find(person => person.role === 'בן') || children[0]
 }
 
-export function runAutopilotScenario(data: AppData, familyId: string, scenario: AutopilotScenario, trigger: 'manual' | 'automatic' = 'manual'): ScenarioResult {
+function creatorFor(family: FamilyUnit, excludeId = ''): string {
+  if (!excludeId) return family.people.find(person => person.age > 4)?.id || family.people[0]?.id || ''
+  const eligible = family.people.filter(person => person.id !== excludeId && person.age > 4)
+  return eligible[0]?.id || family.people.find(person => person.id !== excludeId)?.id || ''
+}
+
+export function runAutopilotScenario(data: AppData, familyId: string, scenario: AutopilotScenario, trigger: 'manual' | 'automatic' = 'manual', activePersonId = ''): ScenarioResult {
   const family = data.families.find(item => item.id === familyId)
   if (!family) return unchanged(data, 'לא נמצא תא משפחתי')
   const day = localDate()
@@ -110,7 +116,8 @@ export function runAutopilotScenario(data: AppData, familyId: string, scenario: 
     tutoring: { title: 'שיעור תגבור', date: localDate(1), time: '16:00', icon: '📚', requiresDriver: true },
   }
   const template = details[scenario]
-  const event: FamilyEvent = { id: uid(), familyId, ...template, participantIds: [child.id], responsibleId: '', createdById: child.id, details: `נוסף ללוח על ידי ${child.name}`, needsAttention: template.requiresDriver }
+  const creatorId = activePersonId ? creatorFor(family, activePersonId) || child.id : child.id
+  const event: FamilyEvent = { id: uid(), familyId, ...template, participantIds: [child.id], responsibleId: '', createdById: creatorId, details: `נוסף ללוח על ידי ${family.people.find(person => person.id === creatorId)?.name || child.name}`, needsAttention: template.requiresDriver }
   const saved = saveEventAndDependents(data, event)
   const next = ensureRequests(saved, child.id)
   const conflict = scheduleConflicts(next, event)
@@ -118,10 +125,10 @@ export function runAutopilotScenario(data: AppData, familyId: string, scenario: 
   return { data: record(next, familyId, scenarioKey, message, [child.id, ...conflict.flatMap(item => item.participantIds)], trigger), message, applied: true }
 }
 
-export function advanceAutomaticScenarios(data: AppData, familyId: string, excludedIds: string[] = []): ScenarioResult & { scenarioId?: AutopilotScenario } {
+export function advanceAutomaticScenarios(data: AppData, familyId: string, excludedIds: string[] = [], activePersonId = ''): ScenarioResult & { scenarioId?: AutopilotScenario } {
   for (const scenario of automaticScenarios) {
     if (excludedIds.includes(`scenario:${familyId}:${scenario}`)) continue
-    const result = runAutopilotScenario(data, familyId, scenario, 'automatic')
+    const result = runAutopilotScenario(data, familyId, scenario, 'automatic', activePersonId)
     if (result.applied) return { ...result, scenarioId: scenario }
   }
   return unchanged(data, '')
