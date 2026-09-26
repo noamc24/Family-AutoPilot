@@ -9,10 +9,11 @@ async function load(entry) {
 
 const dataModule = await load('src/data.ts')
 const lia = await load('src/liaInterventions.ts')
+const core = await load('src/liaCoreFlow.ts')
 const fresh = () => structuredClone(dataModule.initialData)
 
 test('מודל LIA מספק כרטיסי Traffic, WhatsApp ופריט שטופל', () => {
-  const items = lia.buildLiaInterventions(fresh(), 'Avrahami')
+  const items = lia.buildLiaInterventions(core.initializeTrafficCoreFlow(fresh()), 'Avrahami')
   assert.equal(items.length, 3)
   const traffic = items.find(item => item.type === 'traffic')
   assert.deepEqual(traffic.sources.map(source => source.sourceId), ['waze', 'calendar'])
@@ -24,7 +25,7 @@ test('מודל LIA מספק כרטיסי Traffic, WhatsApp ופריט שטופל
 })
 
 test('פעולות בכרטיס LIA מעבירות אותו בין סטטוסים מוגדרים', () => {
-  const [traffic] = lia.buildLiaInterventions(fresh(), 'Avrahami')
+  const traffic = lia.buildLiaInterventions(core.initializeTrafficCoreFlow(fresh()), 'Avrahami').find(item => item.type === 'traffic')
   const owned = lia.transitionLiaIntervention(traffic, 'takeOwnership', 'מור')
   assert.equal(owned.status, 'inProgress')
   assert.match(owned.statusDetail, /מור/)

@@ -12,6 +12,7 @@ import { upcomingBirthdays, type BirthdayReminder } from './birthdays'
 import { closureIssues, formatRoutineDayRange, materializeRoutineTasks, nextRepeatDate, routineAt, routineConflictingEvents, routineDaySegments, routineDays, routineDisplayRows, routineDaysList, routineGroupKey, sensitiveAutomaticChange, syncAcknowledgements } from './workflow'
 import { sourceDefinitionById } from './sourceDefinitions'
 import { LiaHomeSection } from './components/LiaHomeSection'
+import { applyTrafficFlowAction, initializeTrafficCoreFlow } from './liaCoreFlow'
 
 type View = 'home' | 'events' | 'family' | 'tasks' | 'assistant' | 'more'
 type Dialog = { type: 'event'; item?: FamilyEvent } | { type: 'task'; item?: FamilyTask } | { type: 'person'; item?: Person } | { type: 'family'; item?: FamilyUnit } | { type: 'plan'; scenario: 'birthday' | 'late' | 'reminder'; input: string } | { type: 'resolve'; item: FamilyEvent } | { type: 'alternative'; requestId: string } | { type: 'withdraw'; requestId: string } | { type: 'solution'; eventId: string; riskId?: string } | { type: 'unknown' } | null
@@ -41,7 +42,7 @@ function integrationDisplayText(value: string) { return value.replace(/\s*(?:ה�
 function countLabel(count: number, one: string, many: string) { return `${count} ${count === 1 ? one : many}` }
 function addedBy(person?: Person) { return person ? `${person.name} ${person.role === 'בת' || person.role === 'אם' ? 'הוסיפה' : 'הוסיף'}` : '' }
 function App() {
-  const [data, setData] = useState<AppData>(() => ensureRequests(readData(), 'Mor'))
+  const [data, setData] = useState<AppData>(() => initializeTrafficCoreFlow(ensureRequests(readData(), 'Mor')))
   const [familyId, setFamilyId] = useState(() => { const saved = localStorage.getItem('family-autopilot-family'); return saved === 'cohen' ? DEFAULT_FAMILY_ID : saved || DEFAULT_FAMILY_ID })
   const [personId, setPersonId] = useState(() => localStorage.getItem('family-autopilot-person') || 'Orel')
   const [view, setView] = useState<View>('home')
@@ -67,6 +68,18 @@ function App() {
   const birthdayReminders = useMemo(() => upcomingBirthdays(family, today), [family, today])
   const currentPerson = family.people.find(p => p.id === personId) || family.people[0]
   const activePersonId = currentPerson?.id || ''
+  useEffect(() => {
+    const handleLiaAction = (event: Event) => {
+      const detail = (event as CustomEvent<{ interventionId: string; action: import('./liaInterventions').LiaActionKind }>).detail
+      if (detail?.interventionId && detail.action) setData(previous => applyTrafficFlowAction(previous, detail.interventionId, detail.action, activePersonId))
+    }
+    window.addEventListener('fampilot:lia-action', handleLiaAction)
+    return () => window.removeEventListener('fampilot:lia-action', handleLiaAction)
+  }, [activePersonId])
+  useEffect(() => {
+    const initialized = initializeTrafficCoreFlow(data)
+    if (initialized !== data) setData(initialized)
+  }, [data])
   const childMode = !!currentPerson && currentPerson.age < 18
   const autonomy = family.preferences?.autonomy || 'autopilot'
   const canEditEvents = !!currentPerson && currentPerson.age >= 18 && (currentPerson.role === 'אב' || currentPerson.role === 'אם')

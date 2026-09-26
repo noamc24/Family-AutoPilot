@@ -15,7 +15,9 @@ export type TransportationRequest = { id: string; familyId: string; eventId: str
 export type IntegrationSource = 'waze' | 'whatsapp' | 'school' | 'university' | 'family' | 'calendar' | 'email' | 'weather' | 'location' | 'work' | 'club' | 'transit'
 export type IntegrationLog = { id: string; familyId: string; scenarioKey: string; source: IntegrationSource; sourceText: string; action: string; personIds: string[]; eventId?: string; createdAt: string; trigger?: 'manual' | 'automatic'; handledAt?: string; privacy?: { ownerId?: string; rawVisibility: 'private'; familyInsight: string } }
 export type CalendarMirror = { id: string; familyId: string; eventId: string; personId: string; provider: 'google'; createdAt: string }
-export type AppData = { families: FamilyUnit[]; events: FamilyEvent[]; tasks: FamilyTask[]; activity: Activity[]; transportationRequests: TransportationRequest[]; integrationLogs: IntegrationLog[]; calendarMirrors: CalendarMirror[]; acknowledgements?: EventAcknowledgement[]; suppressedRoutineTaskIds?: string[]; pendingActions?: PendingAction[]; dismissedActionIds?: string[] }
+import type { LiaIntervention } from './liaInterventions'
+import type { TrafficSignal } from './trafficSignals'
+export type AppData = { families: FamilyUnit[]; events: FamilyEvent[]; tasks: FamilyTask[]; activity: Activity[]; transportationRequests: TransportationRequest[]; integrationLogs: IntegrationLog[]; calendarMirrors: CalendarMirror[]; acknowledgements?: EventAcknowledgement[]; suppressedRoutineTaskIds?: string[]; pendingActions?: PendingAction[]; dismissedActionIds?: string[]; trafficSignals?: TrafficSignal[]; liaInterventions?: LiaIntervention[] }
 
 export const uid = () => Math.random().toString(36).slice(2, 10)
 export const ageFromBirthYear = (year: number) => new Date().getFullYear() - year
@@ -34,6 +36,10 @@ export function normalizePersonalSettings(settings?: Partial<PersonalSettings>):
       return { sourceId, connectionStatus: item?.connectionStatus === 'connected' ? 'connected' : 'disconnected', liaAccess: item?.liaAccess === 'allowed' ? 'allowed' : 'notAllowed', mode: item?.mode === 'live' ? 'live' : 'demo' }
     }),
   }
+}
+function demoPersonalSettings(): PersonalSettings {
+  const settings = defaultPersonalSettings()
+  return { ...settings, integrations: settings.integrations.map(item => ['waze', 'calendar'].includes(item.sourceId) ? { ...item, connectionStatus: 'connected', liaAccess: 'allowed' } : item) }
 }
 export function validBirthDate(value: string, today = localDate()): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value < '1900-01-01' || value > today) return false
@@ -115,8 +121,8 @@ const defaultFamilyRoutines: Record<string, WeeklyRoutine[]> = {
 
 export const initialData: AppData = {
   families: [{ id: DEFAULT_FAMILY_ID, name: 'משפחת אברהמי', people: [
-    { id: 'Orel', name: 'אוראל', role: 'אב', color: 'sage', birthDate: '1988-11-06', birthYear: 1988, age: ageFromBirthDate('1988-11-06'), hasLicense: true, hasCar: true, availableForPickup: true, routines: defaultFamilyRoutines.Orel },
-    { id: 'Mor', name: 'מור', role: 'אם', color: 'peach', birthDate: '1993-12-12', birthYear: 1993, age: ageFromBirthDate('1993-12-12'), hasLicense: true, hasCar: true, availableForPickup: true, routines: defaultFamilyRoutines.Mor },
+    { id: 'Orel', name: 'אוראל', role: 'אב', color: 'sage', birthDate: '1988-11-06', birthYear: 1988, age: ageFromBirthDate('1988-11-06'), hasLicense: true, hasCar: true, availableForPickup: true, routines: defaultFamilyRoutines.Orel, personalSettings: demoPersonalSettings() },
+    { id: 'Mor', name: 'מור', role: 'אם', color: 'peach', birthDate: '1993-12-12', birthYear: 1993, age: ageFromBirthDate('1993-12-12'), hasLicense: true, hasCar: true, availableForPickup: true, routines: defaultFamilyRoutines.Mor, personalSettings: demoPersonalSettings() },
     { id: 'Itamar', name: 'איתמר', role: 'בן', color: 'lavender', birthDate: '2018-10-06', birthYear: 2018, age: ageFromBirthDate('2018-10-06'), hasLicense: false, hasCar: false, availableForPickup: false, routines: [...weeklyCare('Itamar', 'בית ספר'), ...defaultFamilyRoutines.Itamar] },
     { id: 'noa', name: 'עומר', role: 'בן', color: 'butter', birthDate: '2021-12-30', birthYear: 2021, age: ageFromBirthDate('2021-12-30'), hasLicense: false, hasCar: false, availableForPickup: false, routines: [...weeklyCare('noa', 'בית ספר'), ...defaultFamilyRoutines.noa] },
     { id: 'yehonatan', name: 'יהונתן', role: 'בן', color: 'sage', birthDate: '2024-11-11', birthYear: 2024, age: ageFromBirthDate('2024-11-11'), hasLicense: false, hasCar: false, availableForPickup: false, routines: weeklyCare('yehonatan', 'מעון') },
@@ -125,6 +131,7 @@ export const initialData: AppData = {
     { id: 'dentist', familyId: DEFAULT_FAMILY_ID, title: 'תור לרופא שיניים', date: localDate(), time: '10:30', icon: '🦷', participantIds: ['Mor'], responsibleId: 'Mor', details: 'מור הולכת לתור', priority: 'critical' },
     { id: 'dance', familyId: DEFAULT_FAMILY_ID, title: 'חוג ריקוד', date: localDate(), time: '16:00', icon: '💃', participantIds: ['noa', 'Mor'], responsibleId: 'Mor', details: 'מור מסיעה את עומר', requiresDriver: true },
     { id: 'football', familyId: DEFAULT_FAMILY_ID, title: 'אימון כדורגל', date: localDate(), time: '17:00', icon: '⚽', participantIds: ['Itamar', 'Orel'], responsibleId: 'Orel', details: 'אוראל מסיע - יציאה ב־16:32', requiresDriver: true },
+    { id: 'traffic-pickup', familyId: DEFAULT_FAMILY_ID, title: 'איסוף איתמר מאימון', date: localDate(2), time: '17:00', icon: '🚗', participantIds: ['Itamar', 'Orel'], responsibleId: 'Orel', details: 'אוראל אחראי לאיסוף', requiresDriver: true },
     { id: 'dinner', familyId: DEFAULT_FAMILY_ID, title: 'ארוחת ערב משפחתית', date: localDate(), time: '19:30', icon: '🍽️', participantIds: ['Mor', 'Orel', 'Itamar', 'noa', 'yehonatan'], responsibleId: '', details: 'כולם יחד' },
     { id: 'grandma-babka', familyId: DEFAULT_FAMILY_ID, title: 'קובה אצל סבתא', date: nextFriday(), time: '12:00', endTime: '16:45', icon: '👵', participantIds: ['Mor', 'Orel', 'Itamar', 'noa', 'yehonatan'], responsibleId: '', details: 'קובה אצל סבתא' },
     { id: 'pickup', familyId: DEFAULT_FAMILY_ID, title: 'איסוף איתמר מכדורגל', date: localDate(4), time: '18:30', icon: '🚗', participantIds: ['Itamar'], responsibleId: '', details: 'דרוש נהג/ת לאיסוף', needsAttention: true, requiresDriver: true },
@@ -145,6 +152,8 @@ export const initialData: AppData = {
   suppressedRoutineTaskIds: [],
   pendingActions: [],
   dismissedActionIds: [],
+  trafficSignals: [],
+  liaInterventions: [],
 }
 
 /** Keeps persisted records tied to a real member of their own family unit. */
@@ -175,7 +184,8 @@ export function sanitizeAppData(data: AppData): AppData {
     .map(entry => ({ ...entry, personIds: entry.personIds.filter(id => membersByFamily.get(entry.familyId)!.has(id)) }))
   const calendarMirrors = (data.calendarMirrors || []).filter(entry => eventIds.has(entry.eventId) && membersByFamily.get(entry.familyId)?.has(entry.personId))
   const acknowledgements = (data.acknowledgements || []).filter(entry => eventIds.has(entry.eventId) && membersByFamily.get(events.find(event => event.id === entry.eventId)?.familyId || '')?.has(entry.personId))
-  return { ...data, families, events, tasks, activity, transportationRequests, integrationLogs, calendarMirrors, acknowledgements, suppressedRoutineTaskIds: data.suppressedRoutineTaskIds || [], pendingActions: (data.pendingActions || []).filter(action => membersByFamily.has(action.familyId)), dismissedActionIds: data.dismissedActionIds || [] }
+  const liaInterventions = (data.liaInterventions || []).map(item => eventIds.has(item.relatedEventId || '') || !item.relatedEventId ? item : { ...item, status: 'noAction' as const, actions: [], resolvedAt: item.resolvedAt || new Date().toISOString(), resolutionType: 'eventRemoved' as const, resolutionSummary: 'האירוע המקושר נמחק; אין צורך בפעולה.' })
+  return { ...data, families, events, tasks, activity, transportationRequests, integrationLogs, calendarMirrors, acknowledgements, suppressedRoutineTaskIds: data.suppressedRoutineTaskIds || [], pendingActions: (data.pendingActions || []).filter(action => membersByFamily.has(action.familyId)), dismissedActionIds: data.dismissedActionIds || [], trafficSignals: data.trafficSignals || [], liaInterventions }
 }
 
 /** Move the original demo family to its new ID without dropping local edits. */
@@ -238,6 +248,8 @@ export function readData(): AppData {
         suppressedRoutineTaskIds: saved.suppressedRoutineTaskIds || [],
         pendingActions: saved.pendingActions || [],
         dismissedActionIds: saved.dismissedActionIds || [],
+        trafficSignals: saved.trafficSignals || [],
+        liaInterventions: saved.liaInterventions || [],
       }))
     }
   } catch { /* use demo state */ }
@@ -261,6 +273,8 @@ export function removePersonAndTheirData(data: AppData, familyId: string, person
     suppressedRoutineTaskIds: data.suppressedRoutineTaskIds || [],
     pendingActions: data.pendingActions || [],
     dismissedActionIds: data.dismissedActionIds || [],
+    trafficSignals: data.trafficSignals || [],
+    liaInterventions: (data.liaInterventions || []).filter(item => item.familyId !== familyId || !item.relatedMemberIds.includes(personId)),
   }
 }
 
