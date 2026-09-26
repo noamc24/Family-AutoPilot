@@ -1,11 +1,10 @@
 import { localDate, uid, type AppData, type FamilyEvent, type IntegrationLog, type IntegrationSource } from './data'
 import { ensureRequests } from './coordination'
 import { saveEventAndDependents } from './domain'
+import { sourceDefinitions } from './sourceDefinitions'
 
 export type IntegrationScenario = 'waze' | 'whatsapp' | 'school' | 'university'
-export const integrationNames: Record<IntegrationSource, string> = {
-  waze: 'וויז', whatsapp: 'וואטסאפ', school: 'בית הספר', university: 'האוניברסיטה', family: 'המשפחה', calendar: 'יומן גוגל', email: 'מייל', weather: 'מזג האוויר', location: 'מיקום', work: 'העבודה', club: 'החוג', transit: 'תחבורה ציבורית',
-}
+export const integrationNames = Object.fromEntries(sourceDefinitions.map(source => [source.id, source.displayName])) as Record<IntegrationSource, string>
 
 export function detectIntegrationScenario(text: string): IntegrationScenario | null {
   if (/וואטסאפ|ווטסאפ|whatsapp/i.test(text)) return 'whatsapp'
@@ -22,7 +21,9 @@ function shiftTime(value: string, minutes: number) {
 }
 
 export function addLog(data: AppData, familyId: string, source: IntegrationSource, scenarioKey: string, sourceText: string, action: string, personIds: string[], eventId?: string, trigger: 'manual' | 'automatic' = 'manual'): AppData {
-  const log: IntegrationLog = { id: uid(), familyId, scenarioKey, source, sourceText, action, personIds: [...new Set(personIds.filter(Boolean))], eventId, createdAt: new Date().toISOString(), trigger }
+  const ownerId = personIds.find(Boolean)
+  const familyInsight = action.replace(/^\s*(?:זיהיתי|זוהה)\s*/u, 'LIA זיהתה ')
+  const log: IntegrationLog = { id: uid(), familyId, scenarioKey, source, sourceText, action, personIds: [...new Set(personIds.filter(Boolean))], eventId, createdAt: new Date().toISOString(), trigger, privacy: { ownerId, rawVisibility: 'private', familyInsight } }
   return { ...data, integrationLogs: [log, ...data.integrationLogs], activity: [{ id: uid(), familyId, text: action, personIds: log.personIds }, ...data.activity] }
 }
 
@@ -96,4 +97,3 @@ export function advanceAutomaticIntegrations(data: AppData, familyId: string, ac
   }
   return { data, message: '', applied: false }
 }
-

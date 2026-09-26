@@ -9,7 +9,7 @@ async function load(entry) {
 const model = await load('src/data.ts')
 const coordination = await load('src/coordination.ts')
 const autopilot = await load('src/autopilot.ts')
-const fresh = () => coordination.ensureRequests(structuredClone(model.initialData), 'maya')
+const fresh = () => coordination.ensureRequests(structuredClone(model.initialData), 'Mor')
 
 test('אירוע של ילד נכנס ללוח, יוצר בקשת הסעה ונשמר ללא כפילות', () => {
   const first = autopilot.runAutopilotScenario(fresh(), 'Avrahami', 'basketball', 'automatic')
@@ -44,7 +44,7 @@ test('איחור, שינוי שעת סיום וביטול מעדכנים נתו�
   const late = autopilot.runAutopilotScenario(data, 'Avrahami', 'late')
   assert.equal(late.applied, true)
   data = late.data
-  assert.equal(data.families[0].people.find(person => person.id === 'maya').availability, 'work')
+  assert.equal(data.families[0].people.find(person => person.id === 'Mor').availability, 'work')
   assert.equal(data.events.find(event => event.id === 'dance').responsibleId, '')
   assert.ok(data.transportationRequests.some(request => request.eventId === 'dance'))
   data = autopilot.runAutopilotScenario(data, 'Avrahami', 'school-change').data

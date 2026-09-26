@@ -10,38 +10,38 @@ async function load(entry) {
 const dataModule = await load('src/data.ts')
 const coordination = await load('src/coordination.ts')
 const domain = await load('src/domain.ts')
-const fresh = () => coordination.ensureRequests(structuredClone(dataModule.initialData), 'maya')
+const fresh = () => coordination.ensureRequests(structuredClone(dataModule.initialData), 'Mor')
 
 test('בקשת הסעה נשלחת לנהגים כשירים בלבד והתשובות משותפות', () => {
   let data = fresh()
   const request = coordination.requestForEvent(data, 'pickup')
   assert.ok(request)
-  assert.deepEqual(request.eligibleMemberIds.sort(), ['adam', 'maya'])
-  assert.equal(request.responses.yuval, undefined)
+  assert.deepEqual(request.eligibleMemberIds.sort(), ['Mor', 'Orel'])
+  assert.equal(request.responses.Itamar, undefined)
   data = coordination.respondToRequest(data, request.id, 'noa', 'CAN_DO')
   assert.equal(coordination.requestForEvent(data, 'pickup').responses.noa, undefined)
-  data = coordination.respondToRequest(data, request.id, 'adam', 'CAN_DO')
+  data = coordination.respondToRequest(data, request.id, 'Orel', 'CAN_DO')
   assert.equal(coordination.requestForEvent(data, 'pickup').status, 'PARTIALLY_RESPONDED')
-  assert.equal(coordination.recommendDriver(data, coordination.requestForEvent(data, 'pickup')).person.id, 'adam')
-  data = coordination.confirmDriver(data, request.id, 'adam')
+  assert.equal(coordination.recommendDriver(data, coordination.requestForEvent(data, 'pickup')).person.id, 'Orel')
+  data = coordination.confirmDriver(data, request.id, 'Orel')
   assert.equal(coordination.requestForEvent(data, 'pickup').status, 'COVERED')
-  assert.equal(data.events.find(event => event.id === 'pickup').responsibleId, 'adam')
-  data = coordination.respondToRequest(data, request.id, 'adam', 'CANNOT_DO')
+  assert.equal(data.events.find(event => event.id === 'pickup').responsibleId, 'Orel')
+  data = coordination.respondToRequest(data, request.id, 'Orel', 'CANNOT_DO')
   assert.equal(data.events.find(event => event.id === 'pickup').responsibleId, '')
 })
 
 test('סירוב של כולם יוצר מצב ללא פתרון וחלופה דורשת תשובה חדשה', () => {
   let data = fresh()
   const id = coordination.requestForEvent(data, 'pickup').id
-  data = coordination.respondToRequest(data, id, 'adam', 'CANNOT_DO')
-  data = coordination.respondToRequest(data, id, 'maya', 'CANNOT_DO')
+  data = coordination.respondToRequest(data, id, 'Orel', 'CANNOT_DO')
+  data = coordination.respondToRequest(data, id, 'Mor', 'CANNOT_DO')
   const request = data.transportationRequests.find(item => item.id === id)
   assert.equal(request.status, 'UNRESOLVED')
   assert.equal(coordination.recommendDriver(data, request), null)
   assert.ok(coordination.alternativeForRequest(data, request))
   const next = coordination.applyAlternativePlan(data, id)
   assert.equal(next.transportationRequests.find(item => item.id === id).selectedDriverId, '')
-  assert.equal(next.transportationRequests.find(item => item.id === id).responses.adam, 'PENDING')
+  assert.equal(next.transportationRequests.find(item => item.id === id).responses.Orel, 'PENDING')
 })
 
 test('תפקיד בן בוגר אינו חוסם נהיגה, וזמינות מבטלת שיבוץ', () => {
@@ -51,44 +51,44 @@ test('תפקיד בן בוגר אינו חוסם נהיגה, וזמינות מב
   data = coordination.reconcileTransportation(data)
   assert.ok(coordination.requestForEvent(data, 'pickup').eligibleMemberIds.includes(adultSon.id))
   const id = coordination.requestForEvent(data, 'pickup').id
-  data = coordination.respondToRequest(data, id, 'adam', 'CAN_DO')
-  data = coordination.confirmDriver(data, id, 'adam')
-  data.families[0].people.find(person => person.id === 'adam').availability = 'unavailable'
+  data = coordination.respondToRequest(data, id, 'Orel', 'CAN_DO')
+  data = coordination.confirmDriver(data, id, 'Orel')
+  data.families[0].people.find(person => person.id === 'Orel').availability = 'unavailable'
   data = coordination.reconcileTransportation(data)
   assert.equal(data.events.find(event => event.id === 'pickup').responsibleId, '')
-  assert.ok(!coordination.requestForEvent(data, 'pickup').eligibleMemberIds.includes('adam'))
+  assert.ok(!coordination.requestForEvent(data, 'pickup').eligibleMemberIds.includes('Orel'))
 })
 
 test('מחיקת אירוע או אדם מנקה את הבקשות התלויות', () => {
   const data = fresh()
   assert.equal(domain.removeEventAndDependents(data, 'pickup').transportationRequests.length, 0)
-  assert.equal(dataModule.removePersonAndTheirData(data, 'Avrahami', 'yuval').transportationRequests.length, 0)
+  assert.equal(dataModule.removePersonAndTheirData(data, 'Avrahami', 'Itamar').transportationRequests.length, 0)
 })
 
 test('תרחיש איחור משנה זמינות, דוחה קניות ופותח בקשה חדשה', () => {
   const data = fresh()
   const family = data.families[0]
-  const impact = domain.getLateImpact(data, family, 'maya')
+  const impact = domain.getLateImpact(data, family, 'Mor')
   assert.equal(impact.pickup.id, 'dance')
-  const next = coordination.ensureRequests(domain.applyLatePlan(data, family, 'maya', impact), 'maya')
-  assert.equal(next.families[0].people.find(person => person.id === 'maya').availability, 'work')
+  const next = coordination.ensureRequests(domain.applyLatePlan(data, family, 'Mor', impact), 'Mor')
+  assert.equal(next.families[0].people.find(person => person.id === 'Mor').availability, 'work')
   assert.equal(next.events.find(event => event.id === 'dance').responsibleId, '')
   assert.equal(next.tasks.find(task => task.id === 'groceries').due, dataModule.localDate(1))
   assert.ok(coordination.requestForEvent(next, 'dance'))
-  assert.ok(!coordination.requestForEvent(next, 'dance').eligibleMemberIds.includes('maya'))
+  assert.ok(!coordination.requestForEvent(next, 'dance').eligibleMemberIds.includes('Mor'))
 })
 
 test('תכנון יום הולדת בחמישי יוצר אירוע ומשימה ובקשת הסעה בלי לשבץ נהג', () => {
   const data = fresh()
   const family = data.families[0]
-  const plan = domain.prepareBirthdayPlan(data, family, 'maya', 'ליובל יש יום הולדת אצל דניאל בחמישי בחמש וצריך להביא עוגה')
+  const plan = domain.prepareBirthdayPlan(data, family, 'Mor', 'ליובל יש יום הולדת אצל דניאל בחמישי בחמש וצריך להביא עוגה')
   assert.equal(plan.title, 'יום ההולדת של דניאל')
   assert.equal(plan.time, '17:00')
-  const next = coordination.ensureRequests(domain.applyBirthdayPlan(data, family, 'maya', plan), 'maya')
+  const next = coordination.ensureRequests(domain.applyBirthdayPlan(data, family, 'Mor', plan), 'Mor')
   const event = next.events.find(item => item.title === plan.title)
   assert.ok(event)
   assert.equal(event.responsibleId, '')
-  assert.equal(coordination.requestForEvent(next, event.id).passengerId, 'yuval')
+  assert.equal(coordination.requestForEvent(next, event.id).passengerId, 'Itamar')
   assert.ok(next.tasks.some(task => task.eventId === event.id && /עוג/.test(task.title)))
 })
 
@@ -100,7 +100,7 @@ test('נתונים ישנים נטענים ללא אובדן אירועים וע
   const originalStorage = globalThis.localStorage
   globalThis.localStorage = { getItem: () => JSON.stringify(legacy) }
   try {
-    const migrated = coordination.ensureRequests(dataModule.readData(), 'maya')
+    const migrated = coordination.ensureRequests(dataModule.readData(), 'Mor')
     assert.equal(migrated.families[0].people[0].role, 'אם')
     assert.equal(migrated.families[0].people[1].role, 'אב')
     assert.equal(migrated.events.length, legacy.events.length)

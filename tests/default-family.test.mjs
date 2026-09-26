@@ -31,9 +31,9 @@ test('טעינת המשפחה הישנה מחליפה רק את ברירת המ�
   saved.families[0].id = 'cohen'
   for (const collection of ['events', 'tasks', 'activity']) saved[collection].forEach(item => { item.familyId = 'cohen' })
   saved.families[0].name = 'משפחת כהן'
-  saved.families[0].people = saved.families[0].people.filter(person => person.id !== 'yehonatan').map(person => ({ ...person, birthDate: undefined, birthYear: undefined, routines: undefined, name: { adam: 'אדם', maya: 'מאיה', yuval: 'יובל', noa: 'נועה' }[person.id] }))
+  saved.families[0].people = saved.families[0].people.filter(person => person.id !== 'yehonatan').map(person => ({ ...person, birthDate: undefined, birthYear: undefined, routines: undefined, name: { Orel: 'אדם', Mor: 'מאיה', Itamar: 'יובל', noa: 'נועה' }[person.id] }))
   saved.events.find(event => event.id === 'pickup').title = 'איסוף יובל מכדורגל'
-  saved.events.push({ id: 'custom', familyId: 'cohen', title: 'אירוע שנוסף', date: data.localDate(1), time: '15:00', icon: '📅', participantIds: ['yuval'], responsibleId: '', details: '' })
+  saved.events.push({ id: 'custom', familyId: 'cohen', title: 'אירוע שנוסף', date: data.localDate(1), time: '15:00', icon: '📅', participantIds: ['Itamar'], responsibleId: '', details: '' })
   const originalStorage = globalThis.localStorage
   globalThis.localStorage = { getItem: () => JSON.stringify(saved) }
   try {
@@ -41,9 +41,9 @@ test('טעינת המשפחה הישנה מחליפה רק את ברירת המ�
     assert.equal(restored.families[0].people.length, 5)
     assert.equal(restored.families[0].id, 'Avrahami')
     assert.equal(restored.families[0].name, 'משפחת אברהמי')
-    assert.equal(restored.families[0].people.find(person => person.id === 'maya').name, 'מור')
+    assert.equal(restored.families[0].people.find(person => person.id === 'Mor').name, 'מור')
     assert.equal(restored.families[0].people.find(person => person.id === 'noa').birthDate, '2021-12-30')
-    assert.equal(restored.families[0].people.find(person => person.id === 'yuval').routines.length, 3)
+    assert.equal(restored.families[0].people.find(person => person.id === 'Itamar').routines.length, 3)
     assert.equal(restored.families[0].people.find(person => person.id === 'noa').routines.length, 3)
     assert.equal(restored.events.find(event => event.id === 'pickup').title, 'איסוף איתמר מכדורגל')
     assert.equal(restored.events.find(event => event.id === 'custom').familyId, 'Avrahami')

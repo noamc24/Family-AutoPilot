@@ -4,20 +4,37 @@ export type WeeklyRoutine = { id: string; kind: RoutineKind; label: string; day?
 export type EventAcknowledgement = { eventId: string; personId: string; signature: string; status: 'pending' | 'seen' | 'approved' | 'declined'; updatedAt?: string }
 export type PendingAction = { id: string; familyId: string; source: 'external' | 'scenario'; scenarioId: string; message: string; createdAt: string }
 export type FamilyPreferences = { preferFewerTrips?: boolean; balanceRides?: boolean; preferNearbyDriver?: boolean; moveFlexibleTasks?: boolean; allowPublicTransit?: boolean; autonomy?: 'conservative' | 'balanced' | 'autopilot' }
-export type Person = { id: string; name: string; role: 'אב' | 'אם' | 'בן' | 'בת'; color: string; age: number; birthYear?: number; birthDate?: string; hasLicense: boolean; hasCar: boolean; availableForPickup: boolean; availability?: 'available' | 'home' | 'work' | 'travel' | 'unavailable'; unavailableUntil?: string; travelMinutes?: number; activeDriver?: boolean; unavailableFrom?: string; unavailableTo?: string; preferredMaxRides?: number; lastResortDriver?: boolean; canUseTransit?: boolean; canTravelAlone?: boolean; routines?: WeeklyRoutine[] }
+export type PersonalIntegration = { sourceId: IntegrationSource; connectionStatus: 'connected' | 'disconnected'; liaAccess: 'allowed' | 'notAllowed'; mode: 'demo' | 'live' }
+export type PersonalSettings = { notifications: { enabled: boolean }; lia: { proactiveSuggestions: boolean }; integrations: PersonalIntegration[] }
+export type Person = { id: string; name: string; role: 'אב' | 'אם' | 'בן' | 'בת'; color: string; age: number; birthYear?: number; birthDate?: string; hasLicense: boolean; hasCar: boolean; availableForPickup: boolean; availability?: 'available' | 'home' | 'work' | 'travel' | 'unavailable'; unavailableUntil?: string; travelMinutes?: number; activeDriver?: boolean; unavailableFrom?: string; unavailableTo?: string; preferredMaxRides?: number; lastResortDriver?: boolean; canUseTransit?: boolean; canTravelAlone?: boolean; routines?: WeeklyRoutine[]; personalSettings?: PersonalSettings }
 export type FamilyUnit = { id: string; name: string; people: Person[]; preferences?: FamilyPreferences }
 export type FamilyEvent = { id: string; familyId: string; title: string; date: string; time: string; endDate?: string; endTime?: string; icon: string; participantIds: string[]; responsibleId: string; details: string; needsAttention?: boolean; requiresDriver?: boolean; departureTime?: string; routeMinutes?: number; createdById?: string; issueReason?: string; sourceNote?: string; priority?: Priority; preferredDriverId?: string; transitAvailable?: boolean; routineOverride?: boolean }
 export type FamilyTask = { id: string; familyId: string; title: string; ownerId: string; due: string; done: boolean; eventId?: string; requiresAdult?: boolean; priority?: Priority; flexible?: boolean; repeatDays?: number[]; responsibility?: boolean; routineId?: string }
 export type Activity = { id: string; familyId: string; text: string; personIds: string[]; createdAt?: string; source?: IntegrationSource; eventId?: string }
 export type TransportationRequest = { id: string; familyId: string; eventId: string; passengerId: string; eligibleMemberIds: string[]; responses: Record<string, 'PENDING' | 'CAN_DO' | 'CANNOT_DO'>; selectedDriverId: string; status: 'OPEN' | 'PARTIALLY_RESPONDED' | 'COVERED' | 'UNRESOLVED' | 'CANCELLED'; createdById: string; origin: string; destination: string; requiredAt: string }
 export type IntegrationSource = 'waze' | 'whatsapp' | 'school' | 'university' | 'family' | 'calendar' | 'email' | 'weather' | 'location' | 'work' | 'club' | 'transit'
-export type IntegrationLog = { id: string; familyId: string; scenarioKey: string; source: IntegrationSource; sourceText: string; action: string; personIds: string[]; eventId?: string; createdAt: string; trigger?: 'manual' | 'automatic'; handledAt?: string }
+export type IntegrationLog = { id: string; familyId: string; scenarioKey: string; source: IntegrationSource; sourceText: string; action: string; personIds: string[]; eventId?: string; createdAt: string; trigger?: 'manual' | 'automatic'; handledAt?: string; privacy?: { ownerId?: string; rawVisibility: 'private'; familyInsight: string } }
 export type CalendarMirror = { id: string; familyId: string; eventId: string; personId: string; provider: 'google'; createdAt: string }
 export type AppData = { families: FamilyUnit[]; events: FamilyEvent[]; tasks: FamilyTask[]; activity: Activity[]; transportationRequests: TransportationRequest[]; integrationLogs: IntegrationLog[]; calendarMirrors: CalendarMirror[]; acknowledgements?: EventAcknowledgement[]; suppressedRoutineTaskIds?: string[]; pendingActions?: PendingAction[]; dismissedActionIds?: string[] }
 
 export const uid = () => Math.random().toString(36).slice(2, 10)
 export const ageFromBirthYear = (year: number) => new Date().getFullYear() - year
 export const DEFAULT_FAMILY_ID = 'Avrahami'
+export const personalSourceIds: IntegrationSource[] = ['calendar', 'whatsapp', 'email', 'waze', 'location', 'school', 'university', 'work', 'club', 'transit']
+export function defaultPersonalSettings(): PersonalSettings {
+  return { notifications: { enabled: true }, lia: { proactiveSuggestions: true }, integrations: personalSourceIds.map(sourceId => ({ sourceId, connectionStatus: 'disconnected', liaAccess: 'notAllowed', mode: 'demo' })) }
+}
+export function normalizePersonalSettings(settings?: Partial<PersonalSettings>): PersonalSettings {
+  const existing = new Map((settings?.integrations || []).map(item => [item.sourceId, item]))
+  return {
+    notifications: { enabled: settings?.notifications?.enabled ?? true },
+    lia: { proactiveSuggestions: settings?.lia?.proactiveSuggestions ?? true },
+    integrations: personalSourceIds.map(sourceId => {
+      const item = existing.get(sourceId)
+      return { sourceId, connectionStatus: item?.connectionStatus === 'connected' ? 'connected' : 'disconnected', liaAccess: item?.liaAccess === 'allowed' ? 'allowed' : 'notAllowed', mode: item?.mode === 'live' ? 'live' : 'demo' }
+    }),
+  }
+}
 export function validBirthDate(value: string, today = localDate()): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value < '1900-01-01' || value > today) return false
   const [year, month, day] = value.split('-').map(Number)
@@ -34,6 +51,13 @@ export function ageFromBirthDate(value: string, today = localDate()): number {
 export const localDate = (offset = 0) => {
   const date = new Date()
   date.setDate(date.getDate() + offset)
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+const nextFriday = () => {
+  const date = new Date()
+  const currentDay = date.getDay()
+  const diff = (5 - currentDay + 7) % 7 || 7
+  date.setDate(date.getDate() + diff)
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 export function mergeRoutineEntries(routines: WeeklyRoutine[] = []): WeeklyRoutine[] {
@@ -83,35 +107,36 @@ const weeklyCare = (personId: string, label: string): WeeklyRoutine[] => [
 ]
 
 const defaultFamilyRoutines: Record<string, WeeklyRoutine[]> = {
-  yuval: [{ id: 'default-yuval-soccer', kind: 'activity', label: 'חוג כדורגל', day: 2, days: [2], start: '18:00', end: '20:00' }],
+  Itamar: [{ id: 'default-Itamar-soccer', kind: 'activity', label: 'חוג כדורגל', day: 2, days: [2], start: '18:00', end: '20:00' }],
   noa: [{ id: 'default-noa-swim', kind: 'activity', label: 'חוג שחייה', day: 3, days: [3], start: '18:00', end: '19:30' }],
-  maya: [{ id: 'default-maya-work', kind: 'work', label: 'עבודה', day: 0, days: [0, 1, 2, 3, 4], start: '09:00', end: '15:30' }],
-  adam: [{ id: 'default-adam-work', kind: 'work', label: 'עבודה', day: 0, days: [0, 1, 2, 3, 4], start: '07:00', end: '16:00' }],
+  Mor: [{ id: 'default-Mor-work', kind: 'work', label: 'עבודה', day: 0, days: [0, 1, 2, 3, 4], start: '09:00', end: '15:30' }],
+  Orel: [{ id: 'default-Orel-work', kind: 'work', label: 'עבודה', day: 0, days: [0, 1, 2, 3, 4], start: '07:00', end: '16:00' }],
 }
 
 export const initialData: AppData = {
   families: [{ id: DEFAULT_FAMILY_ID, name: 'משפחת אברהמי', people: [
-    { id: 'adam', name: 'אוראל', role: 'אב', color: 'sage', birthDate: '1988-11-06', birthYear: 1988, age: ageFromBirthDate('1988-11-06'), hasLicense: true, hasCar: true, availableForPickup: true, routines: defaultFamilyRoutines.adam },
-    { id: 'maya', name: 'מור', role: 'אם', color: 'peach', birthDate: '1993-12-12', birthYear: 1993, age: ageFromBirthDate('1993-12-12'), hasLicense: true, hasCar: true, availableForPickup: true, routines: defaultFamilyRoutines.maya },
-    { id: 'yuval', name: 'איתמר', role: 'בן', color: 'lavender', birthDate: '2018-10-06', birthYear: 2018, age: ageFromBirthDate('2018-10-06'), hasLicense: false, hasCar: false, availableForPickup: false, routines: [...weeklyCare('yuval', 'בית ספר'), ...defaultFamilyRoutines.yuval] },
+    { id: 'Orel', name: 'אוראל', role: 'אב', color: 'sage', birthDate: '1988-11-06', birthYear: 1988, age: ageFromBirthDate('1988-11-06'), hasLicense: true, hasCar: true, availableForPickup: true, routines: defaultFamilyRoutines.Orel },
+    { id: 'Mor', name: 'מור', role: 'אם', color: 'peach', birthDate: '1993-12-12', birthYear: 1993, age: ageFromBirthDate('1993-12-12'), hasLicense: true, hasCar: true, availableForPickup: true, routines: defaultFamilyRoutines.Mor },
+    { id: 'Itamar', name: 'איתמר', role: 'בן', color: 'lavender', birthDate: '2018-10-06', birthYear: 2018, age: ageFromBirthDate('2018-10-06'), hasLicense: false, hasCar: false, availableForPickup: false, routines: [...weeklyCare('Itamar', 'בית ספר'), ...defaultFamilyRoutines.Itamar] },
     { id: 'noa', name: 'עומר', role: 'בן', color: 'butter', birthDate: '2021-12-30', birthYear: 2021, age: ageFromBirthDate('2021-12-30'), hasLicense: false, hasCar: false, availableForPickup: false, routines: [...weeklyCare('noa', 'בית ספר'), ...defaultFamilyRoutines.noa] },
     { id: 'yehonatan', name: 'יהונתן', role: 'בן', color: 'sage', birthDate: '2024-11-11', birthYear: 2024, age: ageFromBirthDate('2024-11-11'), hasLicense: false, hasCar: false, availableForPickup: false, routines: weeklyCare('yehonatan', 'מעון') },
   ] }],
   events: [
-    { id: 'dentist', familyId: DEFAULT_FAMILY_ID, title: 'תור לרופא שיניים', date: localDate(), time: '10:30', icon: '🦷', participantIds: ['maya'], responsibleId: 'maya', details: 'מור הולכת לתור', priority: 'critical' },
-    { id: 'dance', familyId: DEFAULT_FAMILY_ID, title: 'חוג ריקוד', date: localDate(), time: '16:00', icon: '💃', participantIds: ['noa', 'maya'], responsibleId: 'maya', details: 'מור מסיעה את עומר', requiresDriver: true },
-    { id: 'football', familyId: DEFAULT_FAMILY_ID, title: 'אימון כדורגל', date: localDate(), time: '17:00', icon: '⚽', participantIds: ['yuval', 'adam'], responsibleId: 'adam', details: 'אוראל מסיע · יציאה ב־16:32', requiresDriver: true },
-    { id: 'dinner', familyId: DEFAULT_FAMILY_ID, title: 'ארוחת ערב משפחתית', date: localDate(), time: '19:30', icon: '🍽️', participantIds: ['maya', 'adam', 'yuval', 'noa', 'yehonatan'], responsibleId: '', details: 'כולם יחד' },
-    { id: 'pickup', familyId: DEFAULT_FAMILY_ID, title: 'איסוף איתמר מכדורגל', date: localDate(4), time: '18:30', icon: '🚗', participantIds: ['yuval'], responsibleId: '', details: 'דרוש נהג/ת לאיסוף', needsAttention: true, requiresDriver: true },
-    { id: 'trip', familyId: DEFAULT_FAMILY_ID, title: 'טיול בית ספר', routineOverride: true, date: localDate(6), time: '08:00', icon: '🎒', participantIds: ['yuval'], responsibleId: 'maya', details: 'צפוי גשם · כדאי לארוז מעיל' },
+    { id: 'dentist', familyId: DEFAULT_FAMILY_ID, title: 'תור לרופא שיניים', date: localDate(), time: '10:30', icon: '🦷', participantIds: ['Mor'], responsibleId: 'Mor', details: 'מור הולכת לתור', priority: 'critical' },
+    { id: 'dance', familyId: DEFAULT_FAMILY_ID, title: 'חוג ריקוד', date: localDate(), time: '16:00', icon: '💃', participantIds: ['noa', 'Mor'], responsibleId: 'Mor', details: 'מור מסיעה את עומר', requiresDriver: true },
+    { id: 'football', familyId: DEFAULT_FAMILY_ID, title: 'אימון כדורגל', date: localDate(), time: '17:00', icon: '⚽', participantIds: ['Itamar', 'Orel'], responsibleId: 'Orel', details: 'אוראל מסיע - יציאה ב־16:32', requiresDriver: true },
+    { id: 'dinner', familyId: DEFAULT_FAMILY_ID, title: 'ארוחת ערב משפחתית', date: localDate(), time: '19:30', icon: '🍽️', participantIds: ['Mor', 'Orel', 'Itamar', 'noa', 'yehonatan'], responsibleId: '', details: 'כולם יחד' },
+    { id: 'grandma-babka', familyId: DEFAULT_FAMILY_ID, title: 'קובה אצל סבתא', date: nextFriday(), time: '12:00', endTime: '16:45', icon: '👵', participantIds: ['Mor', 'Orel', 'Itamar', 'noa', 'yehonatan'], responsibleId: '', details: 'קובה אצל סבתא' },
+    { id: 'pickup', familyId: DEFAULT_FAMILY_ID, title: 'איסוף איתמר מכדורגל', date: localDate(4), time: '18:30', icon: '🚗', participantIds: ['Itamar'], responsibleId: '', details: 'דרוש נהג/ת לאיסוף', needsAttention: true, requiresDriver: true },
+    { id: 'trip', familyId: DEFAULT_FAMILY_ID, title: 'טיול בית ספר', routineOverride: true, date: localDate(6), time: '08:00', icon: '🎒', participantIds: ['Itamar'], responsibleId: 'Mor', details: 'צפוי גשם - כדאי לקחת מעיל' },
   ],
   tasks: [
-    { id: 'groceries', familyId: DEFAULT_FAMILY_ID, title: 'קניות לבית', ownerId: 'maya', due: localDate(), done: false, requiresAdult: true, priority: 'low', flexible: true },
-    { id: 'schoolbag', familyId: DEFAULT_FAMILY_ID, title: 'לארוז תיק לטיול', ownerId: 'maya', due: localDate(5), done: false },
+    { id: 'groceries', familyId: DEFAULT_FAMILY_ID, title: 'קניות לבית', ownerId: 'Mor', due: localDate(), done: false, requiresAdult: true, priority: 'low', flexible: true },
+    { id: 'schoolbag', familyId: DEFAULT_FAMILY_ID, title: 'לארוז תיק לטיול', ownerId: 'Mor', due: localDate(5), done: false },
   ],
   activity: [
-    { id: 'activity-1', familyId: DEFAULT_FAMILY_ID, text: 'נוספה תזכורת לאוראל על האימון', personIds: ['adam'] },
-    { id: 'activity-2', familyId: DEFAULT_FAMILY_ID, text: 'התור של מור מופיע בלוח המשפחתי', personIds: ['maya'] },
+    { id: 'activity-1', familyId: DEFAULT_FAMILY_ID, text: 'נוספה תזכורת לאוראל על האימון', personIds: ['Orel'] },
+    { id: 'activity-2', familyId: DEFAULT_FAMILY_ID, text: 'התור של מור מופיע בלוח המשפחתי', personIds: ['Mor'] },
   ],
   transportationRequests: [],
   integrationLogs: [],
@@ -126,6 +151,7 @@ export const initialData: AppData = {
 export function sanitizeAppData(data: AppData): AppData {
   const families = data.families.map(family => ({ ...family, people: family.people.map(person => ({
     ...person,
+    personalSettings: normalizePersonalSettings(person.personalSettings),
     routines: mergeRoutineEntries(person.routines || []),
     ...(person.birthDate && validBirthDate(person.birthDate) ? { age: ageFromBirthDate(person.birthDate), birthYear: Number(person.birthDate.slice(0, 4)) } : {}),
   })) }))
@@ -183,7 +209,7 @@ export function migrateDefaultFamily(data: AppData): AppData {
 export function readData(): AppData {
   try {
     const stored = JSON.parse(localStorage.getItem('family-autopilot-he-v1') || 'null') as AppData | null
-    const legacy = stored?.families?.find(family => family.id === 'cohen' && family.name === 'משפחת כהן' && family.people.length === 4 && [['maya', 'מאיה'], ['adam', 'אדם'], ['yuval', 'יובל'], ['noa', 'נועה']].every(([id, name]) => family.people.some(person => person.id === id && person.name === name)))
+    const legacy = stored?.families?.find(family => family.id === 'cohen' && family.name === 'משפחת כהן' && family.people.length === 4 && [['Mor', 'מאיה'], ['Orel', 'אדם'], ['Itamar', 'יובל'], ['noa', 'נועה']].every(([id, name]) => family.people.some(person => person.id === id && person.name === name)))
     const seedFamily = initialData.families[0]
     const saved = stored && legacy ? { ...stored,
       families: stored.families.map(family => family === legacy ? { ...family, name: seedFamily.name, people: [...family.people.map(person => { const seed = seedFamily.people.find(item => item.id === person.id)!; return { ...person, name: seed.name, role: seed.role, age: seed.age, birthYear: seed.birthYear } }), seedFamily.people.find(person => person.id === 'yehonatan')!] } : family),

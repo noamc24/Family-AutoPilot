@@ -16,36 +16,36 @@ const fresh = () => structuredClone(model.initialData)
 test('תרחיש ההחלטה מדרג שני נהגים לפי עומס ומרחק ומציג את הסיבות האמיתיות', () => {
   const data = fresh()
   for (const person of data.families[0].people.filter(item => item.age >= 18)) person.routines = []
-  data.families[0].people.find(person => person.id === 'maya').travelMinutes = 13
-  data.families[0].people.find(person => person.id === 'maya').availableForPickup = true
-  data.families[0].people.find(person => person.id === 'adam').travelMinutes = 8
-  data.families[0].people.find(person => person.id === 'adam').availableForPickup = true
-  const result = integrations.runExternalScenario(data, 'Avrahami', 'maya', 'decision-demo')
+  data.families[0].people.find(person => person.id === 'Mor').travelMinutes = 13
+  data.families[0].people.find(person => person.id === 'Mor').availableForPickup = true
+  data.families[0].people.find(person => person.id === 'Orel').travelMinutes = 8
+  data.families[0].people.find(person => person.id === 'Orel').availableForPickup = true
+  const result = integrations.runExternalScenario(data, 'Avrahami', 'Mor', 'decision-demo')
   assert.equal(result.applied, true)
   const event = result.data.events.find(item => item.sourceNote === 'זמני הגעה עודכנו בוויז')
   const request = coordination.requestForEvent(result.data, event.id)
   const options = coordination.rankedDrivers(result.data, request)
   assert.equal(options.length, 2)
-  assert.equal(options[0].person.id, 'adam')
+  assert.equal(options[0].person.id, 'Orel')
   assert.match(options[0].reason, /13 דקות/)
   assert.match(options[0].reason, /0 הסעות/)
   assert.match(options[1].reason, /8 דקות/)
   assert.match(options[1].reason, /2 הסעות/)
   const approved = coordination.confirmDriver(result.data, request.id, options[0].person.id)
-  assert.equal(approved.events.find(item => item.id === event.id).responsibleId, 'adam')
-  assert.equal(integrations.runExternalScenario(approved, 'Avrahami', 'maya', 'decision-demo').applied, false)
+  assert.equal(approved.events.find(item => item.id === event.id).responsibleId, 'Orel')
+  assert.equal(integrations.runExternalScenario(approved, 'Avrahami', 'Mor', 'decision-demo').applied, false)
 })
 
 test('מגבלות נהיגה הן חובה והעדפה לנהג אינה עוקפת אותן', () => {
   let data = fresh()
-  data.events = [{ id: 'ride', familyId: 'Avrahami', title: 'אימון', date: model.localDate(1), time: '18:00', icon: '🚗', participantIds: ['noa'], responsibleId: '', requiresDriver: true, details: '', preferredDriverId: 'maya' }]
-  data.families[0].people.find(person => person.id === 'maya').unavailableFrom = '17:00'
-  data.families[0].people.find(person => person.id === 'maya').unavailableTo = '21:00'
+  data.events = [{ id: 'ride', familyId: 'Avrahami', title: 'אימון', date: model.localDate(1), time: '18:00', icon: '🚗', participantIds: ['noa'], responsibleId: '', requiresDriver: true, details: '', preferredDriverId: 'Mor' }]
+  data.families[0].people.find(person => person.id === 'Mor').unavailableFrom = '17:00'
+  data.families[0].people.find(person => person.id === 'Mor').unavailableTo = '21:00'
   data = coordination.ensureRequests(data, 'noa')
   const request = coordination.requestForEvent(data, 'ride')
-  assert.deepEqual(request.eligibleMemberIds, ['adam'])
-  assert.equal(domain.pickupIneligibility(data.families[0].people.find(person => person.id === 'maya'), data.events[0], data), 'לא זמין/ה בשעות האלה בדרך כלל')
-  data.families[0].people.find(person => person.id === 'adam').activeDriver = false
+  assert.deepEqual(request.eligibleMemberIds, ['Orel'])
+  assert.equal(domain.pickupIneligibility(data.families[0].people.find(person => person.id === 'Mor'), data.events[0], data), 'לא זמין/ה בשעות האלה בדרך כלל')
+  data.families[0].people.find(person => person.id === 'Orel').activeDriver = false
   data = coordination.ensureRequests(data, 'noa')
   assert.equal(coordination.recommendDriver(data, coordination.requestForEvent(data, 'ride')), null)
   assert.equal(coordination.requestForEvent(data, 'ride').status, 'UNRESOLVED')
@@ -53,12 +53,12 @@ test('מגבלות נהיגה הן חובה והעדפה לנהג אינה עו�
 
 test('תחבורה ציבורית מוצעת רק עם אישור המשפחה והרשאה אישית', () => {
   let data = fresh()
-  data.events = [{ id: 'ride', familyId: 'Avrahami', title: 'אימון', date: model.localDate(1), time: '18:00', icon: '🚗', participantIds: ['yuval'], responsibleId: '', requiresDriver: true, transitAvailable: true, details: '' }]
-  data = coordination.ensureRequests(data, 'yuval')
+  data.events = [{ id: 'ride', familyId: 'Avrahami', title: 'אימון', date: model.localDate(1), time: '18:00', icon: '🚗', participantIds: ['Itamar'], responsibleId: '', requiresDriver: true, transitAvailable: true, details: '' }]
+  data = coordination.ensureRequests(data, 'Itamar')
   const request = coordination.requestForEvent(data, 'ride')
   assert.equal(coordination.transitAlternative(data, request), null)
   data.families[0].preferences = { allowPublicTransit: true }
-  const child = data.families[0].people.find(person => person.id === 'yuval')
+  const child = data.families[0].people.find(person => person.id === 'Itamar')
   child.canUseTransit = true
   child.canTravelAlone = true
   assert.equal(coordination.transitAlternative(data, request), null)
@@ -71,13 +71,13 @@ test('תחבורה ציבורית מוצעת רק עם אישור המשפחה �
 
 test('לשינוי של יותר מ־30 דקות לבית ספר מוצעת תחבורה ציבורית ולא הזזה בשעה', () => {
   let data = fresh()
-  data.events = [{ id: 'school-ride', familyId: 'Avrahami', title: 'בית ספר', date: model.localDate(1), time: '08:00', icon: '🏫', participantIds: ['yuval'], responsibleId: '', requiresDriver: true, transitAvailable: true, details: 'יום ראשון · דחייה של 45 דקות נדרשת' }]
+  data.events = [{ id: 'school-ride', familyId: 'Avrahami', title: 'בית ספר', date: model.localDate(1), time: '08:00', icon: '🏫', participantIds: ['Itamar'], responsibleId: '', requiresDriver: true, transitAvailable: true, details: 'יום ראשון · דחייה של 45 דקות נדרשת' }]
   data.families[0].preferences = { allowPublicTransit: true }
-  const child = data.families[0].people.find(person => person.id === 'yuval')
+  const child = data.families[0].people.find(person => person.id === 'Itamar')
   child.canUseTransit = true
   child.canTravelAlone = true
   child.age = 12
-  data = coordination.ensureRequests(data, 'yuval')
+  data = coordination.ensureRequests(data, 'Itamar')
   let request = coordination.requestForEvent(data, 'school-ride')
   for (const id of request.eligibleMemberIds) data = coordination.respondToRequest(data, request.id, id, 'CANNOT_DO')
   request = coordination.requestForEvent(data, 'school-ride')
@@ -92,8 +92,8 @@ test('לשינוי של יותר מ־30 דקות לבית ספר מוצעת תח
 test('אירוע קריטי ומשימה שאינה גמישה אינם מוזזים אוטומטית; ההעדפות נשמרות ברענון', () => {
   const data = fresh()
   data.families[0].preferences = { balanceRides: true, moveFlexibleTasks: false }
-  data.families[0].people.find(person => person.id === 'maya').preferredMaxRides = 2
-  data.events = [{ id: 'critical', familyId: 'Avrahami', title: 'רופא', date: model.localDate(1), time: '17:00', icon: '🦷', participantIds: ['maya'], responsibleId: '', details: '', priority: 'critical' }]
+  data.families[0].people.find(person => person.id === 'Mor').preferredMaxRides = 2
+  data.events = [{ id: 'critical', familyId: 'Avrahami', title: 'רופא', date: model.localDate(1), time: '17:00', icon: '🦷', participantIds: ['Mor'], responsibleId: '', details: '', priority: 'critical' }]
   const risk = { id: 'overlap:critical:x', kind: 'overlap', eventId: 'critical', date: model.localDate(1), time: '17:00', title: '', detail: '' }
   assert.equal(forecast.suggestForecastSolution(data, risk), null)
   const storage = globalThis.localStorage
@@ -101,7 +101,7 @@ test('אירוע קריטי ומשימה שאינה גמישה אינם מוזז
   try {
     const restored = model.readData()
     assert.equal(restored.families[0].preferences.moveFlexibleTasks, false)
-    assert.equal(restored.families[0].people.find(person => person.id === 'maya').preferredMaxRides, 2)
+    assert.equal(restored.families[0].people.find(person => person.id === 'Mor').preferredMaxRides, 2)
     assert.equal(restored.events[0].priority, 'critical')
   } finally { globalThis.localStorage = storage }
 })

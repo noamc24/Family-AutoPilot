@@ -45,7 +45,7 @@ test('לו״ז שבועי חוסם הסעה באותה שעה ואפשר לאש�
 test('אירוע מרובה ימים נוצר ככפילות יומיות בלוח', () => {
   const start = localDate()
   const end = localDate(2)
-  const entries = domain.expandEventDates({ id: 'multi-day', familyId: 'Avrahami', title: 'מחנה קיץ', date: start, endDate: end, time: '09:00', icon: '🏕️', participantIds: ['yuval'], responsibleId: 'maya', details: '', requiresDriver: false })
+  const entries = domain.expandEventDates({ id: 'multi-day', familyId: 'Avrahami', title: 'מחנה קיץ', date: start, endDate: end, time: '09:00', icon: '🏕️', participantIds: ['Itamar'], responsibleId: 'Mor', details: '', requiresDriver: false })
   assert.equal(entries.length, 3)
   assert.deepEqual(entries.map(item => item.date), [start, localDate(1), end])
   assert.ok(entries.every(item => item.title === 'מחנה קיץ'))
@@ -58,7 +58,7 @@ test('שגרה עם הכנה יוצרת משימה אחת בלבד ומשמרת 
   data = workflow.materializeRoutineTasks(data)
   const generated = data.tasks.find(task => task.routineId === 'activity-1' && task.due === localDate())
   assert.ok(generated)
-  assert.equal(generated.ownerId, 'adam')
+  assert.equal(generated.ownerId, 'Orel')
   const count = data.tasks.length
   data.tasks.find(task => task.id === generated.id).done = true
   data = workflow.materializeRoutineTasks(data)
@@ -68,7 +68,7 @@ test('שגרה עם הכנה יוצרת משימה אחת בלבד ומשמרת 
 
 test('שינוי באירוע דורש אישור חדש ואישור קיים נשמר אם לא השתנה', () => {
   let data = structuredClone(initialData)
-  data.events.push({ id: 'new', familyId: 'Avrahami', title: 'חוג חדש', date: localDate(1), time: '17:00', icon: '📅', participantIds: ['yuval'], responsibleId: 'maya', details: '', createdById: 'adam' })
+  data.events.push({ id: 'new', familyId: 'Avrahami', title: 'חוג חדש', date: localDate(1), time: '17:00', icon: '📅', participantIds: ['Itamar'], responsibleId: 'Mor', details: '', createdById: 'Orel' })
   data = workflow.syncAcknowledgements(data)
   assert.equal(data.acknowledgements.length, 2)
   data.acknowledgements[0].status = 'approved'
@@ -91,14 +91,14 @@ test('הכול בשליטה תלוי בהסעות, משימות חשובות, א
   const issues = workflow.closureIssues(data, 'Avrahami')
   assert.ok(issues.some(issue => issue.includes('משימות')))
   assert.ok(issues.some(issue => issue.includes('עדכונים')))
-  data.tasks[0].ownerId = 'maya'
+  data.tasks[0].ownerId = 'Mor'
   data.integrationLogs[0].handledAt = new Date().toISOString()
   assert.deepEqual(workflow.closureIssues(data, 'Avrahami'), [])
-  data.events.push({ id: 'ride', familyId: 'Avrahami', title: 'הסעה', date: localDate(2), time: '17:00', icon: '🚗', participantIds: ['yuval'], responsibleId: '', details: '', requiresDriver: true })
-  data.acknowledgements.push({ eventId: 'ride', personId: 'yuval', signature: 'v1', status: 'pending' })
+  data.events.push({ id: 'ride', familyId: 'Avrahami', title: 'הסעה', date: localDate(2), time: '17:00', icon: '🚗', participantIds: ['Itamar'], responsibleId: '', details: '', requiresDriver: true })
+  data.acknowledgements.push({ eventId: 'ride', personId: 'Itamar', signature: 'v1', status: 'pending' })
   assert.ok(workflow.closureIssues(data, 'Avrahami').some(issue => issue.includes('הסעות')))
   assert.ok(workflow.closureIssues(data, 'Avrahami').some(issue => issue.includes('אישורים')))
-  data.events[0].responsibleId = 'adam'
+  data.events[0].responsibleId = 'Orel'
   data.acknowledgements[0].status = 'approved'
   assert.deepEqual(workflow.closureIssues(data, 'Avrahami'), [])
 })

@@ -26,7 +26,7 @@ export function activityFeed(data: AppData, familyId: string, day = localDate(),
   const actions = data.activity.filter(item => item.familyId === familyId && item.createdAt && dayOf(item.createdAt) === day)
     .map(item => makeEntry(item))
   const updates = data.integrationLogs.filter(item => item.familyId === familyId && dayOf(item.createdAt) === day)
-    .map(item => ({ ...makeEntry(item), id: `integration:${item.id}` }))
+    .map(item => ({ ...makeEntry({ ...item, action: item.privacy?.familyInsight || item.action }), id: `integration:${item.id}` }))
   const updateKeys = new Set(updates.map(item => `${item.createdAt}:${item.text}`))
   return [...actions.filter(item => !updateKeys.has(`${item.createdAt}:${item.text}`)), ...updates]
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt) || left.id.localeCompare(right.id))

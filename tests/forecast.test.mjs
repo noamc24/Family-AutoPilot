@@ -16,13 +16,13 @@ const fresh = () => structuredClone(model.initialData)
 test('יומן וניווט יוצרים יחד בעיית הסעה עתידית אמיתית', () => {
   let data = fresh()
   const date = model.localDate(1)
-  data.events = [makeEvent('אימון', date, '17:00', ['yuval', 'adam'], 'adam', true)]
+  data.events = [makeEvent('אימון', date, '17:00', ['Itamar', 'Orel'], 'Orel', true)]
   data.tasks = []
-  data = coordination.ensureRequests(data, 'adam')
-  const calendar = integrations.runExternalScenario(data, 'Avrahami', 'adam', 'calendar-meeting')
+  data = coordination.ensureRequests(data, 'Orel')
+  const calendar = integrations.runExternalScenario(data, 'Avrahami', 'Orel', 'calendar-meeting')
   assert.equal(calendar.applied, true)
-  assert.equal(calendar.data.events.find(event => event.id === 'אימון').responsibleId, 'adam')
-  const traffic = integrations.runExternalScenario(calendar.data, 'Avrahami', 'adam', 'waze-accident')
+  assert.equal(calendar.data.events.find(event => event.id === 'אימון').responsibleId, 'Orel')
+  const traffic = integrations.runExternalScenario(calendar.data, 'Avrahami', 'Orel', 'waze-accident')
   assert.equal(traffic.applied, true)
   data = traffic.data
   assert.equal(data.events.find(event => event.id === 'אימון').responsibleId, '')
@@ -35,9 +35,9 @@ test('יומן וניווט יוצרים יחד בעיית הסעה עתידית
 test('הודעת וואטסאפ משנה מועד ומייצרת חפיפה עתידית', () => {
   const date = model.localDate(1)
   const data = fresh()
-  data.events = [makeEvent('אימון', date, '17:00', ['yuval'], 'adam', true), makeEvent('חבר', date, '16:30', ['yuval'])]
+  data.events = [makeEvent('אימון', date, '17:00', ['Itamar'], 'Orel', true), makeEvent('חבר', date, '16:30', ['Itamar'])]
   data.tasks = []
-  const result = integrations.runExternalScenario(data, 'Avrahami', 'adam', 'whatsapp-earlier')
+  const result = integrations.runExternalScenario(data, 'Avrahami', 'Orel', 'whatsapp-earlier')
   assert.equal(result.applied, true)
   assert.equal(result.data.events.find(event => event.id === 'אימון').time, '16:30')
   assert.ok(forecast.scanFutureRisks(result.data, 'Avrahami').some(risk => risk.kind === 'overlap'))
@@ -45,7 +45,7 @@ test('הודעת וואטסאפ משנה מועד ומייצרת חפיפה עת
 })
 
 test('מייל על סיום מוקדם מוסיף איסוף ואינו מוכפל ברענון', () => {
-  const first = integrations.runExternalScenario(fresh(), 'Avrahami', 'maya', 'email-school-early')
+  const first = integrations.runExternalScenario(fresh(), 'Avrahami', 'Mor', 'email-school-early')
   assert.equal(first.applied, true)
   const event = first.data.events.find(item => /איסוף מוקדם/.test(item.title))
   assert.ok(coordination.requestForEvent(first.data, event.id))
@@ -55,18 +55,18 @@ test('מייל על סיום מוקדם מוסיף איסוף ואינו מוכ�
   try {
     const restored = model.readData()
     assert.equal(restored.events.find(item => item.id === event.id).sourceNote, event.sourceNote)
-    assert.equal(integrations.runExternalScenario(restored, 'Avrahami', 'maya', 'email-school-early').applied, false)
+    assert.equal(integrations.runExternalScenario(restored, 'Avrahami', 'Mor', 'email-school-early').applied, false)
   } finally { globalThis.localStorage = storage }
 })
 
 test('סריקה מראש מזהה שתי הסעות, משימה חשובה ויום עמוס; אישור פתרון מזיז נתונים', () => {
   const date = model.localDate(1)
   let data = fresh()
-  data.families[0].people.find(person => person.id === 'maya').routines = []
-  data.families[0].people.find(person => person.id === 'adam').routines = []
-  data.events = [makeEvent('הסעה א', date, '15:00', ['yuval'], 'maya', true), makeEvent('הסעה ב', date, '16:00', ['noa'], 'maya', true), makeEvent('הסעה ג', date, '18:00', ['yuval'], 'adam', true)]
-  data.tasks = [{ id: 'קניות', familyId: 'Avrahami', title: 'קניות', ownerId: 'maya', due: date, done: false, requiresAdult: true }]
-  data = coordination.ensureRequests(data, 'maya')
+  data.families[0].people.find(person => person.id === 'Mor').routines = []
+  data.families[0].people.find(person => person.id === 'Orel').routines = []
+  data.events = [makeEvent('הסעה א', date, '15:00', ['Itamar'], 'Mor', true), makeEvent('הסעה ב', date, '16:00', ['noa'], 'Mor', true), makeEvent('הסעה ג', date, '18:00', ['Itamar'], 'Orel', true)]
+  data.tasks = [{ id: 'קניות', familyId: 'Avrahami', title: 'קניות', ownerId: 'Mor', due: date, done: false, requiresAdult: true }]
+  data = coordination.ensureRequests(data, 'Mor')
   const risks = forecast.scanFutureRisks(data, 'Avrahami')
   assert.ok(risks.some(risk => risk.kind === 'double-ride'))
   assert.ok(risks.some(risk => risk.kind === 'task'))

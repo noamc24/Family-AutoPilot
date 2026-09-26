@@ -16,7 +16,7 @@ const render = module.exports.render
 
 test('מסך הבית משתנה בין הורה לילד ומציג תוכן מותאם', () => {
   const originalStorage = globalThis.localStorage
-  let person = 'maya'
+  let person = 'Mor'
   globalThis.localStorage = { getItem: key => key === 'family-autopilot-person' ? person : null }
   try {
     const parent = render()
@@ -27,11 +27,11 @@ test('מסך הבית משתנה בין הורה לילד ומציג תוכן מ
     assert.match(parent, /עדכונים ממקורות/)
     assert.match(parent, /מה קרה היום/)
     assert.match(parent, /וויז/)
-    person = 'adam'
+    person = 'Orel'
     const otherParent = render()
     assert.match(otherParent, /שלום אוראל/)
     assert.notEqual(otherParent, parent)
-    person = 'yuval'
+    person = 'Itamar'
     const child = render()
     assert.match(child, /שלום, איתמר/)
     assert.match(child, /בשבילך היום/)
