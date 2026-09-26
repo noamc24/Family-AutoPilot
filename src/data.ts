@@ -16,9 +16,10 @@ export type IntegrationSource = 'waze' | 'whatsapp' | 'school' | 'university' | 
 export type IntegrationLog = { id: string; familyId: string; scenarioKey: string; source: IntegrationSource; sourceText: string; action: string; personIds: string[]; eventId?: string; createdAt: string; trigger?: 'manual' | 'automatic'; handledAt?: string; privacy?: { ownerId?: string; rawVisibility: 'private'; familyInsight: string } }
 export type CalendarMirror = { id: string; familyId: string; eventId: string; personId: string; provider: 'google'; createdAt: string }
 import type { LiaIntervention } from './liaInterventions'
+import type { LiaConversation } from './liaChatTypes'
 import type { TrafficSignal } from './trafficSignals'
 import type { ExternalSignal } from './showcaseFlows'
-export type AppData = { families: FamilyUnit[]; events: FamilyEvent[]; tasks: FamilyTask[]; activity: Activity[]; transportationRequests: TransportationRequest[]; integrationLogs: IntegrationLog[]; calendarMirrors: CalendarMirror[]; acknowledgements?: EventAcknowledgement[]; suppressedRoutineTaskIds?: string[]; pendingActions?: PendingAction[]; dismissedActionIds?: string[]; trafficSignals?: TrafficSignal[]; externalSignals?: ExternalSignal[]; liaInterventions?: LiaIntervention[] }
+export type AppData = { families: FamilyUnit[]; events: FamilyEvent[]; tasks: FamilyTask[]; activity: Activity[]; transportationRequests: TransportationRequest[]; integrationLogs: IntegrationLog[]; calendarMirrors: CalendarMirror[]; acknowledgements?: EventAcknowledgement[]; suppressedRoutineTaskIds?: string[]; pendingActions?: PendingAction[]; dismissedActionIds?: string[]; trafficSignals?: TrafficSignal[]; externalSignals?: ExternalSignal[]; liaInterventions?: LiaIntervention[]; liaConversations?: LiaConversation[] }
 
 export const uid = () => Math.random().toString(36).slice(2, 10)
 export const ageFromBirthYear = (year: number) => new Date().getFullYear() - year
@@ -156,6 +157,7 @@ export const initialData: AppData = {
   trafficSignals: [],
   externalSignals: [],
   liaInterventions: [],
+  liaConversations: [],
 }
 
 /** Keeps persisted records tied to a real member of their own family unit. */
@@ -188,7 +190,8 @@ export function sanitizeAppData(data: AppData): AppData {
   const acknowledgements = (data.acknowledgements || []).filter(entry => eventIds.has(entry.eventId) && membersByFamily.get(events.find(event => event.id === entry.eventId)?.familyId || '')?.has(entry.personId))
   const liaInterventions = (data.liaInterventions || []).map(item => eventIds.has(item.relatedEventId || '') || !item.relatedEventId ? item : { ...item, status: 'noAction' as const, actions: [], resolvedAt: item.resolvedAt || new Date().toISOString(), resolutionType: 'eventRemoved' as const, resolutionSummary: 'האירוע המקושר נמחק; אין צורך בפעולה.' })
   const externalSignals = (data.externalSignals || []).filter(signal => membersByFamily.has(signal.familyId) && membersByFamily.get(signal.familyId)?.has(signal.ownerMemberId))
-  return { ...data, families, events, tasks, activity, transportationRequests, integrationLogs, calendarMirrors, acknowledgements, suppressedRoutineTaskIds: data.suppressedRoutineTaskIds || [], pendingActions: (data.pendingActions || []).filter(action => membersByFamily.has(action.familyId)), dismissedActionIds: data.dismissedActionIds || [], trafficSignals: data.trafficSignals || [], externalSignals, liaInterventions }
+  const liaConversations = (data.liaConversations || []).filter(item => membersByFamily.get(item.familyId)?.has(item.memberId))
+  return { ...data, families, events, tasks, activity, transportationRequests, integrationLogs, calendarMirrors, acknowledgements, suppressedRoutineTaskIds: data.suppressedRoutineTaskIds || [], pendingActions: (data.pendingActions || []).filter(action => membersByFamily.has(action.familyId)), dismissedActionIds: data.dismissedActionIds || [], trafficSignals: data.trafficSignals || [], externalSignals, liaInterventions, liaConversations }
 }
 
 /** Move the original demo family to its new ID without dropping local edits. */
@@ -217,6 +220,7 @@ export function migrateDefaultFamily(data: AppData): AppData {
     externalSignals: (data.externalSignals || []).map(signal => signal.familyId === previousId ? { ...signal, familyId: DEFAULT_FAMILY_ID, id: replaceKey(signal.id) } : signal),
     pendingActions: (data.pendingActions || []).map(action => action.familyId === previousId ? { ...action, familyId: DEFAULT_FAMILY_ID, id: replaceKey(action.id) } : action),
     dismissedActionIds: (data.dismissedActionIds || []).map(replaceKey),
+    liaConversations: (data.liaConversations || []).map(item => item.familyId === previousId ? { ...item, familyId: DEFAULT_FAMILY_ID } : item),
   }
 }
 
@@ -255,6 +259,7 @@ export function readData(): AppData {
         trafficSignals: saved.trafficSignals || [],
         externalSignals: saved.externalSignals || [],
         liaInterventions: saved.liaInterventions || [],
+        liaConversations: saved.liaConversations || [],
       }))
     }
   } catch { /* use demo state */ }
@@ -281,6 +286,7 @@ export function removePersonAndTheirData(data: AppData, familyId: string, person
     trafficSignals: data.trafficSignals || [],
     externalSignals: (data.externalSignals || []).filter(item => item.familyId !== familyId || item.ownerMemberId !== personId),
     liaInterventions: (data.liaInterventions || []).filter(item => item.familyId !== familyId || !item.relatedMemberIds.includes(personId)),
+    liaConversations: (data.liaConversations || []).filter(item => item.familyId !== familyId || item.memberId !== personId),
   }
 }
 
