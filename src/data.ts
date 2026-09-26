@@ -8,8 +8,8 @@ export type PersonalIntegration = { sourceId: IntegrationSource; connectionStatu
 export type PersonalSettings = { notifications: { enabled: boolean }; lia: { proactiveSuggestions: boolean }; integrations: PersonalIntegration[] }
 export type Person = { id: string; name: string; role: 'אב' | 'אם' | 'בן' | 'בת'; color: string; age: number; birthYear?: number; birthDate?: string; hasLicense: boolean; hasCar: boolean; availableForPickup: boolean; availability?: 'available' | 'home' | 'work' | 'travel' | 'unavailable'; unavailableUntil?: string; travelMinutes?: number; activeDriver?: boolean; unavailableFrom?: string; unavailableTo?: string; preferredMaxRides?: number; lastResortDriver?: boolean; canUseTransit?: boolean; canTravelAlone?: boolean; routines?: WeeklyRoutine[]; personalSettings?: PersonalSettings }
 export type FamilyUnit = { id: string; name: string; people: Person[]; preferences?: FamilyPreferences }
-export type FamilyEvent = { id: string; familyId: string; title: string; date: string; time: string; endDate?: string; endTime?: string; icon: string; participantIds: string[]; responsibleId: string; details: string; needsAttention?: boolean; requiresDriver?: boolean; departureTime?: string; routeMinutes?: number; createdById?: string; issueReason?: string; sourceNote?: string; priority?: Priority; preferredDriverId?: string; transitAvailable?: boolean; routineOverride?: boolean }
-export type FamilyTask = { id: string; familyId: string; title: string; ownerId: string; due: string; done: boolean; eventId?: string; requiresAdult?: boolean; priority?: Priority; flexible?: boolean; repeatDays?: number[]; responsibility?: boolean; routineId?: string }
+export type FamilyEvent = { id: string; familyId: string; title: string; date: string; time: string; endDate?: string; endTime?: string; icon: string; participantIds: string[]; responsibleId: string; details: string; needsAttention?: boolean; requiresDriver?: boolean; departureTime?: string; routeMinutes?: number; createdById?: string; issueReason?: string; sourceNote?: string; sourceSignalId?: string; priority?: Priority; preferredDriverId?: string; transitAvailable?: boolean; routineOverride?: boolean }
+export type FamilyTask = { id: string; familyId: string; title: string; ownerId: string; due: string; done: boolean; eventId?: string; sourceSignalId?: string; requiresAdult?: boolean; priority?: Priority; flexible?: boolean; repeatDays?: number[]; responsibility?: boolean; routineId?: string }
 export type Activity = { id: string; familyId: string; text: string; personIds: string[]; createdAt?: string; source?: IntegrationSource; eventId?: string }
 export type TransportationRequest = { id: string; familyId: string; eventId: string; passengerId: string; eligibleMemberIds: string[]; responses: Record<string, 'PENDING' | 'CAN_DO' | 'CANNOT_DO'>; selectedDriverId: string; status: 'OPEN' | 'PARTIALLY_RESPONDED' | 'COVERED' | 'UNRESOLVED' | 'CANCELLED'; createdById: string; origin: string; destination: string; requiredAt: string }
 export type IntegrationSource = 'waze' | 'whatsapp' | 'school' | 'university' | 'family' | 'calendar' | 'email' | 'weather' | 'location' | 'work' | 'club' | 'transit'
@@ -17,7 +17,8 @@ export type IntegrationLog = { id: string; familyId: string; scenarioKey: string
 export type CalendarMirror = { id: string; familyId: string; eventId: string; personId: string; provider: 'google'; createdAt: string }
 import type { LiaIntervention } from './liaInterventions'
 import type { TrafficSignal } from './trafficSignals'
-export type AppData = { families: FamilyUnit[]; events: FamilyEvent[]; tasks: FamilyTask[]; activity: Activity[]; transportationRequests: TransportationRequest[]; integrationLogs: IntegrationLog[]; calendarMirrors: CalendarMirror[]; acknowledgements?: EventAcknowledgement[]; suppressedRoutineTaskIds?: string[]; pendingActions?: PendingAction[]; dismissedActionIds?: string[]; trafficSignals?: TrafficSignal[]; liaInterventions?: LiaIntervention[] }
+import type { ExternalSignal } from './showcaseFlows'
+export type AppData = { families: FamilyUnit[]; events: FamilyEvent[]; tasks: FamilyTask[]; activity: Activity[]; transportationRequests: TransportationRequest[]; integrationLogs: IntegrationLog[]; calendarMirrors: CalendarMirror[]; acknowledgements?: EventAcknowledgement[]; suppressedRoutineTaskIds?: string[]; pendingActions?: PendingAction[]; dismissedActionIds?: string[]; trafficSignals?: TrafficSignal[]; externalSignals?: ExternalSignal[]; liaInterventions?: LiaIntervention[] }
 
 export const uid = () => Math.random().toString(36).slice(2, 10)
 export const ageFromBirthYear = (year: number) => new Date().getFullYear() - year
@@ -39,7 +40,7 @@ export function normalizePersonalSettings(settings?: Partial<PersonalSettings>):
 }
 function demoPersonalSettings(): PersonalSettings {
   const settings = defaultPersonalSettings()
-  return { ...settings, integrations: settings.integrations.map(item => ['waze', 'calendar'].includes(item.sourceId) ? { ...item, connectionStatus: 'connected', liaAccess: 'allowed' } : item) }
+  return { ...settings, integrations: settings.integrations.map(item => ['waze', 'calendar', 'whatsapp', 'email', 'school'].includes(item.sourceId) ? { ...item, connectionStatus: 'connected', liaAccess: 'allowed' } : item) }
 }
 export function validBirthDate(value: string, today = localDate()): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value < '1900-01-01' || value > today) return false
@@ -153,6 +154,7 @@ export const initialData: AppData = {
   pendingActions: [],
   dismissedActionIds: [],
   trafficSignals: [],
+  externalSignals: [],
   liaInterventions: [],
 }
 
@@ -185,7 +187,8 @@ export function sanitizeAppData(data: AppData): AppData {
   const calendarMirrors = (data.calendarMirrors || []).filter(entry => eventIds.has(entry.eventId) && membersByFamily.get(entry.familyId)?.has(entry.personId))
   const acknowledgements = (data.acknowledgements || []).filter(entry => eventIds.has(entry.eventId) && membersByFamily.get(events.find(event => event.id === entry.eventId)?.familyId || '')?.has(entry.personId))
   const liaInterventions = (data.liaInterventions || []).map(item => eventIds.has(item.relatedEventId || '') || !item.relatedEventId ? item : { ...item, status: 'noAction' as const, actions: [], resolvedAt: item.resolvedAt || new Date().toISOString(), resolutionType: 'eventRemoved' as const, resolutionSummary: 'האירוע המקושר נמחק; אין צורך בפעולה.' })
-  return { ...data, families, events, tasks, activity, transportationRequests, integrationLogs, calendarMirrors, acknowledgements, suppressedRoutineTaskIds: data.suppressedRoutineTaskIds || [], pendingActions: (data.pendingActions || []).filter(action => membersByFamily.has(action.familyId)), dismissedActionIds: data.dismissedActionIds || [], trafficSignals: data.trafficSignals || [], liaInterventions }
+  const externalSignals = (data.externalSignals || []).filter(signal => membersByFamily.has(signal.familyId) && membersByFamily.get(signal.familyId)?.has(signal.ownerMemberId))
+  return { ...data, families, events, tasks, activity, transportationRequests, integrationLogs, calendarMirrors, acknowledgements, suppressedRoutineTaskIds: data.suppressedRoutineTaskIds || [], pendingActions: (data.pendingActions || []).filter(action => membersByFamily.has(action.familyId)), dismissedActionIds: data.dismissedActionIds || [], trafficSignals: data.trafficSignals || [], externalSignals, liaInterventions }
 }
 
 /** Move the original demo family to its new ID without dropping local edits. */
@@ -211,6 +214,7 @@ export function migrateDefaultFamily(data: AppData): AppData {
     transportationRequests: data.transportationRequests.map(request => ({ ...request, familyId: familyId(request.familyId) })),
     integrationLogs: data.integrationLogs.map(entry => ({ ...entry, familyId: familyId(entry.familyId), scenarioKey: entry.familyId === previousId ? replaceKey(entry.scenarioKey) : entry.scenarioKey })),
     calendarMirrors: data.calendarMirrors.map(entry => ({ ...entry, familyId: familyId(entry.familyId) })),
+    externalSignals: (data.externalSignals || []).map(signal => signal.familyId === previousId ? { ...signal, familyId: DEFAULT_FAMILY_ID, id: replaceKey(signal.id) } : signal),
     pendingActions: (data.pendingActions || []).map(action => action.familyId === previousId ? { ...action, familyId: DEFAULT_FAMILY_ID, id: replaceKey(action.id) } : action),
     dismissedActionIds: (data.dismissedActionIds || []).map(replaceKey),
   }
@@ -249,6 +253,7 @@ export function readData(): AppData {
         pendingActions: saved.pendingActions || [],
         dismissedActionIds: saved.dismissedActionIds || [],
         trafficSignals: saved.trafficSignals || [],
+        externalSignals: saved.externalSignals || [],
         liaInterventions: saved.liaInterventions || [],
       }))
     }
@@ -274,6 +279,7 @@ export function removePersonAndTheirData(data: AppData, familyId: string, person
     pendingActions: data.pendingActions || [],
     dismissedActionIds: data.dismissedActionIds || [],
     trafficSignals: data.trafficSignals || [],
+    externalSignals: (data.externalSignals || []).filter(item => item.familyId !== familyId || item.ownerMemberId !== personId),
     liaInterventions: (data.liaInterventions || []).filter(item => item.familyId !== familyId || !item.relatedMemberIds.includes(personId)),
   }
 }

@@ -1,9 +1,9 @@
 import type { AppData, IntegrationSource } from './data'
 
 export type LiaInterventionStatus = 'decisionRequired' | 'waiting' | 'owned' | 'inProgress' | 'completed' | 'noAction'
-export type LiaActionKind = 'takeOwnership' | 'complete' | 'cannotDo' | 'acceptHandoff' | 'declineHandoff' | 'approve' | 'addToCalendar' | 'dismiss' | 'openDetails'
+export type LiaActionKind = 'takeOwnership' | 'complete' | 'cannotDo' | 'acceptHandoff' | 'declineHandoff' | 'approve' | 'addToCalendar' | 'createTask' | 'dismiss' | 'openDetails'
 export type LiaInterventionAction = { id: string; kind: LiaActionKind; label: string; primary?: boolean }
-export type LiaInterventionSource = { sourceId: IntegrationSource; mode: 'demo' | 'live' }
+export type LiaInterventionSource = { sourceId: IntegrationSource; mode: 'demo' | 'live'; ownerMemberId?: string }
 export type LiaIntervention = {
   id: string
   familyId: string
@@ -18,6 +18,8 @@ export type LiaIntervention = {
   statusDetail?: string
   explanation: string
   relatedEventId?: string
+  relatedTaskId?: string
+  signalId?: string
   relatedMemberIds: string[]
   createdAt: string
   updatedAt: string
@@ -25,7 +27,7 @@ export type LiaIntervention = {
   handoffRequestId?: string
   resolvedAt?: string
   resolvedBy?: string
-  resolutionType?: 'responsibilityConfirmed' | 'responsibilityTransferred' | 'dismissed' | 'eventRemoved'
+  resolutionType?: 'responsibilityConfirmed' | 'responsibilityTransferred' | 'calendarUpdated' | 'taskCreated' | 'dismissed' | 'eventRemoved'
   resolutionSummary?: string
 }
 
@@ -40,13 +42,14 @@ const modeFor = (data: AppData, familyId: string, sourceId: IntegrationSource): 
 export function buildLiaInterventions(data: AppData, familyId: string): LiaIntervention[] {
   const family = data.families.find(item => item.id === familyId)
   if (!family) return []
+  const stored = (data.liaInterventions || []).filter(item => item.familyId === familyId)
+  if ((data.externalSignals || []).some(signal => signal.familyId === familyId)) return stored
   const timestamp = now()
   const child = family.people.find(person => person.age < 18)
   const adult = family.people.find(person => person.age >= 18)
-  const stored = (data.liaInterventions || []).filter(item => item.familyId === familyId)
   const demo: LiaIntervention[] = familyId === 'Avrahami' ? [
-    { id: 'lia-demo-whatsapp', familyId, type: 'message' as const, title: 'LIA זיהתה שינוי', detectedChange: `הפעילות של ${child?.name || 'בן המשפחה'} הוקדמה ל־17:00.`, whyItMatters: 'השינוי משפיע על שעת היציאה וההסעה.', recommendation: 'לאשר את השעה החדשה בתוכנית.', sources: [{ sourceId: 'whatsapp', mode: modeFor(data, familyId, 'whatsapp') }], actions: [], status: 'waiting', explanation: 'מתרחיש WhatsApp הדמו נגזר עדכון שעה. ההודעה המלאה אינה מוצגת למשפחה.', relatedMemberIds: child ? [child.id] : [], createdAt: timestamp, updatedAt: timestamp, visibility: { audience: 'family' } },
-    { id: 'lia-demo-handled', familyId, type: 'calendar' as const, title: 'האירוע נוסף ליומן', detectedChange: 'עדכון משפחתי הפך לאירוע מסודר.', whyItMatters: 'האירוע זמין כעת בתוכנית המשפחתית.', recommendation: '', sources: [{ sourceId: 'calendar', mode: modeFor(data, familyId, 'calendar') }], actions: [], status: 'completed', statusDetail: adult ? `היומן של ${adult.name} עודכן` : undefined, explanation: 'הפרטים נבדקו והאירוע נשמר בלוח.', relatedMemberIds: adult ? [adult.id] : [], createdAt: timestamp, updatedAt: timestamp, visibility: { audience: 'family' } },
+    { id: 'lia-demo-whatsapp', familyId, type: 'message', title: 'LIA זיהתה שינוי', detectedChange: `הפעילות של ${child?.name || 'בן המשפחה'} הוקדמה ל־17:00.`, whyItMatters: 'השינוי משפיע על שעת היציאה וההסעה.', recommendation: 'לאשר את השעה החדשה בתוכנית.', sources: [{ sourceId: 'whatsapp', mode: modeFor(data, familyId, 'whatsapp') }], actions: [], status: 'waiting', explanation: 'מתרחיש WhatsApp הדמו נגזר עדכון שעה. ההודעה המלאה אינה מוצגת למשפחה.', relatedMemberIds: child ? [child.id] : [], createdAt: timestamp, updatedAt: timestamp, visibility: { audience: 'family' } },
+    { id: 'lia-demo-handled', familyId, type: 'calendar', title: 'האירוע נוסף ליומן', detectedChange: 'עדכון משפחתי הפך לאירוע מסודר.', whyItMatters: 'האירוע זמין כעת בתוכנית המשפחתית.', recommendation: '', sources: [{ sourceId: 'calendar', mode: modeFor(data, familyId, 'calendar') }], actions: [], status: 'completed', statusDetail: adult ? `היומן של ${adult.name} עודכן` : undefined, explanation: 'הפרטים נבדקו והאירוע נשמר בלוח.', relatedMemberIds: adult ? [adult.id] : [], createdAt: timestamp, updatedAt: timestamp, visibility: { audience: 'family' } },
   ] : []
   return [...stored, ...demo.filter(item => !stored.some(saved => saved.id === item.id))]
 }
