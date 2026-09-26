@@ -18,7 +18,7 @@ export const sourceDefinitions: SourceDefinition[] = [
   { id: 'location', displayName: 'Location', icon: '📍', description: 'מיקום משוער', demoUse: 'LIA משתמשת במיקום לתיאום הגעה.' },
   { id: 'school', displayName: 'בית ספר', icon: '🏫', description: 'מערכת ועדכונים', demoUse: 'LIA מזהה שינויים בשעות ובפעילויות.' },
   { id: 'university', displayName: 'אוניברסיטה', icon: '🎓', description: 'מערכת לימודים', demoUse: 'LIA מזהה שינויים במערכת הלימודים.' },
-  { id: 'work', displayName: 'עבודה', icon: '💼', description: 'זמנות ואירועי עבודה', demoUse: 'LIA מתחשבת בשעות העבודה.' },
+  { id: 'work', displayName: 'עבודה', icon: '💼', description: 'זמינות ואירועי עבודה', demoUse: 'LIA מתחשבת בשעות העבודה.' },
   { id: 'club', displayName: 'פעילויות', icon: '⚽', description: 'חוגים ופעילויות', demoUse: 'LIA משתמשת בשעות ובמיקומים לתיאום.' },
   { id: 'transit', displayName: 'תחבורה ציבורית', icon: '🚌', description: 'קווים וזמני הגעה', demoUse: 'LIA בודקת חלופות להסעה.' },
 ]
