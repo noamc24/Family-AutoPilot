@@ -1,6 +1,6 @@
 import { createRequest, eligibleDrivers, ensureRequests, rankedDrivers, requestForEvent } from './coordination'
 import { dateLabel, localDate, uid, type AppData, type FamilyEvent, type Person } from './data'
-import { buildLiaInterventions, type LiaIntervention } from './liaInterventions'
+import { buildLiaInterventions } from './liaInterventions'
 import type { LiaChatAction, LiaConversation, LiaMessage, LiaPendingIntent } from './liaChatTypes'
 
 export type LiaChatIntent = 'WHAT_NEEDS_ATTENTION' | 'TODAY_SCHEDULE' | 'UPCOMING_EVENTS' | 'WHO_CAN_DRIVE' | 'MEMBER_AVAILABILITY' | 'OPEN_TASKS' | 'RECENT_CHANGES' | 'ALREADY_HANDLED' | 'SEND_RIDE_REQUEST' | 'EXPLAIN' | 'RIDE_STATUS' | 'HELP' | 'UNSUPPORTED'

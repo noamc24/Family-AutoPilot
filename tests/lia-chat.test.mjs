@@ -12,7 +12,7 @@ const result = await build({
 })
 const module = { exports: {} }
 new Function('module', 'exports', 'require', result.outputFiles[0].text)(module, module.exports, createRequire(import.meta.url))
-const { conversationFor, clearLiaConversation, detectLiaIntent, performLiaChatAction, sendLiaChatMessage, liaQuickPrompts, initialData, localDate, readData, respondToRequest, confirmDriver, requestForEvent } = module.exports
+const { conversationFor, clearLiaConversation, detectLiaIntent, performLiaChatAction, sendLiaChatMessage, liaQuickPrompts, initialData, localDate, readData, sanitizeAppData, respondToRequest, confirmDriver, requestForEvent } = module.exports
 
 const clone = value => structuredClone(value)
 const conversation = (data, memberId = 'Mor') => conversationFor(data, 'Avrahami', memberId)
@@ -114,6 +114,23 @@ test('לא מבטל pending suggestion בלי ליצור בקשה', () => {
   assert.equal(conversationFor(data, 'f', 'm').contextState.pendingIntent, undefined)
   assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /לא שלחתי/)
   assert.equal(conversationFor(data, 'f', 'm').messages.find(item => item.action)?.status, 'dismissed')
+})
+
+test('normalization מבטלת פעולת chat שהתייתמה לאחר מחיקת אירוע או Member', () => {
+  const suggested = sendLiaChatMessage(simpleData(), 'f', 'm', 'מי יכול לקחת את איתמר לחוג?').data
+  const withoutEvent = sanitizeAppData({ ...clone(suggested), events: [] })
+  const eventConversation = conversationFor(withoutEvent, 'f', 'm')
+  assert.equal(eventConversation.contextState.pendingIntent, undefined)
+  assert.equal(eventConversation.contextState.lastEventId, undefined)
+  assert.equal(eventConversation.messages.find(item => item.action)?.status, 'failed')
+  assert.equal(performLiaChatAction(withoutEvent, eventConversation, 'm').success, false)
+
+  const withoutDriver = clone(suggested)
+  withoutDriver.families[0].people = withoutDriver.families[0].people.filter(person => person.id !== 'a')
+  const memberConversation = conversationFor(sanitizeAppData(withoutDriver), 'f', 'm')
+  assert.equal(memberConversation.contextState.pendingIntent, undefined)
+  assert.equal(memberConversation.contextState.lastMemberId, undefined)
+  assert.equal(memberConversation.messages.find(item => item.action)?.status, 'failed')
 })
 
 test('סטטוס הסעה נקרא מה-state הנוכחי לאחר אישור מחוץ לצ׳אט', () => {

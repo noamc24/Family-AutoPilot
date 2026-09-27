@@ -1,4 +1,4 @@
-import { dateLabel, localDate, uid, type AppData, type FamilyEvent, type IntegrationSource, type Person } from './data'
+import { localDate, uid, type AppData, type FamilyEvent, type IntegrationSource } from './data'
 import { ensureRequests, requestForEvent, respondToRequest } from './coordination'
 import { applyLatePlan, getLateImpact, removeEventAndDependents, saveEventAndDependents } from './domain'
 import { addLog, simulateIntegration } from './integrations'
@@ -32,9 +32,9 @@ const eventFor = (data: AppData, familyId: string, pattern: RegExp) => data.even
 const assignedRide = (data: AppData, familyId: string) => data.events.find(event => event.familyId === familyId && event.date >= localDate() && event.requiresDriver && event.responsibleId)
 const firstChild = (data: AppData, familyId: string) => familyOf(data, familyId)?.people.find(person => person.age < 18)
 
-function finish(data: AppData, familyId: string, id: ExternalScenarioId, source: IntegrationSource, sourceText: string, message: string, personIds: string[], _eventId: string | undefined, trigger: 'manual' | 'automatic') {
+function finish(data: AppData, familyId: string, id: ExternalScenarioId, source: IntegrationSource, sourceText: string, message: string, personIds: string[], eventId: string | undefined, trigger: 'manual' | 'automatic') {
   const scenarioKey = `external:${familyId}:${id}`
-  return { data: addLog(data, familyId, source, scenarioKey, sourceText, message, personIds, undefined, trigger), message, applied: true }
+  return { data: addLog(data, familyId, source, scenarioKey, sourceText, message, personIds, eventId, trigger), message, applied: true }
 }
 
 function moveEvent(data: AppData, event: FamilyEvent, time: string, sourceNote: string, details: string, actorId: string) {

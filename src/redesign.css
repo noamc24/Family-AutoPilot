@@ -216,10 +216,6 @@ h1 { color: var(--fp-text); font-size: clamp(30px, 3vw, 42px); font-weight: 700;
 .task-row.is-done .task-check { background: var(--fp-success); }
 .task-row strong { color: var(--fp-text); font-size: 12px; font-weight: 600; }
 .task-row small { color: var(--fp-text-soft); }
-.activity-list { position: relative; gap: 0; }
-.activity-row { position: relative; padding: 9px 0; gap: 11px; color: #4f5650; }
-.activity-row:not(:last-child)::after { content: ''; position: absolute; right: 9px; top: 29px; bottom: -8px; width: 1px; background: var(--fp-border); }
-.activity-check { width: 19px; height: 19px; background: var(--fp-lia-soft); color: var(--fp-lia); }
 .feed-list { display: grid; gap: 0; }
 .feed-row { display: grid; grid-template-columns: 42px 1fr; gap: 10px; padding: 10px 0; border-top: 1px solid var(--fp-border); }
 .feed-row time { color: var(--fp-text-soft); font-size: 9px; direction: ltr; }
@@ -291,7 +287,6 @@ h1 { color: var(--fp-text); font-size: clamp(30px, 3vw, 42px); font-weight: 700;
 .lia-message > div { padding: 15px 17px; border: 1px solid #e1e3f5; border-radius: 6px 17px 17px 17px; background: #f5f6ff; }
 .lia-message strong { font-size: 13px; }
 .lia-message p { color: var(--fp-text-soft); font-size: 12px; margin: 5px 0 0; }
-.lia-chat-empty { display: flex; align-items: center; justify-content: center; gap: 7px; color: #9a9f9b; font-size: 10px; margin-top: 44px; }
 .lia-clear-chat { margin-inline-start: auto; display: flex; align-items: center; gap: 6px; border: 0; background: transparent; color: var(--fp-text-soft); font-size: 10px; }
 .lia-chat-welcome { max-width: 420px; margin: 52px auto; text-align: center; color: var(--fp-text-soft); }
 .lia-chat-welcome .lia-mini-orb { display: inline-flex; margin-bottom: 10px; }

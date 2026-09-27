@@ -188,10 +188,31 @@ export function sanitizeAppData(data: AppData): AppData {
     .map(entry => ({ ...entry, personIds: entry.personIds.filter(id => membersByFamily.get(entry.familyId)!.has(id)) }))
   const calendarMirrors = (data.calendarMirrors || []).filter(entry => eventIds.has(entry.eventId) && membersByFamily.get(entry.familyId)?.has(entry.personId))
   const acknowledgements = (data.acknowledgements || []).filter(entry => eventIds.has(entry.eventId) && membersByFamily.get(events.find(event => event.id === entry.eventId)?.familyId || '')?.has(entry.personId))
-  const liaInterventions = (data.liaInterventions || []).map(item => eventIds.has(item.relatedEventId || '') || !item.relatedEventId ? item : { ...item, status: 'noAction' as const, actions: [], resolvedAt: item.resolvedAt || new Date().toISOString(), resolutionType: 'eventRemoved' as const, resolutionSummary: 'האירוע המקושר נמחק; אין צורך בפעולה.' })
+  const liaInterventions = (data.liaInterventions || []).filter(item => membersByFamily.has(item.familyId)).map(item => {
+    const relatedMemberIds = item.relatedMemberIds.filter(id => membersByFamily.get(item.familyId)!.has(id))
+    return eventIds.has(item.relatedEventId || '') || !item.relatedEventId
+      ? { ...item, relatedMemberIds }
+      : { ...item, relatedMemberIds, status: 'noAction' as const, actions: [], resolvedAt: item.resolvedAt || new Date().toISOString(), resolutionType: 'eventRemoved' as const, resolutionSummary: 'האירוע המקושר נמחק; אין צורך בפעולה.' }
+  })
   const externalSignals = (data.externalSignals || []).filter(signal => membersByFamily.has(signal.familyId) && membersByFamily.get(signal.familyId)?.has(signal.ownerMemberId))
-  const liaConversations = (data.liaConversations || []).filter(item => membersByFamily.get(item.familyId)?.has(item.memberId))
-  return { ...data, families, events, tasks, activity, transportationRequests, integrationLogs, calendarMirrors, acknowledgements, suppressedRoutineTaskIds: data.suppressedRoutineTaskIds || [], pendingActions: (data.pendingActions || []).filter(action => membersByFamily.has(action.familyId)), dismissedActionIds: data.dismissedActionIds || [], trafficSignals: data.trafficSignals || [], externalSignals, liaInterventions, liaConversations }
+  const interventionIds = new Set(liaInterventions.map(item => item.id))
+  const liaConversations = (data.liaConversations || []).filter(item => membersByFamily.get(item.familyId)?.has(item.memberId)).map(item => {
+    const members = membersByFamily.get(item.familyId)!
+    const familyEventIds = new Set(events.filter(event => event.familyId === item.familyId).map(event => event.id))
+    const pending = item.contextState?.pendingIntent
+    const validPending = pending && familyEventIds.has(pending.relatedEventId) && members.has(pending.suggestedMemberId) ? pending : undefined
+    const contextState = item.contextState ? {
+      ...item.contextState,
+      pendingIntent: validPending,
+      lastEventId: item.contextState.lastEventId && familyEventIds.has(item.contextState.lastEventId) ? item.contextState.lastEventId : undefined,
+      lastMemberId: item.contextState.lastMemberId && members.has(item.contextState.lastMemberId) ? item.contextState.lastMemberId : undefined,
+      lastInterventionId: item.contextState.lastInterventionId && interventionIds.has(item.contextState.lastInterventionId) ? item.contextState.lastInterventionId : undefined,
+    } : undefined
+    const messages = validPending === pending ? item.messages : item.messages.map(entry => entry.action?.kind === 'sendRideRequest' && entry.status === 'sent' ? { ...entry, status: 'failed' as const } : entry)
+    return { ...item, messages, contextState }
+  })
+  const trafficSignals = (data.trafficSignals || []).filter(signal => membersByFamily.has(signal.familyId) && eventIds.has(signal.relatedEventId))
+  return { ...data, families, events, tasks, activity, transportationRequests, integrationLogs, calendarMirrors, acknowledgements, suppressedRoutineTaskIds: data.suppressedRoutineTaskIds || [], pendingActions: (data.pendingActions || []).filter(action => membersByFamily.has(action.familyId)), dismissedActionIds: data.dismissedActionIds || [], trafficSignals, externalSignals, liaInterventions, liaConversations }
 }
 
 /** Move the original demo family to its new ID without dropping local edits. */

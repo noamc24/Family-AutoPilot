@@ -9,7 +9,7 @@ import { advanceAutomaticExternalScenarios, externalScenarios, runExternalScenar
 import { applyForecastSolution, scanFutureRisks, suggestForecastSolution, type ForecastRisk } from './forecast'
 import { activityFeed } from './activityFeed'
 import { upcomingBirthdays, type BirthdayReminder } from './birthdays'
-import { closureIssues, formatRoutineDayRange, materializeRoutineTasks, nextRepeatDate, routineAt, routineConflictingEvents, routineDaySegments, routineDays, routineDisplayRows, routineDaysList, routineGroupKey, sensitiveAutomaticChange, syncAcknowledgements } from './workflow'
+import { closureIssues, materializeRoutineTasks, nextRepeatDate, routineAt, routineConflictingEvents, routineDays, routineDisplayRows, sensitiveAutomaticChange, syncAcknowledgements } from './workflow'
 import { sourceDefinitionById } from './sourceDefinitions'
 import { LiaHomeSection } from './components/LiaHomeSection'
 import { applyTrafficFlowAction, initializeTrafficCoreFlow } from './liaCoreFlow'
@@ -127,11 +127,8 @@ function App() {
   const conflictedEvents = familyEvents.filter(event => !!event.createdById && scheduleConflicts(data, event).length > 0)
   const futureRisks = useMemo(() => scanFutureRisks(data, family.id), [data, family.id])
   const attentionCount = attention.length + attentionTasks.length + actionableRequests.length + unresolvedRequests.length + conflictedEvents.filter(event => !requestForEvent(data, event.id)).length + futureRisks.length
-  const familyOpenRequests = requests.filter(request => request.status !== 'COVERED' && (data.events.find(event => event.id === request.eventId)?.date || '') >= localDate())
   const openIssues = closureIssues(data, family.id)
   const familyDecisionCount = openIssues.length
-  const familyRidesWithoutDriver = familyEvents.filter(event => event.requiresDriver && !event.responsibleId && event.date >= localDate()).length
-  const familyConflicts = futureRisks.filter(risk => risk.kind === 'overlap' || risk.kind === 'double-ride').length
   const familyTodayEvents = familyEvents.filter(event => event.date === localDate()).length
   const statusDetails = familyDecisionCount ? openIssues.slice(0, 2).join(' · ') + (openIssues.length > 2 ? ` · ועוד ${openIssues.length - 2} לטיפול` : '') : `${countLabel(familyTodayEvents, 'אירוע היום', 'אירועים היום')} · אין נושאים פתוחים`
   const lateImpact = getLateImpact(data, family, activePersonId)
@@ -437,7 +434,7 @@ function App() {
     if (data.families.length === 1) { setToast('צריך להשאיר לפחות תא משפחתי אחד'); return }
     askConfirmation(`למחוק את "${item.name}" ואת כל האירועים והמשימות שלו?`, () => {
       const next = data.families.find(f => f.id !== item.id)!
-      setData(previous => ({ ...previous, families: previous.families.filter(f => f.id !== item.id), events: previous.events.filter(e => e.familyId !== item.id), tasks: previous.tasks.filter(t => t.familyId !== item.id), activity: previous.activity.filter(a => a.familyId !== item.id), transportationRequests: previous.transportationRequests.filter(r => r.familyId !== item.id), integrationLogs: previous.integrationLogs.filter(entry => entry.familyId !== item.id), calendarMirrors: previous.calendarMirrors.filter(entry => entry.familyId !== item.id), acknowledgements: (previous.acknowledgements || []).filter(entry => !previous.events.some(event => event.id === entry.eventId && event.familyId === item.id)), pendingActions: (previous.pendingActions || []).filter(action => action.familyId !== item.id), dismissedActionIds: (previous.dismissedActionIds || []).filter(id => !id.includes(`:${item.id}:`)), externalSignals: (previous.externalSignals || []).filter(signal => signal.familyId !== item.id), liaInterventions: (previous.liaInterventions || []).filter(intervention => intervention.familyId !== item.id), liaConversations: (previous.liaConversations || []).filter(conversation => conversation.familyId !== item.id) }))
+      setData(previous => sanitizeAppData({ ...previous, families: previous.families.filter(f => f.id !== item.id), dismissedActionIds: (previous.dismissedActionIds || []).filter(id => !id.includes(`:${item.id}:`)) }))
       setFamilyId(next.id); setPersonId(next.people[0]?.id || ''); setDialog(null); setView('home'); setToast('התא המשפחתי נמחק')
     })
   }
@@ -673,11 +670,6 @@ function IntegrationHub({ data, familyId, actorId, compact = false, onRun, onSho
     {visibleLogs.length ? <div className="integration-log-list">{visibleLogs.map(entry => <div className="integration-log" key={entry.id}><span>{externalScenarios.find(scenario => scenario.source === entry.source)?.icon || sources.find(source => source.id === entry.source)?.icon || '👨‍👩‍👧‍👦'}</span><div><strong>{integrationDisplayText(entry.action)}</strong>{entry.trigger === 'automatic' && <em>זוהה אוטומטית</em>}<em>{entry.handledAt ? 'טופל' : 'ממתין לטיפול'}</em><small>{integrationDisplayText(entry.sourceText)}</small>{data.calendarMirrors.some(mirror => mirror.eventId === entry.eventId) && <em>נוסף ליומן גוגל</em>}</div></div>)}</div> : <p className="integration-empty">עדיין אין עדכונים. אפשר להפעיל תרחיש במרכז העדכונים.</p>}
   </section>
 }
-function FamilySnapshot({ family, events, actorId }: { family: FamilyUnit; events: FamilyEvent[]; actorId: string }) {
-  const others = family.people.filter(person => person.id !== actorId)
-  if (!others.length) return null
-  return <section className="section-card family-snapshot"><div className="section-heading"><div><span className="section-kicker">במבט אחד</span><h2>המשפחה היום</h2></div></div><div className="snapshot-list">{others.map(person => { const next = events.find(event => event.date === localDate() && (event.participantIds.includes(person.id) || event.responsibleId === person.id)); const availability = person.availability === 'home' ? 'בבית' : person.availability === 'work' ? 'בעבודה' : person.availability === 'travel' ? 'בנסיעה' : person.availability === 'unavailable' ? 'לא זמין/ה' : 'זמין/ה'; return <div key={person.id}><span className={`avatar ${person.color}`}>{person.name.slice(0, 1)}</span><strong>{person.name}</strong><small>{person.availability && person.availability !== 'available' ? availability : next ? `${next.icon} ${next.title} · ${next.time}` : 'אין אירוע היום'}</small></div> })}</div></section>
-}
 function ChildHome({ person, family, data, events, tasks, onTasks, onCreateEvent }: { person?: Person; family: FamilyUnit; data: AppData; events: FamilyEvent[]; tasks: FamilyTask[]; onTasks: () => void; onCreateEvent: () => void }) {
   const rides = data.transportationRequests.filter(request => request.familyId === family.id && request.passengerId === person?.id)
   const name = (id: string) => family.people.find(member => member.id === id)?.name || 'בן משפחה'
@@ -705,12 +697,6 @@ function WithdrawReview({ requestId, data, onClose, onConfirm }: { requestId: st
 function ActivityFeed({ data, family }: { data: AppData; family: FamilyUnit }) {
   const entries = activityFeed(data, family.id)
   return <section className="section-card family-feed"><div className="section-heading"><div><span className="section-kicker">הפעילות המשפחתית</span><h2>מה קרה היום</h2></div></div>{entries.length ? <div className="feed-list">{entries.slice(0, 5).map(entry => <div className="feed-row" key={entry.id}><time dateTime={entry.createdAt}>{new Intl.DateTimeFormat('he-IL', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(entry.createdAt))}</time><div><strong>{integrationDisplayText(entry.text)}</strong><small>{entry.source === 'family' ? 'אוטופיילוט משפחתי' : entry.source ? integrationNames[entry.source] : entry.personName || 'המשפחה'}</small></div></div>)}</div> : <Empty text="עדיין לא היו עדכונים היום."/>}</section>
-}
-function PersonalFocus({ person, events, tasks, requests, unresolved, onTask }: { person?: Person; events: FamilyEvent[]; tasks: FamilyTask[]; requests: TransportationRequest[]; unresolved: number; onTask: () => void }) {
-  const child = !!person && person.age < 18
-  const today = events.filter(event => event.date === localDate())
-  const openTasks = tasks.filter(task => !task.done)
-  return <div className="personal-focus"><div><span className="section-kicker">{child ? 'היום שלך' : 'צריך אותך'}</span><strong>{child ? `${today.length} דברים בתוכנית שלך` : requests.length ? `${requests.length} ${requests.length === 1 ? 'בקשת הסעה ממתינה' : 'בקשות הסעה ממתינות'} לתשובתך` : unresolved ? `${unresolved} הסעות ללא פתרון` : openTasks.length ? `${openTasks.length} משימות מחכות לך` : 'אין בקשות שממתינות לך'}</strong><small>{child ? 'אירועים ומשימות שקשורים אליך מופיעים בהמשך.' : requests.length ? 'אפשר להשיב בהמשך הדף; התשובה תופיע לכל המשפחה.' : 'השינויים בתוכנית המשפחתית מתעדכנים כאן.'}</small></div><div><span className="section-kicker">{child ? 'המשימות שלי' : 'ההשפעה שלי'}</span><strong>{openTasks.length} משימות פתוחות · {today.length} אירועים היום</strong><button className="text-link" onClick={onTask}>למשימות שלי <ArrowLeft size={15}/></button></div></div>
 }
 function RequestBoard({ requests, data, actorId, onRespond, onConfirm, onAlternative, onWithdraw, onTransit }: { requests: TransportationRequest[]; data: AppData; actorId: string; onRespond: (id: string, response: 'CAN_DO' | 'CANNOT_DO') => void; onConfirm: (id: string, driverId: string) => void; onAlternative: (id: string) => void; onWithdraw: (id: string) => void; onTransit: (id: string) => void }) {
   const [explanation, setExplanation] = useState<string | null>(null)
