@@ -1,5 +1,5 @@
 import type { FamilyEvent, FamilyUnit, WeeklyRoutine } from './data'
-import { localIsoDate } from './uiModel'
+import { calendarDays, localIsoDate, type CalendarDisplay, type CalendarGrouping, type CalendarRange } from './uiModel'
 import { routineDaysList } from './workflow'
 
 export type RoutineOccurrence = {
@@ -13,6 +13,25 @@ export type RoutineOccurrence = {
   personName: string
   color: string
   routine: WeeklyRoutine
+}
+
+export type CalendarRenderer = 'daily-timeline' | 'weekly-timeline' | 'monthly-grid' | 'yearly-grid' | 'people-table' | 'people-rows' | 'day-rows'
+
+export function calendarDatesForRange(anchor: Date, range: CalendarRange) {
+  if (range !== 'year') return calendarDays(anchor, range)
+  const start = new Date(anchor.getFullYear(), 0, 1)
+  const end = new Date(anchor.getFullYear() + 1, 0, 1)
+  const days: Date[] = []
+  for (const day = new Date(start); day < end; day.setDate(day.getDate() + 1)) days.push(new Date(day))
+  return days
+}
+
+export function calendarRendererFor(range: CalendarRange, grouping: CalendarGrouping, display: CalendarDisplay): CalendarRenderer {
+  if (range === 'year') return 'yearly-grid'
+  if (grouping === 'people') return display === 'rows' ? 'people-rows' : 'people-table'
+  if (display === 'rows') return 'day-rows'
+  if (range === 'month') return 'monthly-grid'
+  return range === 'day' ? 'daily-timeline' : 'weekly-timeline'
 }
 
 export const timeMinutes = (value: string) => {

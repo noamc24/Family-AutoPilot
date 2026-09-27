@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { CalendarDays, Car, ChevronLeft, ChevronRight, List, Pencil, Plus, Repeat2, Rows3, X } from 'lucide-react'
 import { dateLabel, localDate, type FamilyEvent, type FamilyTask, type FamilyUnit } from '../data'
-import { deriveRoutineOccurrences, timeMinutes, visibleMonthItems, type RoutineOccurrence } from '../calendarModel'
+import { calendarDatesForRange, calendarRendererFor, deriveRoutineOccurrences, timeMinutes, visibleMonthItems, type RoutineOccurrence } from '../calendarModel'
 import { calendarDays, defaultCalendarView, eventsForMembers, localIsoDate, startOfWeek, visibleMemberIds, type CalendarDisplay, type CalendarGrouping, type CalendarRange } from '../uiModel'
 
 type Props = { family: FamilyUnit; events: FamilyEvent[]; tasks: FamilyTask[]; actorId: string; childMode: boolean; onCreate: (date?: string) => void; onOpenEvent: (event: FamilyEvent) => void; onOpenTask: (task: FamilyTask) => void }
@@ -15,15 +15,6 @@ const isRoutine = (item: CalendarItem): item is RoutineOccurrence => 'kind' in i
 const itemTime = (item: CalendarItem) => isRoutine(item) ? item.start : item.time
 const itemEnd = (item: CalendarItem) => isRoutine(item) ? item.end : item.endTime || `${String(Math.min(23, Number(item.time.slice(0, 2)) + 1)).padStart(2, '0')}:${item.time.slice(3, 5)}`
 
-function datesForRange(anchor: Date, range: CalendarRange) {
-  if (range !== 'year') return calendarDays(anchor, range)
-  const start = new Date(anchor.getFullYear(), 0, 1)
-  const end = new Date(anchor.getFullYear() + 1, 0, 1)
-  const days: Date[] = []
-  for (const day = new Date(start); day < end; day.setDate(day.getDate() + 1)) days.push(new Date(day))
-  return days
-}
-
 export function CalendarView({ family, events, tasks, actorId, childMode, onCreate, onOpenEvent, onOpenTask }: Props) {
   const [grouping, setGrouping] = useState<CalendarGrouping>(defaultCalendarView.grouping)
   const [display, setDisplay] = useState<CalendarDisplay>(defaultCalendarView.display)
@@ -33,10 +24,11 @@ export function CalendarView({ family, events, tasks, actorId, childMode, onCrea
   const [detail, setDetail] = useState<Detail | null>(null)
   const visiblePeople = childMode ? family.people.filter(person => person.id === actorId) : family.people
   const selected = visibleMemberIds(family.people, actorId, childMode, selectedPeople)
-  const dates = useMemo(() => datesForRange(anchor, range), [anchor, range])
+  const dates = useMemo(() => calendarDatesForRange(anchor, range), [anchor, range])
   const visibleEvents = useMemo(() => eventsForMembers(events.filter(event => event.familyId === family.id), selected), [events, family.id, selected.join('|')])
   const visibleTasks = useMemo(() => tasks.filter(task => task.familyId === family.id && selected.includes(task.ownerId)), [tasks, family.id, selected.join('|')])
   const routines = useMemo(() => deriveRoutineOccurrences(family, dates, visibleEvents, selected), [family, dates.map(localIsoDate).join('|'), visibleEvents, selected.join('|')])
+  const renderer = calendarRendererFor(range, grouping, display)
 
   const go = (delta: number) => setAnchor(previous => { const next = new Date(previous); if (range === 'day') next.setDate(next.getDate() + delta); else if (range === 'week') next.setDate(next.getDate() + delta * 7); else if (range === 'month') next.setMonth(next.getMonth() + delta); else next.setFullYear(next.getFullYear() + delta); return next })
   const openDay = (day: Date) => { setAnchor(day); setRange('day') }
@@ -49,15 +41,23 @@ export function CalendarView({ family, events, tasks, actorId, childMode, onCrea
     <div className="calendar-commandbar"><div className="calendar-period"><button onClick={() => go(1)} aria-label="הבא"><ChevronRight size={18}/></button><strong>{title}</strong><button onClick={() => go(-1)} aria-label="הקודם"><ChevronLeft size={18}/></button><button className="today-button" onClick={() => setAnchor(new Date())}>היום</button></div><Segment className="range-segment" label="טווח" value={range} options={Object.entries(rangeLabels)} onChange={value => setRange(value as CalendarRange)}/></div>
     <div className="calendar-toolbar"><Segment label="קיבוץ" value={grouping} options={[['days', 'ימים'], ['people', 'אנשים']]} onChange={value => setGrouping(value as CalendarGrouping)}/><Segment label="תצוגה" value={display} options={[['table', 'טבלה'], ['rows', 'שורות']]} onChange={value => setDisplay(value as CalendarDisplay)} icons={[<CalendarDays size={14}/>, <Rows3 size={14}/>]}/></div>
     {grouping === 'people' && <div className="people-filter" aria-label="בחירת בני משפחה">{visiblePeople.map(person => <button key={person.id} className={`${selected.includes(person.id) ? 'selected' : ''} ${person.color}`} onClick={() => togglePerson(person.id)} disabled={childMode}><span className={`avatar mini ${person.color}`}>{person.name[0]}</span>{person.name}</button>)}</div>}
-    {range === 'year' ? <YearView anchor={anchor} events={visibleEvents} routines={routines} onMonth={month => { setAnchor(new Date(anchor.getFullYear(), month, 1)); setRange('month') }}/>
-      : display === 'rows' ? <RowsView grouping={grouping} days={dates} people={visiblePeople.filter(person => selected.includes(person.id))} events={visibleEvents} routines={routines} tasks={visibleTasks} onItem={showItem} onTask={onOpenTask}/>
-      : grouping === 'people' ? <PeopleTable anchor={anchor} days={dates} people={visiblePeople.filter(person => selected.includes(person.id))} events={visibleEvents} routines={routines} onItem={showItem}/>
-      : range === 'month' ? <MonthTable anchor={anchor} events={visibleEvents} routines={routines} tasks={visibleTasks} family={family} onDay={openDay} onItem={showItem}/>
-      : <TimeGrid days={dates} events={visibleEvents} routines={routines} family={family} onItem={showItem}/>}
+    <CalendarBody renderer={renderer} anchor={anchor} days={dates} people={visiblePeople.filter(person => selected.includes(person.id))} events={visibleEvents} routines={routines} tasks={visibleTasks} family={family} onDay={openDay} onItem={showItem} onTask={onOpenTask} onMonth={month => { setAnchor(new Date(anchor.getFullYear(), month, 1)); setRange('month') }}/>
     {detail && (
       <CalendarDetail detail={detail} family={family} onClose={() => setDetail(null)} onEdit={event => { setDetail(null); onOpenEvent(event) }}/>
     )}
   </div>
+}
+
+function CalendarBody({ renderer, anchor, days, people, events, routines, tasks, family, onDay, onItem, onTask, onMonth }: { renderer: ReturnType<typeof calendarRendererFor>; anchor: Date; days: Date[]; people: FamilyUnit['people']; events: FamilyEvent[]; routines: RoutineOccurrence[]; tasks: FamilyTask[]; family: FamilyUnit; onDay: (day: Date) => void; onItem: (item: CalendarItem) => void; onTask: (task: FamilyTask) => void; onMonth: (month: number) => void }) {
+  switch (renderer) {
+    case 'yearly-grid': return <YearView anchor={anchor} events={events} routines={routines} onMonth={onMonth}/>
+    case 'monthly-grid': return <MonthTable anchor={anchor} events={events} routines={routines} tasks={tasks} family={family} onDay={onDay} onItem={onItem}/>
+    case 'people-table': return <PeopleTable anchor={anchor} days={days} people={people} events={events} routines={routines} onItem={onItem}/>
+    case 'people-rows': return <RowsView grouping="people" days={days} people={people} events={events} routines={routines} tasks={tasks} onItem={onItem} onTask={onTask}/>
+    case 'day-rows': return <RowsView grouping="days" days={days} people={people} events={events} routines={routines} tasks={tasks} onItem={onItem} onTask={onTask}/>
+    case 'daily-timeline': return <TimeGrid days={days.slice(0, 1)} events={events} routines={routines} family={family} onItem={onItem}/>
+    case 'weekly-timeline': return <TimeGrid days={days.slice(0, 7)} events={events} routines={routines} family={family} onItem={onItem}/>
+  }
 }
 
 function Segment({ label, value, options, onChange, icons, className = '' }: { label: string; value: string; options: string[][]; onChange: (value: string) => void; icons?: React.ReactNode[]; className?: string }) {

@@ -10,7 +10,7 @@ const result = await build({
 })
 const module = { exports: {} }
 new Function('module', 'exports', 'require', result.outputFiles[0].text)(module, module.exports, createRequire(import.meta.url))
-const { deriveRoutineOccurrences, visibleMonthItems, visibleMemberIds } = module.exports
+const { calendarDatesForRange, calendarRendererFor, deriveRoutineOccurrences, visibleMonthItems, visibleMemberIds } = module.exports
 const source = fs.readFileSync('src/components/CalendarView.tsx', 'utf8')
 
 const routine = { id: 'school', kind: 'study', label: 'בית ספר', day: 1, start: '08:00', end: '14:00' }
@@ -46,6 +46,40 @@ test('monthly density מציגה שלושה פריטים ומחשבת overflow',
 test('בחירת אנשים ו-child visibility נשמרות', () => {
   assert.deepEqual(visibleMemberIds(family.people, 'child', false, ['parent']), ['parent'])
   assert.deepEqual(visibleMemberIds(family.people, 'child', true, ['parent']), ['child'])
+})
+
+test('כל range גוזר shape נפרד ובוחר renderer מפורש', () => {
+  assert.equal(calendarDatesForRange(monday, 'day').length, 1)
+  assert.equal(calendarDatesForRange(monday, 'week').length, 7)
+  const month = calendarDatesForRange(monday, 'month')
+  assert.equal(month.length, 42)
+  assert.ok(month.some(day => day.getMonth() === 8 && day.getDate() === 1))
+  assert.equal(calendarDatesForRange(monday, 'year').length, 365)
+  assert.equal(calendarRendererFor('day', 'days', 'table'), 'daily-timeline')
+  assert.equal(calendarRendererFor('week', 'days', 'table'), 'weekly-timeline')
+  assert.equal(calendarRendererFor('month', 'days', 'table'), 'monthly-grid')
+  assert.equal(calendarRendererFor('year', 'days', 'table'), 'yearly-grid')
+})
+
+test('מעבר בין Daily, Monthly ו-Weekly מחליף renderer בפועל', () => {
+  assert.notEqual(calendarRendererFor('day', 'days', 'table'), calendarRendererFor('month', 'days', 'table'))
+  assert.notEqual(calendarRendererFor('month', 'days', 'table'), calendarRendererFor('week', 'days', 'table'))
+  assert.match(source, /case 'daily-timeline'/)
+  assert.match(source, /case 'weekly-timeline'/)
+  assert.match(source, /case 'monthly-grid'/)
+})
+
+test('שגרה מסוננת לתאריך הנכון בלבד בכל range', () => {
+  assert.equal(deriveRoutineOccurrences(family, [monday], [], ['child']).length, 1)
+  assert.equal(deriveRoutineOccurrences(family, [tuesday], [], ['child']).length, 0)
+})
+
+test('People Rows משתמש בכל ה-Members שנבחרו וברוחב התוכן', () => {
+  assert.equal(calendarRendererFor('month', 'people', 'rows'), 'people-rows')
+  assert.match(source, /people\.map\(person/)
+  const css = fs.readFileSync('src/redesign.css', 'utf8')
+  assert.match(css, /\.view-events \.grouped-rows \{ width: 100%; max-width: none;/)
+  assert.match(css, /\.view-events \.grouped-rows \.calendar-row \{ width: 100%; \}/)
 })
 
 test('כל תצוגות היומן משלבות routines, ניווט, נהג וליה', () => {
