@@ -1,22 +1,28 @@
 import { useMemo, useState } from 'react'
-import { CalendarDays, Car, ChevronLeft, ChevronRight, List, Plus, Rows3 } from 'lucide-react'
-import { dateLabel, type FamilyEvent, type FamilyTask, type FamilyUnit } from '../data'
+import { CalendarDays, Car, ChevronLeft, ChevronRight, List, Pencil, Plus, Repeat2, Rows3, X } from 'lucide-react'
+import { dateLabel, localDate, type FamilyEvent, type FamilyTask, type FamilyUnit } from '../data'
+import { deriveRoutineOccurrences, timeMinutes, visibleMonthItems, type RoutineOccurrence } from '../calendarModel'
 import { calendarDays, defaultCalendarView, eventsForMembers, localIsoDate, startOfWeek, visibleMemberIds, type CalendarDisplay, type CalendarGrouping, type CalendarRange } from '../uiModel'
 
-type Props = {
-  family: FamilyUnit
-  events: FamilyEvent[]
-  tasks: FamilyTask[]
-  actorId: string
-  childMode: boolean
-  onCreate: (date?: string) => void
-  onOpenEvent: (event: FamilyEvent) => void
-  onOpenTask: (task: FamilyTask) => void
-}
+type Props = { family: FamilyUnit; events: FamilyEvent[]; tasks: FamilyTask[]; actorId: string; childMode: boolean; onCreate: (date?: string) => void; onOpenEvent: (event: FamilyEvent) => void; onOpenTask: (task: FamilyTask) => void }
+type Detail = { kind: 'event'; event: FamilyEvent } | { kind: 'routine'; routine: RoutineOccurrence }
+type CalendarItem = FamilyEvent | RoutineOccurrence
 
 const rangeLabels: Record<CalendarRange, string> = { day: 'יומי', week: 'שבועי', month: 'חודשי', year: 'שנתי' }
 const weekday = new Intl.DateTimeFormat('he-IL', { weekday: 'short' })
 const monthTitle = new Intl.DateTimeFormat('he-IL', { month: 'long', year: 'numeric' })
+const isRoutine = (item: CalendarItem): item is RoutineOccurrence => 'kind' in item && item.kind === 'routine'
+const itemTime = (item: CalendarItem) => isRoutine(item) ? item.start : item.time
+const itemEnd = (item: CalendarItem) => isRoutine(item) ? item.end : item.endTime || `${String(Math.min(23, Number(item.time.slice(0, 2)) + 1)).padStart(2, '0')}:${item.time.slice(3, 5)}`
+
+function datesForRange(anchor: Date, range: CalendarRange) {
+  if (range !== 'year') return calendarDays(anchor, range)
+  const start = new Date(anchor.getFullYear(), 0, 1)
+  const end = new Date(anchor.getFullYear() + 1, 0, 1)
+  const days: Date[] = []
+  for (const day = new Date(start); day < end; day.setDate(day.getDate() + 1)) days.push(new Date(day))
+  return days
+}
 
 export function CalendarView({ family, events, tasks, actorId, childMode, onCreate, onOpenEvent, onOpenTask }: Props) {
   const [grouping, setGrouping] = useState<CalendarGrouping>(defaultCalendarView.grouping)
@@ -24,42 +30,38 @@ export function CalendarView({ family, events, tasks, actorId, childMode, onCrea
   const [range, setRange] = useState<CalendarRange>(defaultCalendarView.range)
   const [anchor, setAnchor] = useState(() => new Date())
   const [selectedPeople, setSelectedPeople] = useState<string[]>(() => childMode ? [actorId] : family.people.map(person => person.id))
+  const [detail, setDetail] = useState<Detail | null>(null)
   const visiblePeople = childMode ? family.people.filter(person => person.id === actorId) : family.people
   const selected = visibleMemberIds(family.people, actorId, childMode, selectedPeople)
+  const dates = useMemo(() => datesForRange(anchor, range), [anchor, range])
   const visibleEvents = useMemo(() => eventsForMembers(events.filter(event => event.familyId === family.id), selected), [events, family.id, selected.join('|')])
   const visibleTasks = useMemo(() => tasks.filter(task => task.familyId === family.id && selected.includes(task.ownerId)), [tasks, family.id, selected.join('|')])
+  const routines = useMemo(() => deriveRoutineOccurrences(family, dates, visibleEvents, selected), [family, dates.map(localIsoDate).join('|'), visibleEvents, selected.join('|')])
 
-  const go = (delta: number) => setAnchor(previous => {
-    const next = new Date(previous)
-    if (range === 'day') next.setDate(next.getDate() + delta)
-    else if (range === 'week') next.setDate(next.getDate() + delta * 7)
-    else if (range === 'month') next.setMonth(next.getMonth() + delta)
-    else next.setFullYear(next.getFullYear() + delta)
-    return next
-  })
+  const go = (delta: number) => setAnchor(previous => { const next = new Date(previous); if (range === 'day') next.setDate(next.getDate() + delta); else if (range === 'week') next.setDate(next.getDate() + delta * 7); else if (range === 'month') next.setMonth(next.getMonth() + delta); else next.setFullYear(next.getFullYear() + delta); return next })
   const openDay = (day: Date) => { setAnchor(day); setRange('day') }
   const togglePerson = (id: string) => setSelectedPeople(previous => previous.includes(id) ? previous.filter(item => item !== id) : [...previous, id])
+  const showItem = (item: CalendarItem) => setDetail(isRoutine(item) ? { kind: 'routine', routine: item } : { kind: 'event', event: item })
   const title = range === 'day' ? dateLabel(localIsoDate(anchor)) : range === 'week' ? `${dateLabel(localIsoDate(startOfWeek(anchor)))}–${dateLabel(localIsoDate(calendarDays(anchor, 'week')[6]))}` : range === 'month' ? monthTitle.format(anchor) : String(anchor.getFullYear())
 
   return <div className="calendar-v2" data-grouping={grouping} data-display={display} data-range={range}>
-    <header className="calendar-header"><div><span className="overline">התוכנית המשפחתית</span><h1>יומן</h1><p>{childMode ? 'האירועים, המשימות וההסעות שרלוונטיים אליך.' : 'כל המשפחה, הזמן וההסעות במקום אחד.'}</p></div><button className="primary-action" onClick={() => onCreate(localIsoDate(anchor))}><Plus size={17}/> אירוע</button></header>
-    <div className="calendar-toolbar">
-      <Segment label="קיבוץ" value={grouping} options={[['days', 'ימים'], ['people', 'אנשים']]} onChange={value => setGrouping(value as CalendarGrouping)}/>
-      <Segment label="תצוגה" value={display} options={[['table', 'טבלה'], ['rows', 'שורות']]} onChange={value => setDisplay(value as CalendarDisplay)} icons={[<CalendarDays size={14}/>, <Rows3 size={14}/>]}/>
-      <Segment label="טווח" value={range} options={Object.entries(rangeLabels)} onChange={value => setRange(value as CalendarRange)}/>
-    </div>
-    {grouping === 'people' && <div className="people-filter" aria-label="בחירת בני משפחה">{visiblePeople.map(person => <button key={person.id} className={selected.includes(person.id) ? 'selected' : ''} onClick={() => togglePerson(person.id)} disabled={childMode}><span className={`member-dot ${person.color}`}/>{person.name}</button>)}</div>}
-    <div className="calendar-period"><button onClick={() => go(1)} aria-label="הבא"><ChevronRight size={18}/></button><strong>{title}</strong><button onClick={() => go(-1)} aria-label="הקודם"><ChevronLeft size={18}/></button><button className="today-button" onClick={() => setAnchor(new Date())}>היום</button></div>
-    {range === 'year' ? <YearView anchor={anchor} events={visibleEvents} onMonth={month => { setAnchor(new Date(anchor.getFullYear(), month, 1)); setRange('month') }}/>
-      : display === 'rows' ? <RowsView grouping={grouping} range={range} anchor={anchor} people={visiblePeople.filter(person => selected.includes(person.id))} events={visibleEvents} tasks={visibleTasks} onEvent={onOpenEvent} onTask={onOpenTask}/>
-      : grouping === 'people' ? <PeopleTable anchor={anchor} range={range} people={visiblePeople.filter(person => selected.includes(person.id))} events={visibleEvents} onEvent={onOpenEvent}/>
-      : range === 'month' ? <MonthTable anchor={anchor} events={visibleEvents} tasks={visibleTasks} family={family} onDay={openDay} onEvent={onOpenEvent}/>
-      : <Timeline days={calendarDays(anchor, range)} events={visibleEvents} family={family} onEvent={onOpenEvent}/>} 
+    <header className="calendar-header"><div><span className="overline">התוכנית המשפחתית</span><h1>יומן</h1></div><button className="primary-action" onClick={() => onCreate(localIsoDate(anchor))}><Plus size={17}/> אירוע</button></header>
+    <div className="calendar-commandbar"><div className="calendar-period"><button onClick={() => go(1)} aria-label="הבא"><ChevronRight size={18}/></button><strong>{title}</strong><button onClick={() => go(-1)} aria-label="הקודם"><ChevronLeft size={18}/></button><button className="today-button" onClick={() => setAnchor(new Date())}>היום</button></div><Segment className="range-segment" label="טווח" value={range} options={Object.entries(rangeLabels)} onChange={value => setRange(value as CalendarRange)}/></div>
+    <div className="calendar-toolbar"><Segment label="קיבוץ" value={grouping} options={[['days', 'ימים'], ['people', 'אנשים']]} onChange={value => setGrouping(value as CalendarGrouping)}/><Segment label="תצוגה" value={display} options={[['table', 'טבלה'], ['rows', 'שורות']]} onChange={value => setDisplay(value as CalendarDisplay)} icons={[<CalendarDays size={14}/>, <Rows3 size={14}/>]}/></div>
+    {grouping === 'people' && <div className="people-filter" aria-label="בחירת בני משפחה">{visiblePeople.map(person => <button key={person.id} className={`${selected.includes(person.id) ? 'selected' : ''} ${person.color}`} onClick={() => togglePerson(person.id)} disabled={childMode}><span className={`avatar mini ${person.color}`}>{person.name[0]}</span>{person.name}</button>)}</div>}
+    {range === 'year' ? <YearView anchor={anchor} events={visibleEvents} routines={routines} onMonth={month => { setAnchor(new Date(anchor.getFullYear(), month, 1)); setRange('month') }}/>
+      : display === 'rows' ? <RowsView grouping={grouping} days={dates} people={visiblePeople.filter(person => selected.includes(person.id))} events={visibleEvents} routines={routines} tasks={visibleTasks} onItem={showItem} onTask={onOpenTask}/>
+      : grouping === 'people' ? <PeopleTable anchor={anchor} days={dates} people={visiblePeople.filter(person => selected.includes(person.id))} events={visibleEvents} routines={routines} onItem={showItem}/>
+      : range === 'month' ? <MonthTable anchor={anchor} events={visibleEvents} routines={routines} tasks={visibleTasks} family={family} onDay={openDay} onItem={showItem}/>
+      : <TimeGrid days={dates} events={visibleEvents} routines={routines} family={family} onItem={showItem}/>}
+    {detail && (
+      <CalendarDetail detail={detail} family={family} onClose={() => setDetail(null)} onEdit={event => { setDetail(null); onOpenEvent(event) }}/>
+    )}
   </div>
 }
 
-function Segment({ label, value, options, onChange, icons }: { label: string; value: string; options: string[][]; onChange: (value: string) => void; icons?: React.ReactNode[] }) {
-  return <div className="calendar-segment"><span>{label}</span><div>{options.map(([id, text], index) => <button key={id} className={value === id ? 'active' : ''} onClick={() => onChange(id)}>{icons?.[index]}{text}</button>)}</div></div>
+function Segment({ label, value, options, onChange, icons, className = '' }: { label: string; value: string; options: string[][]; onChange: (value: string) => void; icons?: React.ReactNode[]; className?: string }) {
+  return <div className={`calendar-segment ${className}`}><span>{label}</span><div>{options.map(([id, text], index) => <button key={id} className={value === id ? 'active' : ''} onClick={() => onChange(id)}>{icons?.[index]}{text}</button>)}</div></div>
 }
 
 function EventAccent({ event, family }: { event: FamilyEvent; family: FamilyUnit }) {
@@ -67,26 +69,48 @@ function EventAccent({ event, family }: { event: FamilyEvent; family: FamilyUnit
   return <span className="event-accents">{ids.map(id => <i key={id} className={family.people.find(person => person.id === id)?.color || 'sage'}/>)}</span>
 }
 
-function MonthTable({ anchor, events, tasks, family, onDay, onEvent }: { anchor: Date; events: FamilyEvent[]; tasks: FamilyTask[]; family: FamilyUnit; onDay: (day: Date) => void; onEvent: (event: FamilyEvent) => void }) {
-  return <div className="month-grid"><div className="month-weekdays">{calendarDays(anchor, 'week').map(day => <span key={day.getDay()}>{weekday.format(day)}</span>)}</div><div className="month-days">{calendarDays(anchor, 'month').map(day => { const iso = localIsoDate(day); const dayEvents = events.filter(event => event.date === iso); const dayTasks = tasks.filter(task => task.due === iso && !task.done); const outside = day.getMonth() !== anchor.getMonth(); return <button className={`month-day ${outside ? 'outside' : ''}`} key={iso} onClick={() => onDay(day)}><time>{day.getDate()}</time><div>{dayEvents.slice(0, 3).map(event => <span className="month-event" key={event.id} onClick={click => { click.stopPropagation(); onEvent(event) }}><EventAccent event={event} family={family}/><b>{event.time}</b> {event.title}{event.sourceSignalId && <em title="ליה עדכנה">✦</em>}</span>)}{dayTasks.length > 0 && <span className="month-task">{dayTasks.length} משימות</span>}</div>{(dayEvents.length || dayTasks.length) > 0 && <aside className="day-popover"><strong>{dateLabel(iso)}</strong>{[...dayEvents.map(event => `${event.time} · ${event.title}`), ...dayTasks.map(task => `משימה · ${task.title}`)].map(item => <span key={item}>{item}</span>)}</aside>}</button> })}</div></div>
+function MonthItem({ item, family, onItem }: { item: CalendarItem; family: FamilyUnit; onItem: (item: CalendarItem) => void }) {
+  if (isRoutine(item)) return <span className={`month-event routine ${item.color}`} onClick={event => { event.stopPropagation(); onItem(item) }}><Repeat2 size={9}/><b>{item.start}</b> {item.title}</span>
+  return <span className="month-event" onClick={event => { event.stopPropagation(); onItem(item) }}><EventAccent event={item} family={family}/><b>{item.time}</b> {item.title}{item.sourceSignalId && <em title="ליה עדכנה">✦</em>}</span>
 }
 
-function Timeline({ days, events, family, onEvent }: { days: Date[]; events: FamilyEvent[]; family: FamilyUnit; onEvent: (event: FamilyEvent) => void }) {
-  return <div className={`timeline-table columns-${days.length}`}>{days.map(day => { const iso = localIsoDate(day); return <section key={iso}><header><span>{weekday.format(day)}</span><strong>{day.getDate()}</strong></header><div>{events.filter(event => event.date === iso).map(event => <button className="calendar-event" key={event.id} onClick={() => onEvent(event)}><EventAccent event={event} family={family}/><time>{event.time}</time><strong>{event.title}</strong>{event.responsibleId && <small><Car size={12}/> {family.people.find(person => person.id === event.responsibleId)?.name}{event.departureTime && ` · יציאה ${event.departureTime}`}</small>}{event.requiresDriver && !event.responsibleId && <small className="no-driver">אין נהג</small>}</button>)}</div></section>})}</div>
+function MonthTable({ anchor, events, routines, tasks, family, onDay, onItem }: { anchor: Date; events: FamilyEvent[]; routines: RoutineOccurrence[]; tasks: FamilyTask[]; family: FamilyUnit; onDay: (day: Date) => void; onItem: (item: CalendarItem) => void }) {
+  return <div className="month-grid"><div className="month-weekdays">{calendarDays(anchor, 'week').map(day => <span key={day.getDay()}>{weekday.format(day)}</span>)}</div><div className="month-days">{calendarDays(anchor, 'month').map(day => { const iso = localIsoDate(day); const items = visibleMonthItems(events, routines, iso); const dayTasks = tasks.filter(task => task.due === iso && !task.done); const outside = day.getMonth() !== anchor.getMonth(); const today = iso === localDate(); return <button className={`month-day ${outside ? 'outside' : ''} ${today ? 'today' : ''}`} key={iso} onClick={() => onDay(day)}><time>{day.getDate()}</time><div>{items.visible.map(item => <MonthItem key={item.id} item={item} family={family} onItem={onItem}/>)}{items.overflow > 0 && <span className="month-overflow">+{items.overflow} נוספים</span>}{dayTasks.length > 0 && <span className="month-task">{dayTasks.length} משימות</span>}</div>{(items.all.length || dayTasks.length) > 0 && <aside className="day-popover"><strong>{dateLabel(iso)}</strong>{items.all.map(item => <span key={item.id}><time>{itemTime(item)}</time><i className={isRoutine(item) ? item.color : ''}/><b>{isRoutine(item) ? `${item.title} · ${item.personName}` : item.title}</b>{isRoutine(item) && <Repeat2 size={11}/>} {!isRoutine(item) && item.responsibleId && <small><Car size={11}/> {family.people.find(person => person.id === item.responsibleId)?.name}</small>}{!isRoutine(item) && item.sourceSignalId && <em>✦</em>}</span>)}{dayTasks.map(task => <span key={task.id}><b>{task.title}</b><small>משימה</small></span>)}</aside>}</button> })}</div></div>
 }
 
-function PeopleTable({ anchor, range, people, events, onEvent }: { anchor: Date; range: CalendarRange; people: FamilyUnit['people']; events: FamilyEvent[]; onEvent: (event: FamilyEvent) => void }) {
-  const dates = new Set(calendarDays(anchor, range === 'month' ? 'month' : range).map(localIsoDate))
-  return <div className="people-lanes">{people.map(person => <section key={person.id}><header><span className={`avatar mini ${person.color}`}>{person.name[0]}</span><strong>{person.name}</strong></header>{events.filter(event => dates.has(event.date) && (event.participantIds.includes(person.id) || event.responsibleId === person.id)).map(event => <button key={event.id} onClick={() => onEvent(event)}><time>{dateLabel(event.date)} · {event.time}</time><strong>{event.title}</strong>{event.responsibleId === person.id && <small><Car size={12}/> נהג/ת</small>}</button>)}</section>)}</div>
+function TimeGrid({ days, events, routines, family, onItem }: { days: Date[]; events: FamilyEvent[]; routines: RoutineOccurrence[]; family: FamilyUnit; onItem: (item: CalendarItem) => void }) {
+  const startHour = 6, endHour = 22, span = (endHour - startHour) * 60
+  const hours = Array.from({ length: endHour - startHour + 1 }, (_, index) => startHour + index)
+  const now = new Date(), today = localIsoDate(now), nowOffset = ((now.getHours() * 60 + now.getMinutes() - startHour * 60) / span) * 88
+  return <div className={`time-grid days-${days.length}`}><aside className="time-axis">{hours.map(hour => <span key={hour} style={{ top: `${((hour - startHour) / (endHour - startHour)) * 100}%` }}>{String(hour).padStart(2, '0')}:00</span>)}</aside><div className="time-lanes">{days.map(day => { const iso = localIsoDate(day); const items: CalendarItem[] = [...events.filter(event => event.date === iso), ...routines.filter(item => item.date === iso)].sort((a, b) => itemTime(a).localeCompare(itemTime(b))); return <section key={iso} className={iso === today ? 'today' : ''}><header><span>{weekday.format(day)}</span><strong>{day.getDate()}</strong></header><div className="hour-lines">{hours.slice(0, -1).map(hour => <i key={hour}/>)}</div>{items.map(item => <TimedBlock key={item.id} item={item} startHour={startHour} span={span} family={family} onItem={onItem}/>)}{iso === today && nowOffset >= 0 && nowOffset <= 88 && <span className="current-time-line" style={{ top: `calc(48px + ${nowOffset}%)` }}/>}</section>})}</div></div>
 }
 
-function RowsView({ grouping, range, anchor, people, events, tasks, onEvent, onTask }: { grouping: CalendarGrouping; range: CalendarRange; anchor: Date; people: FamilyUnit['people']; events: FamilyEvent[]; tasks: FamilyTask[]; onEvent: (event: FamilyEvent) => void; onTask: (task: FamilyTask) => void }) {
-  const dates = new Set(calendarDays(anchor, range === 'month' ? 'month' : range).map(localIsoDate))
-  const rows = <>{events.filter(event => dates.has(event.date)).sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`)).map(event => <button className="calendar-row" key={event.id} onClick={() => onEvent(event)}><time>{event.time}</time><span><strong>{event.title}</strong><small>{dateLabel(event.date)}</small></span>{event.responsibleId && <em><Car size={13}/> {people.find(person => person.id === event.responsibleId)?.name || 'נהג/ת'}</em>}{event.sourceSignalId && <b title="ליה עדכנה">✦</b>}</button>)}{tasks.filter(task => dates.has(task.due)).map(task => <button className="calendar-row task" key={task.id} onClick={() => onTask(task)}><time>משימה</time><span><strong>{task.title}</strong><small>{dateLabel(task.due)}</small></span>{task.sourceSignalId && <b title="ליה יצרה">✦</b>}</button>)}</>
-  if (grouping === 'days') return <div className="calendar-rows"><List size={16}/>{rows}</div>
-  return <div className="grouped-rows">{people.map(person => <section key={person.id}><h2><span className={`member-dot ${person.color}`}/>{person.name}</h2>{events.filter(event => dates.has(event.date) && (event.participantIds.includes(person.id) || event.responsibleId === person.id)).map(event => <button className="calendar-row" key={`${person.id}:${event.id}`} onClick={() => onEvent(event)}><time>{event.time}</time><span><strong>{event.title}</strong><small>{dateLabel(event.date)}</small></span>{event.responsibleId === person.id && <em><Car size={13}/> מסיע/ה</em>}</button>)}</section>)}</div>
+function TimedBlock({ item, startHour, span, family, onItem }: { item: CalendarItem; startHour: number; span: number; family: FamilyUnit; onItem: (item: CalendarItem) => void }) {
+  const start = Math.max(0, timeMinutes(itemTime(item)) - startHour * 60), duration = Math.max(34, timeMinutes(itemEnd(item)) - timeMinutes(itemTime(item)))
+  const color = isRoutine(item) ? item.color : family.people.find(person => item.participantIds.includes(person.id))?.color || 'sage'
+  return <button className={`calendar-block ${isRoutine(item) ? 'routine' : ''} ${color}`} style={{ top: `calc(48px + ${(start / span) * 88}%)`, height: `${Math.max(4.5, (duration / span) * 88)}%` }} onClick={() => onItem(item)}><span>{itemTime(item)}{itemEnd(item) !== itemTime(item) && `–${itemEnd(item)}`}</span><strong>{isRoutine(item) ? item.title : item.title}</strong>{isRoutine(item) ? <small><Repeat2 size={11}/> {item.personName}</small> : item.responsibleId ? <small><Car size={11}/> {family.people.find(person => person.id === item.responsibleId)?.name}</small> : null}{!isRoutine(item) && item.sourceSignalId && <em>✦</em>}</button>
 }
 
-function YearView({ anchor, events, onMonth }: { anchor: Date; events: FamilyEvent[]; onMonth: (month: number) => void }) {
-  return <div className="year-grid">{Array.from({ length: 12 }, (_, month) => { const date = new Date(anchor.getFullYear(), month, 1); const count = events.filter(event => Number(event.date.slice(0, 4)) === anchor.getFullYear() && Number(event.date.slice(5, 7)) === month + 1).length; return <button key={month} onClick={() => onMonth(month)}><strong>{new Intl.DateTimeFormat('he-IL', { month: 'long' }).format(date)}</strong><span>{count ? `${count} אירועים` : 'חודש פנוי'}</span></button> })}</div>
+function PeopleTable({ anchor, days, people, events, routines, onItem }: { anchor: Date; days: Date[]; people: FamilyUnit['people']; events: FamilyEvent[]; routines: RoutineOccurrence[]; onItem: (item: CalendarItem) => void }) {
+  const focusDate = localIsoDate(days.length === 1 ? days[0] : days.some(day => localIsoDate(day) === localDate()) ? new Date() : anchor)
+  const startHour = 6, endHour = 22, span = (endHour - startHour) * 60
+  const hours = Array.from({ length: endHour - startHour + 1 }, (_, index) => startHour + index)
+  return <div className="people-schedule"><div className="people-schedule-caption">השוואת זמינות · {dateLabel(focusDate)}</div><aside className="time-axis">{hours.map(hour => <span key={hour} style={{ top: `${((hour - startHour) / (endHour - startHour)) * 100}%` }}>{String(hour).padStart(2, '0')}:00</span>)}</aside><div className="people-schedule-lanes">{people.map(person => { const items: CalendarItem[] = [...events.filter(event => event.date === focusDate && (event.participantIds.includes(person.id) || event.responsibleId === person.id)), ...routines.filter(item => item.date === focusDate && item.personId === person.id)]; return <section key={person.id}><header><span className={`avatar mini ${person.color}`}>{person.name[0]}</span><strong>{person.name}</strong></header><div className="hour-lines">{hours.slice(0, -1).map(hour => <i key={hour}/>)}</div>{items.map(item => <TimedBlock key={`${person.id}:${item.id}`} item={item} startHour={startHour} span={span} family={{ id: '', name: '', people }} onItem={onItem}/>)}</section>})}</div></div>
+}
+
+function RowsView({ grouping, days, people, events, routines, tasks, onItem, onTask }: { grouping: CalendarGrouping; days: Date[]; people: FamilyUnit['people']; events: FamilyEvent[]; routines: RoutineOccurrence[]; tasks: FamilyTask[]; onItem: (item: CalendarItem) => void; onTask: (task: FamilyTask) => void }) {
+  const dates = new Set(days.map(localIsoDate))
+  const populatedDays = days.filter(day => { const iso = localIsoDate(day); return events.some(event => event.date === iso) || routines.some(item => item.date === iso) || tasks.some(task => task.due === iso) })
+  const row = (item: CalendarItem, suffix?: React.ReactNode) => <button className={`calendar-row ${isRoutine(item) ? 'routine' : ''}`} key={item.id} onClick={() => onItem(item)}><time>{itemTime(item)}{itemEnd(item) !== itemTime(item) && <small>–{itemEnd(item)}</small>}</time><span><strong>{item.title}</strong><small>{isRoutine(item) ? item.personName : dateLabel(item.date)}</small></span>{isRoutine(item) ? <em><Repeat2 size={13}/> קבוע</em> : suffix}{!isRoutine(item) && item.sourceSignalId && <b title="ליה עדכנה">✦</b>}</button>
+  if (grouping === 'people') return <div className="grouped-rows people-rows">{people.map(person => { const items: CalendarItem[] = [...events.filter(event => dates.has(event.date) && (event.participantIds.includes(person.id) || event.responsibleId === person.id)), ...routines.filter(item => dates.has(item.date) && item.personId === person.id)].sort((a, b) => `${a.date}${itemTime(a)}`.localeCompare(`${b.date}${itemTime(b)}`)); return <section key={person.id}><h2><span className={`avatar mini ${person.color}`}>{person.name[0]}</span>{person.name}</h2>{items.length ? items.map(item => row(item, !isRoutine(item) && item.responsibleId === person.id ? <em><Car size={13}/> מסיע/ה</em> : null)) : <p>אין דברים מתוכננים כאן.</p>}</section>})}</div>
+  return <div className="grouped-rows day-rows">{populatedDays.length ? populatedDays.map(day => { const iso = localIsoDate(day); const items: CalendarItem[] = [...events.filter(event => event.date === iso), ...routines.filter(item => item.date === iso)].sort((a, b) => itemTime(a).localeCompare(itemTime(b))); return <section key={iso}><h2>{dateLabel(iso)}</h2>{items.map(item => row(item, !isRoutine(item) && item.responsibleId ? <em><Car size={13}/> {people.find(person => person.id === item.responsibleId)?.name || 'נהג/ת'}</em> : null))}{tasks.filter(task => task.due === iso).map(task => <button className="calendar-row task" key={task.id} onClick={() => onTask(task)}><time>משימה</time><span><strong>{task.title}</strong></span>{task.sourceSignalId && <b>✦</b>}</button>)}</section>}) : <p className="calendar-empty">אין דברים מתוכננים כאן.</p>}</div>
+}
+
+function YearView({ anchor, events, routines, onMonth }: { anchor: Date; events: FamilyEvent[]; routines: RoutineOccurrence[]; onMonth: (month: number) => void }) {
+  return <div className="year-grid">{Array.from({ length: 12 }, (_, month) => { const date = new Date(anchor.getFullYear(), month, 1); const days = Array.from({ length: new Date(anchor.getFullYear(), month + 1, 0).getDate() }, (_, index) => index + 1); const eventCount = events.filter(event => Number(event.date.slice(0, 4)) === anchor.getFullYear() && Number(event.date.slice(5, 7)) === month + 1).length; const routineCount = routines.filter(item => Number(item.date.slice(5, 7)) === month + 1).length; return <button key={month} onClick={() => onMonth(month)}><header><strong>{new Intl.DateTimeFormat('he-IL', { month: 'long' }).format(date)}</strong><span>{eventCount} אירועים · {routineCount} קבועים</span></header><div>{days.map(day => { const iso = `${anchor.getFullYear()}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`; const busy = events.some(event => event.date === iso) || routines.some(item => item.date === iso); return <i className={busy ? 'busy' : ''} key={day}>{day}</i> })}</div></button> })}</div>
+}
+
+function CalendarDetail({ detail, family, onClose, onEdit }: { detail: Detail; family: FamilyUnit; onClose: () => void; onEdit: (event: FamilyEvent) => void }) {
+  const routine = detail.kind === 'routine' ? detail.routine : null, event = detail.kind === 'event' ? detail.event : null
+  return <div className="calendar-detail-backdrop" onClick={onClose}><aside className="calendar-detail" onClick={click => click.stopPropagation()}><button className="calendar-detail-close" onClick={onClose} aria-label="סגירה"><X size={18}/></button><span className="overline">{routine ? 'לו״ז קבוע' : 'פרטי אירוע'}</span><h2>{routine?.title || event?.title}</h2><div className="calendar-detail-lines"><p><strong>מתי</strong>{dateLabel(routine?.date || event!.date)} · {routine?.start || event?.time}{routine?.end || event?.endTime ? `–${routine?.end || event?.endTime}` : ''}</p>{routine && <p><strong>שייך ל־</strong>{routine.personName}</p>}{event && <p><strong>משתתפים</strong>{event.participantIds.map(id => family.people.find(person => person.id === id)?.name).filter(Boolean).join(', ') || 'המשפחה'}</p>}{event?.responsibleId && <p><strong>הסעה</strong><Car size={13}/> {family.people.find(person => person.id === event.responsibleId)?.name}{event.departureTime && ` · יציאה ${event.departureTime}`}</p>}{routine && <p><strong>חזרתיות</strong><Repeat2 size={13}/> חוזר בכל שבוע</p>}{event?.sourceSignalId && <p><strong>ליה</strong><em>✦</em> האירוע הושפע מעדכון של ליה</p>}{event?.details && <p><strong>פרטים</strong>{event.details}</p>}</div>{event && <button className="secondary-button calendar-edit" onClick={() => onEdit(event)}><Pencil size={14}/> עריכה</button>}</aside></div>
 }
