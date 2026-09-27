@@ -20,7 +20,7 @@ test('מסך הבית משתנה בין הורה לילד ומציג תוכן מ
   globalThis.localStorage = { getItem: key => key === 'family-autopilot-person' ? person : null }
   try {
     const parent = render()
-    assert.match(parent, /שלום מור/)
+    assert.match(parent, /(?:בוקר טוב|צהריים טובים|אחה״צ טובים|ערב טוב|לילה טוב) מור|לכי לישון/)
     assert.match(parent, /צריך טיפול/)
     assert.match(parent, /בקשות הסעה במשפחה/)
     assert.match(parent, /דורש החלטה/)
@@ -32,7 +32,7 @@ test('מסך הבית משתנה בין הורה לילד ומציג תוכן מ
     assert.match(parent, /וויז/)
     person = 'Orel'
     const otherParent = render()
-    assert.match(otherParent, /שלום אוראל/)
+    assert.match(otherParent, /(?:בוקר טוב|צהריים טובים|אחה״צ טובים|ערב טוב|לילה טוב) אוראל|לך לישון/)
     assert.notEqual(otherParent, parent)
     person = 'Itamar'
     const child = render()

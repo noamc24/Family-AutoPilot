@@ -181,7 +181,7 @@ export function performLiaChatAction(data: AppData, conversation: LiaConversatio
     const next = { ...conversation, messages: [...conversation.messages, result], updatedAt: result.createdAt, contextState: { ...conversation.contextState, pendingIntent: undefined } }
     return { data: saveConversation(data, next), conversation: next, success: false }
   }
-  const result = message('lia', `שלחתי ל־${target.name} בקשה להסעה ל־${event.title}. אני ממתינה לתגובה.`, 'actionResult', undefined, [request.id, event.id, target.id])
+  const result = message('lia', `סגור, שלחתי ל־${target.name} בקשה להסעה ל־${event.title}. אני ממתינה לתגובה.`, 'actionResult', undefined, [request.id, event.id, target.id])
   const next = { ...conversation, messages: [...conversation.messages.map(item => item.action?.kind === 'sendRideRequest' ? { ...item, status: 'completed' as const } : item), result], updatedAt: result.createdAt, contextState: { ...conversation.contextState, pendingIntent: undefined, lastEventId: event.id, lastMemberId: target.id } }
   return { data: saveConversation(nextData, next), conversation: next, success: true }
 }

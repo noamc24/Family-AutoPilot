@@ -63,15 +63,16 @@ test('Settings נשמרים ב-refresh ונתונים ישנים עוברים mi
   assert.ok(migrated.families[0].people[0].personalSettings.integrations.every(item => item.connectionStatus === 'disconnected' && item.liaAccess === 'notAllowed'))
 })
 
-test('Settings מציג Demo ופרטיות בלי לחשוף raw/private source content', async () => {
+test('Settings מרכז disclosure ב-About ושומר פרטיות בלי לחשוף raw/private source content', async () => {
   const component = await load('src/components/SettingsPage.tsx')
   const { renderToStaticMarkup } = await import('react-dom/server')
   const data = fresh()
   const person = data.families[0].people[0]
   data.integrationLogs.push({ id: 'private', familyId: 'Avrahami', scenarioKey: 'private', source: 'email', sourceText: 'RAW SECRET MESSAGE', action: 'none', personIds: [person.id], createdAt: new Date().toISOString(), privacy: { ownerId: person.id, rawVisibility: 'private', familyInsight: 'תובנה בטוחה' } })
   const html = renderToStaticMarkup(component.SettingsPage({ person, onChange() {}, onEditProfile() {} }))
-  assert.match(html, /Demo/)
+  assert.doesNotMatch(html, />Demo<|מצב Demo|במצב Demo/)
+  assert.match(html, /גרסת MVP/)
   assert.match(html, /מידע אישי נשאר אישי/)
   assert.doesNotMatch(html, /RAW SECRET MESSAGE|תובנה בטוחה/)
-  assert.match(html, /הגדרות של אוראל/)
+  assert.match(html, /הפרופיל, החיבורים וההעדפות של אוראל/)
 })
