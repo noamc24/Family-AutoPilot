@@ -59,4 +59,6 @@ test('Family overview derives status, responsibility and opens read profile befo
   assert.match(familySource, /onEdit\(selected\)/)
   assert.match(familySource, /className="child-family-summary"/)
   assert.match(familySource, /השגרה שלי/)
+  assert.match(familySource, /childEvents\.find\(event => event\.date > today\)/)
+  assert.doesNotMatch(familySource, /childEvents\[0\].*הפריט הבא/)
 })
