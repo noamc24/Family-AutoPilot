@@ -10,16 +10,24 @@ async function load(entry) {
 
 const tasksView = await load('src/components/TasksView.tsx')
 const familyView = await load('src/components/FamilyView.tsx')
+const formatting = await load('src/uiFormatting.ts')
 const tasksSource = readFileSync('src/components/TasksView.tsx', 'utf8')
 const familySource = readFileSync('src/components/FamilyView.tsx', 'utf8')
 const task = (id, due, ownerId = 'adult', done = false) => ({ id, familyId: 'f', title: id, due, ownerId, done })
 
 test('Tasks filters today, week and all while child mode stays owner-only', () => {
-  const items = [task('today', '2026-09-28'), task('week', '2026-10-02'), task('later', '2026-11-01'), task('other', '2026-09-28', 'child')]
-  assert.deepEqual(tasksView.filterTasksForView(items, 'f', 'adult', false, 'today', '2026-09-28').map(item => item.id), ['today', 'other'])
-  assert.deepEqual(tasksView.filterTasksForView(items, 'f', 'adult', false, 'week', '2026-09-28').map(item => item.id), ['today', 'week', 'other'])
-  assert.equal(tasksView.filterTasksForView(items, 'f', 'adult', false, 'all', '2026-09-28').length, 4)
-  assert.deepEqual(tasksView.filterTasksForView(items, 'f', 'child', true, 'all', '2026-09-28').map(item => item.id), ['other'])
+  const items = [task('today', '2026-09-28'), task('tomorrow', '2026-09-29'), task('later-this-week', '2026-10-03'), task('future-week', '2026-10-06'), task('child-today', '2026-09-28', 'child')]
+  assert.deepEqual(tasksView.filterTasksForView(items, 'f', 'adult', false, 'today', '2026-09-28').map(item => item.id), ['today', 'child-today'])
+  assert.deepEqual(tasksView.filterTasksForView(items, 'f', 'adult', false, 'week', '2026-09-28').map(item => item.id), ['today', 'tomorrow', 'later-this-week', 'child-today'])
+  assert.equal(tasksView.filterTasksForView(items, 'f', 'adult', false, 'all', '2026-09-28').length, 5)
+  assert.deepEqual(tasksView.filterTasksForView(items, 'f', 'child', true, 'all', '2026-09-28').map(item => item.id), ['child-today'])
+})
+
+test('time ranges remain chronological inside RTL surfaces', () => {
+  const value = formatting.formatTimeRange('07:00', '16:00')
+  assert.equal(value, '\u206607:00–16:00\u2069')
+  assert.ok(value.indexOf('07:00') < value.indexOf('16:00'))
+  assert.match(familySource, /formatTimeRange\(routine\.start, routine\.end\)/)
 })
 
 test('Tasks preserves completion, completed section, LIA marker, empty state and details-first actions', () => {
@@ -49,4 +57,6 @@ test('Family overview derives status, responsibility and opens read profile befo
   assert.match(familySource, /setSelectedId\(person\.id\)/)
   assert.match(familySource, /className="detail-sheet member-profile"/)
   assert.match(familySource, /onEdit\(selected\)/)
+  assert.match(familySource, /className="child-family-summary"/)
+  assert.match(familySource, /השגרה שלי/)
 })

@@ -8,7 +8,11 @@ type Props = { family: FamilyUnit; tasks: FamilyTask[]; actorId: string; childMo
 export function filterTasksForView(tasks: FamilyTask[], familyId: string, actorId: string, childMode: boolean, filter: Filter, today = localDate()) {
   const weekDate = new Date(`${today}T12:00:00`); weekDate.setDate(weekDate.getDate() + 7)
   const week = `${weekDate.getFullYear()}-${String(weekDate.getMonth() + 1).padStart(2, '0')}-${String(weekDate.getDate()).padStart(2, '0')}`
-  return tasks.filter(task => task.familyId === familyId && (!childMode || task.ownerId === actorId)).filter(task => filter === 'all' || task.due <= (filter === 'today' ? today : week))
+  return tasks.filter(task => task.familyId === familyId && (!childMode || task.ownerId === actorId)).filter(task => {
+    if (filter === 'all') return true
+    if (filter === 'today') return task.due === today
+    return task.due >= today && task.due <= week
+  })
 }
 
 export function TasksView({ family, tasks, actorId, childMode, onCreate, onEdit, onDelete, onToggle }: Props) {

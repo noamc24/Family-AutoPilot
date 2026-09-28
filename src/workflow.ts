@@ -1,5 +1,6 @@
 import { localDate, type AppData, type EventAcknowledgement, type FamilyEvent, type Person, type WeeklyRoutine } from './data'
 import { scanFutureRisks } from './forecast'
+import { formatTimeRange } from './uiFormatting'
 
 const minutes = (time: string) => { const [hour, minute] = time.split(':').map(Number); return hour * 60 + minute }
 export const routineDays = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש']
@@ -58,7 +59,7 @@ export function routineDisplayRows(person: Pick<Person, 'id' | 'routines'>): Arr
     key: `${person.id}:${routine.id}:${routine.start}:${routine.end}`,
     label: routine.label || 'לו״ז קבוע',
     dayLabel: formatRoutineDayRange(routine.days || routineDaysList(routine)),
-    time: `${routine.start}–${routine.end}`,
+    time: formatTimeRange(routine.start, routine.end),
     prepTitle: routine.prepTitle,
   }))
 }

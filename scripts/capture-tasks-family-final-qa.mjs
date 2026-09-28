@@ -28,8 +28,9 @@ for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844
   const mobile = viewport.width === 390
   const { context, page } = await open(viewport)
   await nav(page, 'משימות')
-  await page.getByRole('button', { name: 'הכל', exact: true }).click()
-  await shot(page, `${mobile ? 'mobile' : 'desktop'}-tasks-${viewport.width}x${viewport.height}.png`)
+  await shot(page, `${mobile ? 'mobile' : 'desktop'}-tasks-today-${viewport.width}x${viewport.height}.png`)
+  await page.getByRole('button', { name: 'השבוע', exact: true }).click()
+  await shot(page, `${mobile ? 'mobile' : 'desktop'}-tasks-week-${viewport.width}x${viewport.height}.png`)
   await page.locator('.task-v2-row .task-copy').first().click()
   await page.locator('.task-detail').waitFor()
   await shot(page, `${mobile ? 'mobile' : 'desktop'}-task-details-${viewport.width}x${viewport.height}.png`)
@@ -49,10 +50,10 @@ for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844
   await context.close()
 }
 
-{
-  const { context, page } = await open({ width: 1440, height: 1000 }, 'Itamar')
+for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }]) {
+  const { context, page } = await open(viewport, 'Itamar')
   await nav(page, 'משפחה')
-  await shot(page, 'desktop-child-family-1440x1000.png')
+  await shot(page, `${viewport.width === 390 ? 'mobile' : 'desktop'}-child-family-${viewport.width}x${viewport.height}.png`)
   await context.close()
 }
 
