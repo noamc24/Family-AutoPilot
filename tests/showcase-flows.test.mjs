@@ -58,10 +58,13 @@ test('אישור WhatsApp מעדכן Event אמיתי, מקשר Signal ויוצ�
   assert.equal(repeated.activity.filter(entry => entry.id.includes(received.signal.id)).length, 2)
 })
 
-test('לא עכשיו משאיר את ה-WhatsApp intervention פתוח', () => {
+test('דחייה סוגרת את ה-WhatsApp intervention בלי לשנות את האירוע', () => {
   const received = receive(fresh(), 'whatsapp-calendar')
+  const original = received.data.events.find(event => event.id === 'football').time
   const data = showcase.applyShowcaseAction(received.data, itemFor(received.data, received.signal.id).id, 'dismiss', 'Mor')
-  assert.equal(itemFor(data, received.signal.id).status, 'decisionRequired')
+  assert.equal(itemFor(data, received.signal.id).status, 'noAction')
+  assert.equal(itemFor(data, received.signal.id).actions.length, 0)
+  assert.equal(data.events.find(event => event.id === 'football').time, original)
 })
 
 test('School מורשה יוצר intervention ומשימה אמיתית עם dueDate, owner ו-reference', () => {

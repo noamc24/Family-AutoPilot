@@ -29,7 +29,7 @@ test('active, waiting ו-resolved מקבלים היררכיה ייעודית ו�
 })
 
 test('מקורות ולמה נשארים משניים ו-child restriction נשמר', () => {
-  assert.match(card, /למה ליה ממליצה\?/)
+  assert.match(card, /למה LIA ממליצה על זה\?/)
   assert.match(css, /\.view-home \.lia-sources, \.view-home \.lia-why \{ opacity: \.72; \}/)
   assert.match(home, /viewer\?\.age.*>= 18/)
 })

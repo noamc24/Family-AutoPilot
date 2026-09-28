@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { cloneElement, isValidElement, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, Bell, CalendarDays, Car, Check, CheckCircle2, ChevronDown, ClipboardList, Home, Mic, MoreHorizontal, Pencil, Plus, Settings2, ShieldCheck, Sparkles, Trash2, Users, X } from 'lucide-react'
 import { ageFromBirthDate, dateLabel, DEFAULT_FAMILY_ID, defaultPersonalSettings, detectScenario, initialData, localDate, readData, removePersonAndTheirData, sanitizeAppData, uid, validBirthDate, type AppData, type FamilyEvent, type FamilyPreferences, type FamilyTask, type FamilyUnit, type PendingAction, type Person, type PersonalIntegration, type Priority, type RoutineKind, type WeeklyRoutine, type TransportationRequest } from './data'
 import { applyBirthdayPlan, applyLatePlan, canDrive, drivingIneligibility, expandEventDates, getLateImpact, pickupIneligibility, prepareBirthdayPlan, removeEventAndDependents, saveEventAndDependents, updatePersonAndRevalidate } from './domain'
@@ -15,7 +15,7 @@ import { LiaHomeSection } from './components/LiaHomeSection'
 import { applyTrafficFlowAction, initializeTrafficCoreFlow } from './liaCoreFlow'
 import { SettingsPage } from './components/SettingsPage'
 import { ShowcaseControls } from './components/ShowcaseControls'
-import { applyShowcaseAction, resetShowcase, triggerShowcase, type ShowcaseKind } from './showcaseFlows'
+import { applyShowcaseAction, resetSubmissionDemo, triggerShowcase, type ShowcaseKind } from './showcaseFlows'
 import { LiaChatPreview } from './components/LiaChatPreview'
 import { CalendarView } from './components/CalendarView'
 import { TasksView } from './components/TasksView'
@@ -72,6 +72,14 @@ function App() {
   const dataRef = useRef(data)
   dataRef.current = data
 
+  useEffect(() => {
+    document.querySelectorAll<HTMLInputElement>('input[type="date"], input[type="time"], input[type="datetime-local"]').forEach(input => {
+      input.lang = 'he-IL'
+      input.dir = 'ltr'
+      if (input.type === 'time') { input.step = '60'; input.type = 'text'; input.inputMode = 'numeric'; input.placeholder = '00:00' }
+    })
+  })
+
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'auto' }) }, [view])
 
   const family = data.families.find(f => f.id === familyId) || data.families[0]
@@ -95,7 +103,7 @@ function App() {
       setToast(result.message)
       if (result.created) setView('home')
     }
-    const reset = () => { setData(previous => resetShowcase(previous, family.id)); setToast('תרחישי ה־Showcase מוכנים להפעלה מחדש ✓') }
+    const reset = () => { setData(previous => resetSubmissionDemo(previous, family.id)); setToast('') }
     window.addEventListener('fampilot:showcase-trigger', trigger)
     window.addEventListener('fampilot:showcase-reset', reset)
     return () => { window.removeEventListener('fampilot:showcase-trigger', trigger); window.removeEventListener('fampilot:showcase-reset', reset) }
@@ -495,9 +503,9 @@ function App() {
     setData(previous => performLiaChatAction(previous, conversationFor(previous, family.id, activePersonId), activePersonId).data)
   }
   function clearChat() {
-    askConfirmation('לנקות רק את השיחה שלך עם ליה? האירועים, המשימות והעדכונים לא יימחקו.', () => {
+    askConfirmation('לנקות רק את השיחה שלך עם LIA? האירועים, המשימות והעדכונים לא יימחקו.', () => {
       setData(previous => clearLiaConversation(previous, family.id, activePersonId))
-      setToast('השיחה עם ליה נוקתה')
+      setToast('השיחה עם LIA נוקתה')
     })
   }
   function example(value: string) { setView('home'); setPrompt(value); window.setTimeout(() => inputRef.current?.focus(), 30) }
@@ -543,7 +551,30 @@ function App() {
   </div>
 }
 
-function Field({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) { return <label className={`form-field ${className || ''}`.trim()}><span>{label}</span>{children}</label> }
+function Field({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
+  const localized = isValidElement<{ type?: string }>(children) && ['date', 'time', 'datetime-local'].includes(children.props.type || '')
+    ? <LocalizedDateTimeInput element={children}/>
+    : children
+  return <label className={`form-field ${className || ''}`.trim()}><span>{label}</span>{localized}</label>
+}
+
+function LocalizedDateTimeInput({ element }: { element: React.ReactElement<any> }) {
+  const inputType = element.props.type as 'date' | 'time' | 'datetime-local'
+  const raw = String(element.props.value || '')
+  const displayValue = inputType === 'time' ? raw : inputType === 'date'
+    ? raw.replace(/^(\d{4})-(\d{2})-(\d{2})$/, '$3/$2/$1')
+    : raw.replace(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}:\d{2})$/, '$3/$2/$1 $4')
+  const [display, setDisplay] = useState(displayValue)
+  useEffect(() => setDisplay(displayValue), [displayValue])
+  if (inputType === 'time') return cloneElement(element, { type: 'text', lang: 'he-IL', dir: 'ltr', inputMode: 'numeric', pattern: '[0-2][0-9]:[0-5][0-9]', placeholder: '00:00', step: 60 })
+  const commit = () => {
+    const match = display.match(inputType === 'date' ? /^(\d{2})\/(\d{2})\/(\d{4})$/ : /^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}:\d{2})$/)
+    if (!match) { setDisplay(displayValue); return }
+    const value = inputType === 'date' ? `${match[3]}-${match[2]}-${match[1]}` : `${match[3]}-${match[2]}-${match[1]}T${match[4]}`
+    element.props.onChange?.({ target: { value } })
+  }
+  return cloneElement(element, { type: 'text', lang: 'he-IL', dir: 'ltr', inputMode: 'numeric', value: display, placeholder: inputType === 'date' ? 'DD/MM/YYYY' : 'DD/MM/YYYY 00:00', onChange: (event: React.ChangeEvent<HTMLInputElement>) => setDisplay(event.target.value), onBlur: commit })
+}
 function WorkflowHub({ data, family, actorId, onAcknowledge, onHandle, onOverride, onReview }: { data: AppData; family: FamilyUnit; actorId: string; onAcknowledge: (eventId: string, status: 'seen' | 'approved' | 'declined') => void; onHandle: (id: string) => void; onOverride: (eventId: string) => void; onReview: (action: PendingAction, approved: boolean) => void }) {
   const pendingApprovals = (data.acknowledgements || []).filter(item => data.events.some(event => event.id === item.eventId && event.familyId === family.id) && item.status !== 'approved')
   const approvals = (data.acknowledgements || []).filter(item => pendingApprovals.some(pending => pending.eventId === item.eventId))
@@ -586,7 +617,7 @@ function PersonalConnections() {
     personalIntegrationDraft = next
     return next
   })
-  return <section className="personal-connections"><h3>חיבורים ומקורות מידע</h3><p>החיבורים והרשאות ליה נשמרים בנפרד לכל בן משפחה.</p><div className="connection-list">{items.map(item => { const source = sourceDefinitionById[item.sourceId]; return source ? <div className="connection-row" key={item.sourceId}><span>{source.icon}</span><div><strong>{source.displayName}</strong><small>{source.description}</small></div><label><input type="checkbox" checked={item.connectionStatus === 'connected'} onChange={event => update(item.sourceId, { connectionStatus: event.target.checked ? 'connected' : 'disconnected' })}/>מחובר</label><label><input type="checkbox" checked={item.liaAccess === 'allowed'} disabled={item.connectionStatus !== 'connected'} onChange={event => update(item.sourceId, { liaAccess: event.target.checked ? 'allowed' : 'notAllowed' })}/>לאפשר ל־LIA</label></div> : null })}</div></section>
+  return <section className="personal-connections"><h3>חיבורים ומקורות מידע</h3><p>החיבורים והרשאות LIA נשמרים בנפרד לכל בן משפחה.</p><div className="connection-list">{items.map(item => { const source = sourceDefinitionById[item.sourceId]; return source ? <div className="connection-row" key={item.sourceId}><span>{source.icon}</span><div><strong>{source.displayName}</strong><small>{source.description}</small></div><label><input type="checkbox" checked={item.connectionStatus === 'connected'} onChange={event => update(item.sourceId, { connectionStatus: event.target.checked ? 'connected' : 'disconnected' })}/>מחובר</label><label><input type="checkbox" checked={item.liaAccess === 'allowed'} disabled={item.connectionStatus !== 'connected'} onChange={event => update(item.sourceId, { liaAccess: event.target.checked ? 'allowed' : 'notAllowed' })}/>לאפשר ל־LIA</label></div> : null })}</div></section>
 }
 function ResponsibilityEditor({ people, items, onChange, suggestOwner }: { people: Person[]; items: Pick<FamilyTask, 'id' | 'title' | 'ownerId'>[]; onChange: (items: Pick<FamilyTask, 'id' | 'title' | 'ownerId'>[]) => void; suggestOwner: () => string }) {
   const update = (id: string, changes: Partial<Pick<FamilyTask, 'title' | 'ownerId'>>) => onChange(items.map(item => item.id === id ? { ...item, ...changes } : item))
@@ -598,7 +629,7 @@ function Empty({ text }: { text: string }) { return <div className="empty-state"
 function HomeBrief({ events, tasks, family, memberId }: { events: FamilyEvent[]; tasks: FamilyTask[]; family: FamilyUnit; memberId: string }) {
   const brief = remainingToday(events, tasks, memberId)
   const name = (id: string) => family.people.find(person => person.id === id)?.name
-  return <section className="home-brief"><div className="section-heading"><h2>המשך היום</h2></div>{!brief.events.length && !brief.tasks.length ? <p className="quiet-copy">אין עוד דברים מתוכננים להיום.</p> : <div className="brief-list">{brief.events.slice(0, 4).map(event => <button key={event.id} className="brief-row"><time>{event.time}</time><span><strong>{event.title}{event.participantIds.length > 0 && <small> · {event.participantIds.map(name).filter(Boolean).join(', ')}</small>}</strong>{event.responsibleId && <small className="brief-driver"><Car size={12}/> {name(event.responsibleId) || 'נהג/ת'}</small>}</span>{event.sourceSignalId && <b title="ליה עדכנה">✦</b>}</button>)}{brief.tasks.slice(0, 2).map(task => <button key={task.id} className="brief-row task"><time>משימה</time><span><strong>{task.title}</strong><small>עד היום</small></span>{task.sourceSignalId && <b title="ליה יצרה">✦</b>}</button>)}</div>}</section>
+  return <section className="home-brief"><div className="section-heading"><h2>המשך היום</h2></div>{!brief.events.length && !brief.tasks.length ? <p className="quiet-copy">אין עוד דברים מתוכננים להיום.</p> : <div className="brief-list">{brief.events.slice(0, 4).map(event => <button key={event.id} className="brief-row"><time>{event.time}</time><span><strong>{event.title}{event.participantIds.length > 0 && <small> · {event.participantIds.map(name).filter(Boolean).join(', ')}</small>}</strong>{event.responsibleId && <small className="brief-driver"><Car size={12}/> {name(event.responsibleId) || 'נהג/ת'}</small>}</span>{event.sourceSignalId && <b title="LIA עדכנה">✦</b>}</button>)}{brief.tasks.slice(0, 2).map(task => <button key={task.id} className="brief-row task"><time>משימה</time><span><strong>{task.title}</strong><small>עד היום</small></span>{task.sourceSignalId && <b title="LIA יצרה">✦</b>}</button>)}</div>}</section>
 }
 function BirthdayReminderPanel({ reminders }: { reminders: BirthdayReminder[] }) {
   if (!reminders.length) return null
@@ -716,7 +747,7 @@ function RequestBoard({ requests, data, actorId, onRespond, onConfirm, onAlterna
   })}</div></section>
 }
 function EventRow({ event, people, onEdit }: { event: FamilyEvent; people: string; onEdit: () => void }) { return <button className="event-row" onClick={onEdit} aria-label={`פרטי אירוע: ${event.title}`}><time className="event-time" dateTime={event.time}>{event.time}</time><span className="event-line"/><span className="event-icon" aria-hidden="true">{event.icon}</span><span className="event-info"><strong>{event.title}</strong><small>{people || 'כל המשפחה'}{event.requiresDriver && <span className="item-badge">הסעה</span>}{event.sourceNote && <span className="source-badge">{event.sourceNote}</span>}</small></span><Pencil size={14}/></button> }
-function TaskRow({ task, owner, onToggle, onEdit }: { task: FamilyTask; owner?: string; onToggle: () => void; onEdit: () => void }) { return <div className={`task-row ${task.done ? 'is-done' : ''}`}><button className="task-check" onClick={onToggle} aria-label={task.done ? 'סימון כלא בוצע' : 'סימון כבוצע'}>{task.done && <Check size={15}/>}</button><div><strong>{task.title}{task.sourceSignalId && <span className="lia-created-chip" title="ליה יצרה">✦</span>}{task.repeatDays?.length ? ' · חוזר מדי שבוע' : task.routineId ? ' · הכנה קבועה' : ''}</strong><small>{dateLabel(task.due)}{owner ? ` · ${owner}` : ''}</small></div><button className="row-edit" onClick={onEdit} aria-label={`עריכת ${task.title}`}><Pencil size={15}/></button></div> }
+function TaskRow({ task, owner, onToggle, onEdit }: { task: FamilyTask; owner?: string; onToggle: () => void; onEdit: () => void }) { return <div className={`task-row ${task.done ? 'is-done' : ''}`}><button className="task-check" onClick={onToggle} aria-label={task.done ? 'סימון כלא בוצע' : 'סימון כבוצע'}>{task.done && <Check size={15}/>}</button><div><strong>{task.title}{task.sourceSignalId && <span className="lia-created-chip" title="LIA יצרה">✦</span>}{task.repeatDays?.length ? ' · חוזר מדי שבוע' : task.routineId ? ' · הכנה קבועה' : ''}</strong><small>{dateLabel(task.due)}{owner ? ` · ${owner}` : ''}</small></div><button className="row-edit" onClick={onEdit} aria-label={`עריכת ${task.title}`}><Pencil size={15}/></button></div> }
 
 function PlanReview({ dialog, data, family, actorId, impact, onClose, onConfirm }: {
   dialog: Extract<NonNullable<Dialog>, { type: 'plan' }>; data: AppData; family: FamilyUnit; actorId: string;

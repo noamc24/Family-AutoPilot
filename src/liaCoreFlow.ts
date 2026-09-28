@@ -31,6 +31,7 @@ export function createTrafficIntervention(data: AppData, signal: TrafficSignal):
 }
 
 export function initializeTrafficCoreFlow(data: AppData): AppData {
+  if (data.demoResetAt) return data
   if ((data.trafficSignals || []).length || (data.liaInterventions || []).some(item => item.type === 'traffic')) return data
   const event = data.events.find(item => item.familyId === 'Avrahami' && item.id === 'traffic-pickup' && item.responsibleId)
   if (!event) return data

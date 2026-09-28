@@ -907,6 +907,8 @@ h2 { letter-spacing: -.02em; }
 .view-home .lia-handled ul { margin-top: 5px; }
 .view-home .lia-handled li:nth-child(n+3) { display: none; }
 .view-home .lia-handled li { min-height: 44px; padding: 7px 0; }
+.calendar-detail-actions { display: flex; gap: 8px; margin-top: 18px; }
+.calendar-detail-actions .danger { color: var(--v2-danger); }
 
 @media (max-width: 768px) {
   .view-home { display: flex; padding-top: 24px; }

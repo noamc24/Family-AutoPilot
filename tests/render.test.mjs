@@ -25,8 +25,8 @@ test('מסך הבית משתנה בין הורה לילד ומציג תוכן מ
     assert.match(parent, /בקשות הסעה במשפחה/)
     assert.match(parent, /דורש החלטה/)
     assert.match(parent, /LIA זיהתה עומס בדרך/)
-    assert.match(parent, /ליה כבר טיפלה/)
-    assert.match(parent, /למה ליה ממליצה/)
+    assert.match(parent, /LIA כבר טיפלה/)
+    assert.match(parent, /למה LIA ממליצה/)
     assert.match(parent, /עדכונים ממקורות/)
     assert.match(parent, /מה קרה היום/)
     assert.match(parent, /וויז/)
@@ -43,7 +43,7 @@ test('מסך הבית משתנה בין הורה לילד ומציג תוכן מ
     assert.match(child, /הוספת אירוע/)
     assert.doesNotMatch(child, /בקשות הסעה במשפחה/)
     assert.doesNotMatch(child, /עדכונים ממקורות/)
-    assert.doesNotMatch(child, /ליה כבר טיפלה/)
+    assert.doesNotMatch(child, /LIA כבר טיפלה/)
   } finally { globalThis.localStorage = originalStorage }
 })
 
@@ -57,6 +57,6 @@ test('כרטיס מצב משפחתי תקין מציג רק נתונים קיי�
     assert.match(markup, /הכל בשליטה/)
     assert.match(markup, /0 אירועים היום/)
     assert.match(markup, /אין נושאים פתוחים/)
-    assert.match(markup, /ליה לא זיהתה כרגע משהו שדורש ממך פעולה/)
+    assert.match(markup, /LIA לא זיהתה כרגע משהו שדורש ממך פעולה/)
   } finally { globalThis.localStorage = originalStorage }
 })

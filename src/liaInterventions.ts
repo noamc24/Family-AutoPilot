@@ -43,6 +43,7 @@ export function buildLiaInterventions(data: AppData, familyId: string): LiaInter
   const family = data.families.find(item => item.id === familyId)
   if (!family) return []
   const stored = (data.liaInterventions || []).filter(item => item.familyId === familyId)
+  if (data.demoResetAt) return stored
   if ((data.externalSignals || []).some(signal => signal.familyId === familyId)) return stored
   const timestamp = now()
   const child = family.people.find(person => person.age < 18)

@@ -74,7 +74,9 @@ export function sensitiveAutomaticChange(before: AppData, after: AppData, family
 export function syncAcknowledgements(data: AppData): AppData {
   const previous = data.acknowledgements || []
   const next: EventAcknowledgement[] = []
+  const resetSeedIds = new Set(['dentist', 'dance', 'football', 'traffic-pickup', 'dinner', 'grandma-babka', 'pickup', 'trip'])
   for (const event of data.events) {
+    if (data.demoResetAt && resetSeedIds.has(event.id)) continue
     if (!event.createdById && !event.sourceNote) continue
     const duties = data.tasks.filter(task => task.eventId === event.id && task.responsibility)
     const signature = `${eventSignature(event)}|${duties.map(task => `${task.title}:${task.ownerId}`).sort().join(',')}`

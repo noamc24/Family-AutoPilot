@@ -19,7 +19,7 @@ import type { LiaIntervention } from './liaInterventions'
 import type { LiaConversation } from './liaChatTypes'
 import type { TrafficSignal } from './trafficSignals'
 import type { ExternalSignal } from './showcaseFlows'
-export type AppData = { families: FamilyUnit[]; events: FamilyEvent[]; tasks: FamilyTask[]; activity: Activity[]; transportationRequests: TransportationRequest[]; integrationLogs: IntegrationLog[]; calendarMirrors: CalendarMirror[]; acknowledgements?: EventAcknowledgement[]; suppressedRoutineTaskIds?: string[]; pendingActions?: PendingAction[]; dismissedActionIds?: string[]; trafficSignals?: TrafficSignal[]; externalSignals?: ExternalSignal[]; liaInterventions?: LiaIntervention[]; liaConversations?: LiaConversation[] }
+export type AppData = { families: FamilyUnit[]; events: FamilyEvent[]; tasks: FamilyTask[]; activity: Activity[]; transportationRequests: TransportationRequest[]; integrationLogs: IntegrationLog[]; calendarMirrors: CalendarMirror[]; acknowledgements?: EventAcknowledgement[]; suppressedRoutineTaskIds?: string[]; pendingActions?: PendingAction[]; dismissedActionIds?: string[]; trafficSignals?: TrafficSignal[]; externalSignals?: ExternalSignal[]; liaInterventions?: LiaIntervention[]; liaConversations?: LiaConversation[]; demoResetAt?: string }
 
 export const uid = () => Math.random().toString(36).slice(2, 10)
 export const ageFromBirthYear = (year: number) => new Date().getFullYear() - year

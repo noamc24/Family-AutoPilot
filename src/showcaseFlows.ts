@@ -1,4 +1,4 @@
-import { localDate, type Activity, type AppData, type FamilyEvent, type FamilyTask, type IntegrationSource } from './data'
+import { dateLabel, localDate, type Activity, type AppData, type FamilyEvent, type FamilyTask, type IntegrationSource } from './data'
 import type { LiaActionKind, LiaIntervention } from './liaInterventions'
 import { memberAllowsSource } from './trafficSignals'
 
@@ -60,7 +60,7 @@ export function receiveShowcaseSignal(data: AppData, signal: ExternalSignal): Ap
     whyItMatters: taskSignal ? 'יש פעולה עם מועד אחרון שכדאי להכניס לתוכנית.' : 'השעה החדשה משפיעה על התוכנית המשפחתית.',
     recommendation: taskSignal ? `ליצור משימה: ${signal.taskCandidate?.title}?` : 'לעדכן את האירוע הקיים ביומן.',
     sources: [{ sourceId: signal.sourceId, mode: integrationMode(data, signal), ownerMemberId: signal.ownerMemberId }],
-    actions: taskSignal ? [{ id: 'create-task', kind: 'createTask', label: 'צור משימה', primary: true }, { id: 'not-now', kind: 'dismiss', label: 'לא עכשיו' }] : [{ id: 'calendar', kind: 'addToCalendar', label: 'עדכן ביומן', primary: true }, { id: 'not-now', kind: 'dismiss', label: 'לא עכשיו' }],
+    actions: taskSignal ? [{ id: 'create-task', kind: 'createTask', label: 'אישור ויצירת משימה', primary: true }, { id: 'reject', kind: 'dismiss', label: 'דחייה' }] : [{ id: 'calendar', kind: 'addToCalendar', label: 'אישור ועדכון', primary: true }, { id: 'reject', kind: 'dismiss', label: 'דחייה' }],
     status: 'decisionRequired',
     explanation: taskSignal ? 'ההודעה כוללת פעולה עם מועד אחרון ולכן LIA הציעה להפוך אותה למשימה.' : 'ההודעה זוהתה כשינוי בשעת חוג שכבר מופיע בלוח המשפחתי.',
     relatedMemberIds: [signal.ownerMemberId, taskSignal ? signal.taskCandidate!.relatedMemberId : signal.eventCandidate!.relatedMemberId],
@@ -83,8 +83,15 @@ export function triggerShowcase(data: AppData, familyId: string, ownerMemberId: 
 export function applyShowcaseAction(data: AppData, itemId: string, action: LiaActionKind, actorId: string): AppData {
   const item = (data.liaInterventions || []).find(entry => entry.id === itemId)
   const signal = (data.externalSignals || []).find(entry => entry.id === item?.signalId)
-  if (!item || !signal || item.status === 'completed') return data
-  if (action === 'dismiss') return { ...data, liaInterventions: (data.liaInterventions || []).map(entry => entry.id === itemId ? { ...entry, statusDetail: 'נשמר להחלטה מאוחרת', updatedAt: new Date().toISOString() } : entry) }
+  if (!item || !signal || ['completed', 'noAction'].includes(item.status)) return data
+  if (action === 'dismiss') {
+    const timestamp = new Date().toISOString()
+    return {
+      ...data,
+      externalSignals: (data.externalSignals || []).map(entry => entry.id === signal.id ? { ...entry, status: 'handled' } : entry),
+      liaInterventions: (data.liaInterventions || []).map(entry => entry.id === itemId ? { ...entry, status: 'noAction', actions: [], statusDetail: 'נדחה · אין צורך בפעולה', resolvedAt: timestamp, resolvedBy: actorId, resolutionType: 'dismissed', resolutionSummary: 'העדכון נדחה ולא בוצע שינוי.', updatedAt: timestamp } : entry),
+    }
+  }
   const timestamp = new Date().toISOString()
   if (action === 'addToCalendar' && signal.eventCandidate) {
     const candidate = signal.eventCandidate
@@ -95,7 +102,7 @@ export function applyShowcaseAction(data: AppData, itemId: string, action: LiaAc
       ...data,
       events: data.events.map(event => event.id === existing.id ? updatedEvent : event),
       externalSignals: (data.externalSignals || []).map(entry => entry.id === signal.id ? { ...entry, status: 'handled', resultEventId: existing.id } : entry),
-      liaInterventions: (data.liaInterventions || []).map(entry => entry.id === itemId ? { ...entry, status: 'completed', actions: [], relatedEventId: existing.id, resolvedAt: timestamp, resolvedBy: actorId, resolutionType: 'calendarUpdated', resolutionSummary: `שעת ${candidate.title} עודכנה ביומן ל־${candidate.time}`, statusDetail: 'טופל ✓ אין צורך בפעולה נוספת', updatedAt: timestamp } : entry),
+      liaInterventions: (data.liaInterventions || []).map(entry => entry.id === itemId ? { ...entry, status: 'completed', actions: [], relatedEventId: existing.id, resolvedAt: timestamp, resolvedBy: actorId, resolutionType: 'calendarUpdated', resolutionSummary: `LIA עדכנה את האירוע · ${candidate.title} · ${dateLabel(existing.date)} · ${candidate.originalTime} → ${candidate.time}`, statusDetail: 'טופל ✓ אין צורך בפעולה נוספת', updatedAt: timestamp } : entry),
     }
     return addActivityOnce(next, signal, 'completed', `שעת ${candidate.title} עודכנה ביומן ל־${candidate.time}.`, item.relatedMemberIds)
   }
@@ -126,5 +133,33 @@ export function resetShowcase(data: AppData, familyId: string, kind?: ShowcaseKi
     activity: data.activity.filter(item => ![...ids].some(id => item.id.startsWith(`activity:showcase:${id}:`))),
     externalSignals: (data.externalSignals || []).filter(signal => !ids.has(signal.id)),
     liaInterventions: (data.liaInterventions || []).filter(item => !item.signalId || !ids.has(item.signalId)),
+  }
+}
+
+const demoSeedEventIds = new Set(['dentist', 'dance', 'football', 'traffic-pickup', 'dinner', 'grandma-babka', 'pickup', 'trip'])
+const conflictingDemoSeedEventIds = new Set(['dentist', 'grandma-babka'])
+const demoIntervention = (item: LiaIntervention) => item.id.startsWith('lia-demo-') || item.id.startsWith('lia-showcase:') || item.id.startsWith('lia-traffic:') || !!item.signalId || item.type === 'traffic'
+
+/** Clears only submission/demo artifacts for one family. User-created records are preserved. */
+export function resetSubmissionDemo(data: AppData, familyId: string): AppData {
+  const restored = resetShowcase(data, familyId)
+  const today = localDate()
+  const removedEventIds = new Set(restored.events.filter(event => event.familyId === familyId && (
+    event.id.startsWith('showcase-') || event.id.startsWith('integration-') || event.id.startsWith('scenario-') ||
+    (demoSeedEventIds.has(event.id) && (event.date < today || event.needsAttention || (event.requiresDriver && !event.responsibleId) || conflictingDemoSeedEventIds.has(event.id)))
+  )).map(event => event.id))
+  const demoRequestEventIds = new Set(restored.events.filter(event => event.familyId === familyId && demoSeedEventIds.has(event.id)).map(event => event.id))
+  return {
+    ...restored,
+    demoResetAt: new Date().toISOString(),
+    events: restored.events.filter(event => !removedEventIds.has(event.id)),
+    tasks: restored.tasks.filter(task => task.familyId !== familyId || (!task.id.startsWith('showcase-task:') && !task.id.startsWith('integration-') && !task.id.startsWith('scenario-') && !task.sourceSignalId)),
+    transportationRequests: restored.transportationRequests.filter(request => request.familyId !== familyId || (!removedEventIds.has(request.eventId) && !demoRequestEventIds.has(request.eventId))),
+    externalSignals: (restored.externalSignals || []).filter(signal => signal.familyId !== familyId),
+    trafficSignals: (restored.trafficSignals || []).filter(signal => signal.familyId !== familyId),
+    liaInterventions: (restored.liaInterventions || []).filter(item => item.familyId !== familyId || !demoIntervention(item)),
+    pendingActions: (restored.pendingActions || []).filter(action => action.familyId !== familyId),
+    acknowledgements: (restored.acknowledgements || []).filter(item => !demoSeedEventIds.has(item.eventId)),
+    activity: restored.activity.filter(item => item.familyId !== familyId || !item.id.startsWith('activity:lia-traffic:') && !item.id.startsWith('activity:showcase:')),
   }
 }
