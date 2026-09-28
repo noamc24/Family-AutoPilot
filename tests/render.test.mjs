@@ -25,7 +25,7 @@ test('מסך הבית משתנה בין הורה לילד ומציג תוכן מ
     assert.match(parent, /בקשות הסעה במשפחה/)
     assert.match(parent, /דורש החלטה/)
     assert.match(parent, /LIA זיהתה עומס בדרך/)
-    assert.match(parent, /LIA כבר טיפלה/)
+    assert.doesNotMatch(parent, /lia-demo-handled/)
     assert.match(parent, /למה LIA ממליצה/)
     assert.match(parent, /עדכונים ממקורות/)
     assert.match(parent, /מה קרה היום/)

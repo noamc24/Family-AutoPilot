@@ -36,23 +36,25 @@ export const liaStatusLabels: Record<LiaInterventionStatus, string> = {
 }
 
 const now = () => new Date().toISOString()
-const modeFor = (data: AppData, familyId: string, sourceId: IntegrationSource): 'demo' | 'live' =>
-  data.families.find(family => family.id === familyId)?.people.flatMap(person => person.personalSettings?.integrations || []).find(item => item.sourceId === sourceId)?.mode || 'demo'
+const eventChangeActions: LiaInterventionAction[] = [
+  { id: 'calendar', kind: 'addToCalendar', label: 'אישור ועדכון', primary: true },
+  { id: 'reject', kind: 'dismiss', label: 'דחייה' },
+]
+
+/** Restores the decision contract for persisted event-change items created by older builds. */
+export function withRequiredDecisionActions(data: AppData, item: LiaIntervention): LiaIntervention {
+  if (!['decisionRequired', 'waiting'].includes(item.status) || item.actions.length > 0 || !item.signalId) return item
+  const signal = (data.externalSignals || []).find(entry => entry.id === item.signalId)
+  if (signal?.status === 'handled' || signal?.signalType !== 'eventUpdate' || !signal.eventCandidate) return item
+  return { ...item, actions: eventChangeActions.map(action => ({ ...action })) }
+}
 
 export function buildLiaInterventions(data: AppData, familyId: string): LiaIntervention[] {
   const family = data.families.find(item => item.id === familyId)
   if (!family) return []
-  const stored = (data.liaInterventions || []).filter(item => item.familyId === familyId)
-  if (data.demoResetAt) return stored
-  if ((data.externalSignals || []).some(signal => signal.familyId === familyId)) return stored
-  const timestamp = now()
-  const child = family.people.find(person => person.age < 18)
-  const adult = family.people.find(person => person.age >= 18)
-  const demo: LiaIntervention[] = familyId === 'Avrahami' ? [
-    { id: 'lia-demo-whatsapp', familyId, type: 'message', title: 'LIA זיהתה שינוי', detectedChange: `הפעילות של ${child?.name || 'בן המשפחה'} הוקדמה ל־17:00.`, whyItMatters: 'השינוי משפיע על שעת היציאה וההסעה.', recommendation: 'לאשר את השעה החדשה בתוכנית.', sources: [{ sourceId: 'whatsapp', mode: modeFor(data, familyId, 'whatsapp') }], actions: [], status: 'waiting', explanation: 'מתרחיש WhatsApp הדמו נגזר עדכון שעה. ההודעה המלאה אינה מוצגת למשפחה.', relatedMemberIds: child ? [child.id] : [], createdAt: timestamp, updatedAt: timestamp, visibility: { audience: 'family' } },
-    { id: 'lia-demo-handled', familyId, type: 'calendar', title: 'האירוע נוסף ליומן', detectedChange: 'עדכון משפחתי הפך לאירוע מסודר.', whyItMatters: 'האירוע זמין כעת בתוכנית המשפחתית.', recommendation: '', sources: [{ sourceId: 'calendar', mode: modeFor(data, familyId, 'calendar') }], actions: [], status: 'completed', statusDetail: adult ? `היומן של ${adult.name} עודכן` : undefined, explanation: 'הפרטים נבדקו והאירוע נשמר בלוח.', relatedMemberIds: adult ? [adult.id] : [], createdAt: timestamp, updatedAt: timestamp, visibility: { audience: 'family' } },
-  ] : []
-  return [...stored, ...demo.filter(item => !stored.some(saved => saved.id === item.id))]
+  return (data.liaInterventions || [])
+    .filter(item => item.familyId === familyId)
+    .map(item => withRequiredDecisionActions(data, item))
 }
 
 export function transitionLiaIntervention(item: LiaIntervention, action: LiaActionKind, actorName = ''): LiaIntervention {
