@@ -152,7 +152,11 @@ export function resetSubmissionDemo(data: AppData, familyId: string): AppData {
   return {
     ...restored,
     demoResetAt: new Date().toISOString(),
-    events: restored.events.filter(event => !removedEventIds.has(event.id)),
+    events: restored.events.filter(event => !removedEventIds.has(event.id)).map(event => {
+      if (event.familyId !== familyId || event.id !== 'traffic-pickup') return event
+      const { routeMinutes: _routeMinutes, departureTime: _departureTime, sourceNote: _sourceNote, ...clean } = event
+      return clean
+    }),
     tasks: restored.tasks.filter(task => task.familyId !== familyId || (!task.id.startsWith('showcase-task:') && !task.id.startsWith('integration-') && !task.id.startsWith('scenario-') && !task.sourceSignalId)),
     transportationRequests: restored.transportationRequests.filter(request => request.familyId !== familyId || (!removedEventIds.has(request.eventId) && !demoRequestEventIds.has(request.eventId))),
     externalSignals: (restored.externalSignals || []).filter(signal => signal.familyId !== familyId),

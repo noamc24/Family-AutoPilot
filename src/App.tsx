@@ -12,7 +12,7 @@ import { upcomingBirthdays, type BirthdayReminder } from './birthdays'
 import { closureIssues, materializeRoutineTasks, nextRepeatDate, routineAt, routineConflictingEvents, routineDays, sensitiveAutomaticChange, syncAcknowledgements } from './workflow'
 import { sourceDefinitionById } from './sourceDefinitions'
 import { LiaHomeSection } from './components/LiaHomeSection'
-import { applyTrafficFlowAction, initializeTrafficCoreFlow } from './liaCoreFlow'
+import { applyTrafficFlowAction, initializeTrafficCoreFlow, triggerTrafficCoreFlow } from './liaCoreFlow'
 import { SettingsPage } from './components/SettingsPage'
 import { ShowcaseControls } from './components/ShowcaseControls'
 import { applyShowcaseAction, resetSubmissionDemo, triggerShowcase, type ShowcaseKind } from './showcaseFlows'
@@ -104,7 +104,14 @@ function App() {
       setToast(result.message)
       if (result.created) setView('home')
     }
-    const reset = () => { setData(previous => resetSubmissionDemo(previous, family.id)); setToast('') }
+    const reset = () => {
+      setData(previous => {
+        const clean = resetSubmissionDemo(previous, family.id)
+        dataRef.current = clean
+        return clean
+      })
+      setToast('')
+    }
     window.addEventListener('fampilot:showcase-trigger', trigger)
     window.addEventListener('fampilot:showcase-reset', reset)
     return () => { window.removeEventListener('fampilot:showcase-trigger', trigger); window.removeEventListener('fampilot:showcase-reset', reset) }
@@ -249,6 +256,12 @@ function App() {
   }
   function runExternalSource(scenario: ExternalScenarioId) {
     if (childMode) { setToast('בדיקת מקורות זמינה למבוגרים'); return }
+    if (scenario === 'waze-traffic') {
+      const next = triggerTrafficCoreFlow(dataRef.current)
+      if (next !== dataRef.current) { dataRef.current = next; setData(next); setView('home'); setToast('LIA זיהתה עומס חדש והוסיפה המלצה למסך הבית.') }
+      else setToast('תרחיש העומס כבר פעיל או שאין אירוע מתאים.')
+      return
+    }
     const result = runExternalScenario(dataRef.current, family.id, activePersonId, scenario)
     if (result.applied) { dataRef.current = result.data; setData(result.data); setView('home') }
     setToast(result.message)

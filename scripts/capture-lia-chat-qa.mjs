@@ -23,7 +23,7 @@ async function openChat(page) {
 }
 
 async function send(page, text) {
-  const input = page.getByRole('textbox', { name: 'שאלו את ליה' })
+  const input = page.getByRole('textbox', { name: 'שאלו את LIA' })
   await input.fill(text)
   await input.press('Enter')
   await page.waitForTimeout(120)
@@ -91,7 +91,7 @@ async function pageFor(viewport) {
   await send(page, 'מי יכול לקחת את איתמר לחוג?')
   await page.locator('.lia-chat-action-card').waitFor()
   await shot(page, 'mobile-action-card-390x844.png')
-  const input = page.getByRole('textbox', { name: 'שאלו את ליה' })
+  const input = page.getByRole('textbox', { name: 'שאלו את LIA' })
   await input.fill('אפשר לבדוק גם מי פנוי אחרי 17:00?')
   await shot(page, 'mobile-composer-390x844.png')
   await context.close()

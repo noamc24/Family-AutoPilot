@@ -103,6 +103,10 @@ test('Demo reset removes every active, handled and transport demo artifact but k
   assert.ok(reset.families[0].people.some(person => (person.routines || []).length > 0))
   assert.ok(reset.events.filter(event => ['dentist', 'dance', 'football', 'traffic-pickup', 'dinner', 'grandma-babka', 'pickup', 'trip'].includes(event.id)).every(event => event.date >= dataModel.localDate()))
   assert.ok(reset.events.filter(event => ['dentist', 'dance', 'football', 'traffic-pickup', 'dinner', 'grandma-babka', 'pickup', 'trip'].includes(event.id)).every(event => !event.needsAttention && (!event.requiresDriver || event.responsibleId)))
+  const resetTrafficEvent = reset.events.find(event => event.id === 'traffic-pickup')
+  assert.equal(resetTrafficEvent.routeMinutes, undefined)
+  assert.equal(resetTrafficEvent.departureTime, undefined)
+  assert.equal(resetTrafficEvent.sourceNote, undefined)
 })
 
 test('reset leaves zero demo handled history and clears the reset notification', () => {
@@ -114,16 +118,19 @@ test('reset leaves zero demo handled history and clears the reset notification',
   assert.equal((reset.liaInterventions || []).filter(item => item.familyId === 'Avrahami' && ['completed', 'noAction'].includes(item.status)).length, 0)
   assert.equal(reset.activity.filter(item => item.familyId === 'Avrahami' && item.id.startsWith('activity:showcase:')).length, 0)
   assert.equal((reset.externalSignals || []).filter(item => item.familyId === 'Avrahami' && item.status === 'handled').length, 0)
-  assert.match(readFileSync('src/App.tsx', 'utf8'), /resetSubmissionDemo\(previous, family\.id\)\); setToast\(''\)/)
+  const app = readFileSync('src/App.tsx', 'utf8')
+  assert.match(app, /const clean = resetSubmissionDemo\(previous, family\.id\)/)
+  assert.match(app, /dataRef\.current = clean/)
+  assert.match(app, /setToast\(''\)/)
 })
 
 test('all three demo scenarios can start fresh after submission reset', () => {
   const reset = showcase.resetSubmissionDemo(fresh(), 'Avrahami')
   assert.equal(showcase.triggerShowcase(reset, 'Avrahami', 'Mor', 'whatsapp-calendar').created, true)
   assert.equal(showcase.triggerShowcase(reset, 'Avrahami', 'Mor', 'school-action').created, true)
-  const event = reset.events.find(item => item.id === 'traffic-pickup')
-  const trafficResult = traffic.createTrafficIntervention(reset, { id: 'fresh-traffic', familyId: 'Avrahami', source: 'waze', relatedEventId: event.id, previousTravelMinutes: 18, currentTravelMinutes: 31, timestamp: new Date().toISOString(), severity: 'meaningful' })
-  assert.ok(trafficResult.liaInterventions.some(item => item.id.includes('fresh-traffic')))
+  const trafficResult = traffic.triggerTrafficCoreFlow(reset)
+  assert.ok(trafficResult.liaInterventions.some(item => item.type === 'traffic' && item.status === 'decisionRequired'))
+  assert.equal(traffic.triggerTrafficCoreFlow(trafficResult), trafficResult)
 })
 
 test('date and time controls request Hebrew locale and 24-hour minute steps', () => {
