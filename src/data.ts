@@ -109,6 +109,38 @@ export const cleanStoredText = (value: string | null | undefined) => (value || '
   .replace(/[\u00a0\u200b\ufeff]/g, ' ')
   .replace(/\uFFFD/g, '').trim()
 
+export function eventHasEnded(event: FamilyEvent, now = new Date()): boolean {
+  const date = event.endDate || event.date
+  const time = event.endTime || event.time
+  const timestamp = new Date(`${date}T${time}:00`).getTime()
+  return Number.isFinite(timestamp) && timestamp < now.getTime()
+}
+
+/** Removes expired one-time events and records that cannot exist without them. */
+export function pruneExpiredData(data: AppData, now = new Date()): AppData {
+  const expiredIds = new Set(data.events.filter(event => eventHasEnded(event, now)).map(event => event.id))
+  if (!expiredIds.size) return data
+  const externalSignals = (data.externalSignals || []).filter(signal => {
+    const eventId = signal.eventCandidate?.targetEventId || signal.resultEventId
+    return !eventId || !expiredIds.has(eventId)
+  })
+  const signalIds = new Set(externalSignals.map(signal => signal.id))
+  return {
+    ...data,
+    events: data.events.filter(event => !expiredIds.has(event.id)),
+    tasks: data.tasks.filter(task => !task.eventId || !expiredIds.has(task.eventId)),
+    activity: data.activity.filter(entry => !entry.eventId || !expiredIds.has(entry.eventId)),
+    transportationRequests: (data.transportationRequests || []).filter(request => !expiredIds.has(request.eventId)),
+    integrationLogs: (data.integrationLogs || []).filter(entry => !entry.eventId || !expiredIds.has(entry.eventId)),
+    calendarMirrors: (data.calendarMirrors || []).filter(entry => !expiredIds.has(entry.eventId)),
+    acknowledgements: (data.acknowledgements || []).filter(entry => !expiredIds.has(entry.eventId)),
+    pendingActions: (data.pendingActions || []).filter(action => !expiredIds.has(action.scenarioId)),
+    trafficSignals: (data.trafficSignals || []).filter(signal => !expiredIds.has(signal.relatedEventId)),
+    externalSignals,
+    liaInterventions: (data.liaInterventions || []).filter(item => (!item.relatedEventId || !expiredIds.has(item.relatedEventId)) && (!item.signalId || signalIds.has(item.signalId))),
+  }
+}
+
 const weeklyCare = (personId: string, label: string): WeeklyRoutine[] => [
   { id: `default-${personId}-weekdays`, kind: 'study', label, day: 0, days: [0, 1, 2, 3, 4], start: '08:00', end: '16:00' },
   { id: `default-${personId}-friday`, kind: 'study', label, day: 5, days: [5], start: '08:00', end: '13:30' },
@@ -162,6 +194,7 @@ export const initialData: AppData = {
 
 /** Keeps persisted records tied to a real member of their own family unit. */
 export function sanitizeAppData(data: AppData): AppData {
+  data = pruneExpiredData(data)
   const families = data.families.map(family => ({ ...family, people: family.people.map(person => ({
     ...person,
     personalSettings: normalizePersonalSettings(person.personalSettings),

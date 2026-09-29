@@ -104,7 +104,7 @@ test('כן עם context וכפתור הפעולה מפעילים אותה פונ
 test('כן ללא pending אינו מבצע פעולה ולא מבקש הסעה', () => {
   const data = sendLiaChatMessage(simpleData(), 'f', 'm', 'כן').data
   assert.equal(data.transportationRequests.length, 0)
-  assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /עוד לא יודעת|על מה/)
+  assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /לא בטוחה|על מה/)
 })
 
 test('לא מבטל pending suggestion בלי ליצור בקשה', () => {
@@ -164,7 +164,7 @@ test('child mode מוגבל למידע אישי ואינו מקבל פעולת �
 
 test('fallback קצר ו-clear chat מנקה רק את השיחה', () => {
   let data = sendLiaChatMessage(simpleData(), 'f', 'm', 'תזמיני לי פיצה').data
-  assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /עוד לא יודעת לעשות את זה כאן/)
+  assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /לא בטוחה למה התכוונת/)
   const before = { events: data.events.length, tasks: data.tasks.length, activity: data.activity.length }
   data = clearLiaConversation(data, 'f', 'm')
   assert.equal(conversationFor(data, 'f', 'm').messages.length, 0)
@@ -176,4 +176,38 @@ test('intent matching תומך בווריאציות ואינו דורש משפט
   assert.equal(detectLiaIntent('מי פנוי להסיע את איתמר?'), 'WHO_CAN_DRIVE')
   assert.equal(detectLiaIntent('מה נשאר לעשות?'), 'OPEN_TASKS')
   assert.equal(detectLiaIntent('מה השתנה היום?'), 'RECENT_CHANGES')
+  assert.equal(detectLiaIntent('מה נשאר להיום?'), 'TODAY_SCHEDULE')
+  assert.equal(detectLiaIntent('יש משהו חשוב?'), 'WHAT_NEEDS_ATTENTION')
+  assert.equal(detectLiaIntent('מה יש מחר?'), 'UPCOMING_EVENTS')
+  assert.equal(detectLiaIntent('מתי האימון?'), 'EVENT_DETAILS')
+})
+
+test('follow-up מחליף נהג לפי שם ושולח את הפעולה הקיימת לנמען החדש', () => {
+  let data = sendLiaChatMessage(simpleData(), 'f', 'm', 'מי יכול להסיע את איתמר?').data
+  data = sendLiaChatMessage(data, 'f', 'm', 'ומה עם מור?').data
+  let chat = conversationFor(data, 'f', 'm')
+  assert.equal(chat.contextState.lastMemberId, 'm')
+  assert.equal(chat.contextState.pendingIntent.suggestedMemberId, 'm')
+  assert.match(chat.messages.at(-1).text, /מור פנויה/)
+  data = sendLiaChatMessage(data, 'f', 'm', 'אז תשלחי לה').data
+  chat = conversationFor(data, 'f', 'm')
+  assert.match(chat.messages.at(-1).text, /שלחתי.*מור/)
+  assert.equal(requestForEvent(data, 'club').responses.m, 'PENDING')
+})
+
+test('אירוע שכבר מכוסה מחזיר סטטוס ואינו מציג פעולת בקשה שעתידה להיכשל', () => {
+  const data = simpleData()
+  data.events[0].responsibleId = 'a'
+  const next = sendLiaChatMessage(data, 'f', 'm', 'מי יכול להסיע את איתמר?').data
+  const message = conversationFor(next, 'f', 'm').messages.at(-1)
+  assert.match(message.text, /אוראל כבר אחראי.*האיסוף מכוסה/)
+  assert.equal(message.action, undefined)
+})
+
+test('למה משתמש בהקשר האחרון ו-fallback עם Member מציע הבהרה ממוקדת', () => {
+  let data = sendLiaChatMessage(simpleData(), 'f', 'm', 'מי יכול להסיע את איתמר?').data
+  data = sendLiaChatMessage(data, 'f', 'm', 'למה?').data
+  assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /אוראל.*זמין|אוראל.*תנאי הנהיגה/)
+  data = sendLiaChatMessage(data, 'f', 'm', 'תעשי משהו עם מור').data
+  assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /לגבי מור.*לו״ז.*משימות.*הסעות/)
 })

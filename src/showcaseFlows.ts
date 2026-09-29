@@ -1,4 +1,4 @@
-import { dateLabel, localDate, type Activity, type AppData, type FamilyEvent, type FamilyTask, type IntegrationSource } from './data'
+import { dateLabel, localDate, pruneExpiredData, type Activity, type AppData, type FamilyEvent, type FamilyTask, type IntegrationSource } from './data'
 import type { LiaActionKind, LiaIntervention } from './liaInterventions'
 import { memberAllowsSource } from './trafficSignals'
 
@@ -126,14 +126,14 @@ export function resetShowcase(data: AppData, familyId: string, kind?: ShowcaseKi
   const signals = (data.externalSignals || []).filter(signal => signal.familyId === familyId && sourceIds.includes(signal.sourceId))
   const ids = new Set(signals.map(signal => signal.id))
   const originals = new Map(signals.filter(signal => signal.eventCandidate).map(signal => [signal.id, signal.eventCandidate!.originalTime]))
-  return {
+  return pruneExpiredData({
     ...data,
     events: data.events.map(event => event.sourceSignalId && ids.has(event.sourceSignalId) ? { ...event, time: originals.get(event.sourceSignalId) || event.time, sourceSignalId: undefined, sourceNote: undefined } : event),
     tasks: data.tasks.filter(task => !task.sourceSignalId || !ids.has(task.sourceSignalId)),
     activity: data.activity.filter(item => ![...ids].some(id => item.id.startsWith(`activity:showcase:${id}:`))),
     externalSignals: (data.externalSignals || []).filter(signal => !ids.has(signal.id)),
     liaInterventions: (data.liaInterventions || []).filter(item => !item.signalId || !ids.has(item.signalId)),
-  }
+  })
 }
 
 const demoSeedEventIds = new Set(['dentist', 'dance', 'football', 'traffic-pickup', 'dinner', 'grandma-babka', 'pickup', 'trip'])

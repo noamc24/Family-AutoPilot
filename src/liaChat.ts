@@ -3,28 +3,28 @@ import { dateLabel, localDate, uid, type AppData, type FamilyEvent, type Person 
 import { buildLiaInterventions } from './liaInterventions'
 import type { LiaChatAction, LiaConversation, LiaMessage, LiaPendingIntent } from './liaChatTypes'
 
-export type LiaChatIntent = 'WHAT_NEEDS_ATTENTION' | 'TODAY_SCHEDULE' | 'UPCOMING_EVENTS' | 'WHO_CAN_DRIVE' | 'MEMBER_AVAILABILITY' | 'OPEN_TASKS' | 'RECENT_CHANGES' | 'ALREADY_HANDLED' | 'SEND_RIDE_REQUEST' | 'EXPLAIN' | 'RIDE_STATUS' | 'HELP' | 'UNSUPPORTED'
+export type LiaChatIntent = 'WHAT_NEEDS_ATTENTION' | 'TODAY_SCHEDULE' | 'UPCOMING_EVENTS' | 'EVENT_DETAILS' | 'WHO_CAN_DRIVE' | 'MEMBER_AVAILABILITY' | 'OPEN_TASKS' | 'RECENT_CHANGES' | 'ALREADY_HANDLED' | 'SEND_RIDE_REQUEST' | 'EXPLAIN' | 'RIDE_STATUS' | 'HELP' | 'UNSUPPORTED'
 
-const normalize = (value: string) => value.trim().toLowerCase().replace(/[?!.,׳״'\"]/g, '').replace(/\s+/g, ' ')
+const normalize = (value: string) => value.trim().toLowerCase().normalize('NFKD').replace(/[\u0591-\u05c7]/g, '').replace(/[?!.,:;׳״'\"()-]/g, ' ').replace(/\s+/g, ' ').trim()
 const has = (text: string, expressions: RegExp[]) => expressions.some(expression => expression.test(text))
-const affirmative = [/^כן$/, /יאללה/, /תשלחי/, /שלחי/, /סבבה/, /קדימה/]
-const negative = [/^לא$/, /עזבי/, /לא עכשיו/, /ביטול/]
+const affirmative = [/^כן$/, /יאללה/, /תשלחי/, /שלחי/, /תשלח/, /סבבה/, /קדימה/, /אז .*שלח/]
+const negative = [/^לא$/, /עזבי/, /לא עכשיו/, /ביטול/, /תבטלי/, /בטלי/]
 
 export function detectLiaIntent(input: string, pending?: LiaPendingIntent): LiaChatIntent {
   const text = normalize(input)
   if (pending && has(text, affirmative)) return 'SEND_RIDE_REQUEST'
   if (pending && has(text, negative)) return 'SEND_RIDE_REQUEST'
-  if (has(text, [/^(למה|איך את יודעת)/, /למה .*\?/])) return 'EXPLAIN'
-  if (has(text, [/מה קרה עם .*הסע/, /מה מצב .*הסע/, /הסעה.*אושר/])) return 'RIDE_STATUS'
-  if (has(text, [/מה דורש טיפול/, /מה פתוח/, /צריך לעשות/, /דורש תשומת לב/])) return 'WHAT_NEEDS_ATTENTION'
-  if (has(text, [/מה יש לי היום/, /הלוז שלי/, /לו״ז שלי/, /לוח שלי היום/])) return 'TODAY_SCHEDULE'
-  if (has(text, [/מה יש היום/, /לוח.*היום/, /אירועים היום/])) return 'TODAY_SCHEDULE'
-  if (has(text, [/מה יש בהמשך/, /אירועים קרובים/, /מה צפוי/, /השבוע/])) return 'UPCOMING_EVENTS'
-  if (has(text, [/מי יכול.*(לקחת|להסיע|לאסוף)/, /מי פנוי.*(לקחת|להסיע|לאסוף)/, /מישהו.*(לקחת|להסיע)/])) return 'WHO_CAN_DRIVE'
-  if (has(text, [/מי פנוי/, /פנוי(?:ה)?(?: ב|-)?\d/, /האם .* פנוי/, /.* פנוי(?:ה)?$/])) return 'MEMBER_AVAILABILITY'
-  if (has(text, [/משימות.*(פתוחות|יש|נשאר)/, /מה נשאר לעשות/, /איזה משימות/, /עד יום/])) return 'OPEN_TASKS'
+  if (has(text, [/^(למה|איך את יודעת)/, /^למה (הוא|היא|זה)/])) return 'EXPLAIN'
+  if (has(text, [/מה קרה עם .*הסע/, /מה מצב .*הסע/, /הסעה.*אושר/, /מי (לוקח|אוסף|מסיע)/])) return 'RIDE_STATUS'
+  if (has(text, [/מה דורש טיפול/, /מה פתוח/, /צריך .*לטפל/, /יש משהו חשוב/, /צריך לעשות/, /דורש תשומת לב/, /מה דחוף/])) return 'WHAT_NEEDS_ATTENTION'
+  if (has(text, [/מה יש לי היום/, /מה קורה היום/, /מה נשאר להיום/, /הלוז שלי/, /לוז שלי/, /לוח שלי היום/, /מה יש היום/, /לוח.*היום/, /אירועים היום/, /מה יש ל.*היום/])) return 'TODAY_SCHEDULE'
+  if (has(text, [/מה יש מחר/, /מה יש בהמשך/, /אירועים קרובים/, /מה צפוי/, /השבוע/])) return 'UPCOMING_EVENTS'
+  if (has(text, [/מתי .*?(אימון|חוג|אירוע|תור)/, /מתי האימון/])) return 'EVENT_DETAILS'
+  if (has(text, [/מי יכול.*(לקחת|להסיע|לאסוף)/, /מי פנוי.*(לקחת|להסיע|לאסוף)/, /מישהו.*(לקחת|להסיע)/, /מי יכול במקום/])) return 'WHO_CAN_DRIVE'
+  if (has(text, [/^ומה עם /, /^מה עם /, /מי פנוי/, /פנוי(?:ה)?(?: ב| )?\d/, /האם .* פנוי/, /.* פנוי(?:ה)?$/])) return 'MEMBER_AVAILABILITY'
+  if (has(text, [/משימות.*(פתוחות|יש|נשאר)/, /יש משימות/, /מה נשאר לעשות/, /איזה משימות/, /עד יום/, /מה דחוף/])) return 'OPEN_TASKS'
   if (has(text, [/מה השתנה/, /מה קרה היום/, /עדכונים אחרונים/])) return 'RECENT_CHANGES'
-  if (has(text, [/מה כבר טופל/, /מה ליה .*טיפלה/, /מה סגרת/])) return 'ALREADY_HANDLED'
+  if (has(text, [/מה כבר טופל/, /מה (ליה|lia) .*טיפלה/, /מה כבר טיפלת/, /מה סגרת/])) return 'ALREADY_HANDLED'
   if (has(text, [/מה את יכולה/, /עזרה/, /אפשר לשאול/, /יכולות/])) return 'HELP'
   return 'UNSUPPORTED'
 }
@@ -65,7 +65,7 @@ function matchingEvent(data: AppData, familyId: string, input: string, conversat
   const candidates = data.events.filter(event => event.familyId === familyId && event.date >= localDate() && event.requiresDriver && (!named || event.participantIds.includes(named.id)))
     .sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`))
   const open = candidates.filter(event => !event.responsibleId || !!requestForEvent(data, event.id) && requestForEvent(data, event.id)?.status !== 'COVERED')
-  return open.find(event => text.split(' ').some(word => word.length > 2 && normalize(event.title).includes(word))) || open[0] || candidates[0] || data.events.find(event => event.id === conversation.contextState?.lastEventId)
+  return open.find(event => text.split(' ').some(word => word.length > 2 && normalize(event.title).includes(word))) || open[0] || data.events.find(event => event.id === conversation.contextState?.lastEventId && (!event.responsibleId || requestForEvent(data, event.id)?.status !== 'COVERED'))
 }
 
 function driverOptions(data: AppData, event: FamilyEvent) {
@@ -89,12 +89,20 @@ function responseFor(data: AppData, conversation: LiaConversation, member: Perso
   }
   if (intent === 'TODAY_SCHEDULE') {
     const personal = /לי|שלי/.test(normalize(input)) || childMode
-    const events = data.events.filter(event => event.familyId === family.id && event.date === localDate() && (!personal || event.participantIds.includes(member.id) || event.responsibleId === member.id)).sort((a, b) => a.time.localeCompare(b.time))
+    const named = family.people.find(person => normalize(input).includes(normalize(person.name)))
+    const subjectId = named?.id || (personal ? member.id : undefined)
+    const events = data.events.filter(event => event.familyId === family.id && event.date === localDate() && (!subjectId || event.participantIds.includes(subjectId) || event.responsibleId === subjectId)).sort((a, b) => a.time.localeCompare(b.time))
     return { text: events.length ? `${personal ? 'זה הלו״ז שלך להיום' : 'זה הלו״ז המשפחתי להיום'}:\n${shortList(events.slice(0, 5).map(event => `${event.time} · ${event.title}`))}` : personal ? 'אין לך אירועים כרגע—היום שלך פנוי.' : 'אין אירועים משפחתיים מתוכננים להיום.', type: 'entitySummary', entities: events.map(event => event.id), context }
   }
   if (intent === 'UPCOMING_EVENTS') {
-    const events = data.events.filter(event => event.familyId === family.id && event.date > localDate()).sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`)).slice(0, 4)
-    return { text: events.length ? `אלה האירועים הקרובים:\n${shortList(events.map(event => `${dateLabel(event.date)} ב־${event.time} · ${event.title}`))}` : 'אין כרגע אירועים קרובים בתוכנית.', type: 'entitySummary', entities: events.map(event => event.id), context }
+    const tomorrow = normalize(input).includes('מחר')
+    const events = data.events.filter(event => event.familyId === family.id && (tomorrow ? event.date === localDate(1) : event.date > localDate())).sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`)).slice(0, 4)
+    return { text: events.length ? `${tomorrow ? 'מחר יש' : 'אלה האירועים הקרובים'}:\n${shortList(events.map(event => `${dateLabel(event.date)} ב־${event.time} · ${event.title}`))}` : tomorrow ? 'אין כרגע אירועים מתוכננים למחר.' : 'אין כרגע אירועים קרובים בתוכנית.', type: 'entitySummary', entities: events.map(event => event.id), context: { ...context, lastEventId: events[0]?.id } }
+  }
+  if (intent === 'EVENT_DETAILS') {
+    const words = normalize(input).split(' ').filter(word => word.length > 2)
+    const event = data.events.filter(item => item.familyId === family.id && item.date >= localDate()).sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`)).find(item => words.some(word => normalize(item.title).includes(word)))
+    return event ? { text: `${event.title} ${dateLabel(event.date)} ב־${event.time}.`, context: { ...context, lastEventId: event.id }, entities: [event.id] } : { text: 'לא מצאתי את האירוע הזה. אפשר לכתוב את שמו או לשאול מה יש היום.', context }
   }
   if (intent === 'OPEN_TASKS') {
     const tasks = data.tasks.filter(task => task.familyId === family.id && !task.done && (childMode || /לי|שלי/.test(normalize(input)) ? task.ownerId === member.id : true)).sort((a, b) => a.due.localeCompare(b.due)).slice(0, 5)
@@ -116,7 +124,12 @@ function responseFor(data: AppData, conversation: LiaConversation, member: Perso
       return { text: driver && event ? `${driver.name} אחראי/ת כרגע להסעה ל־${event.title}.` : 'עדיין לא נקבע מי אוסף. מבוגר מהמשפחה יכול לטפל בזה.', context: { ...context, lastEventId: event?.id } }
     }
     const event = matchingEvent(data, family.id, input, conversation)
-    if (!event) return { text: 'לא מצאתי אירוע קרוב שדורש הסעה. אפשר לציין שם של אירוע או בן משפחה.', context }
+    if (!event) {
+      const named = family.people.find(person => normalize(input).includes(normalize(person.name)))
+      const covered = data.events.filter(item => item.familyId === family.id && item.date >= localDate() && item.requiresDriver && item.responsibleId && (!named || item.participantIds.includes(named.id))).sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`))[0]
+      const driver = family.people.find(person => person.id === covered?.responsibleId)
+      return driver && covered ? { text: `${driver.name} כבר אחראי/ת להסעה ל־${covered.title}. האיסוף מכוסה.`, context: { ...context, lastEventId: covered.id, lastMemberId: driver.id }, entities: [covered.id, driver.id] } : { text: 'לא מצאתי אירוע קרוב שדורש הסעה. אפשר לציין שם של אירוע או בן משפחה.', context }
+    }
     const options = driverOptions(data, event)
     if (!options.length) return { text: `לא מצאתי כרגע נהג/ת כשיר/ה ופנוי/ה ל־${event.title}.`, context: { ...context, lastEventId: event.id } }
     const best = options[0]
@@ -132,7 +145,12 @@ function responseFor(data: AppData, conversation: LiaConversation, member: Perso
     }
     const event = matchingEvent(data, family.id, input, conversation)
     const available = event ? eligibleDrivers(data, event).some(person => person.id === named.id) : named.availableForPickup && named.availability !== 'unavailable'
-    return { text: available ? `${named.name} ${named.role === 'אם' || named.role === 'בת' ? 'פנויה' : 'פנוי'} לפי הזמינות והלו״ז הקיימים.` : `${named.name} ${named.role === 'אם' || named.role === 'בת' ? 'לא פנויה' : 'לא פנוי'} לפי הזמינות או הלו״ז הקיימים.`, context: { ...context, lastMemberId: named.id, lastEventId: event?.id } }
+    const feminine = named.role === 'אם' || named.role === 'בת'
+    if (available && event && !childMode) {
+      const pendingIntent: LiaPendingIntent = { type: 'sendRideRequest', relatedEventId: event.id, suggestedMemberId: named.id, proposedAction: 'sendRideRequest' }
+      return { text: `${named.name} ${feminine ? 'פנויה' : 'פנוי'} בזמן הזה, ולא מצאתי התנגשות שמונעת את ההסעה. אפשר לשלוח ${feminine ? 'לה' : 'לו'} בקשה.`, type: 'actionRequest', action: { kind: 'sendRideRequest', label: 'שליחת בקשה', eventId: event.id, memberId: named.id }, entities: [event.id, named.id], context: { ...context, pendingIntent, lastMemberId: named.id, lastEventId: event.id } }
+    }
+    return { text: available ? `${named.name} ${feminine ? 'פנויה' : 'פנוי'} לפי הזמינות והלו״ז הקיימים.` : `${named.name} ${feminine ? 'לא פנויה' : 'לא פנוי'} לפי הזמינות או הלו״ז הקיימים.`, context: { ...context, pendingIntent: undefined, lastMemberId: named.id, lastEventId: event?.id || context.lastEventId } }
   }
   if (intent === 'RECENT_CHANGES') {
     const visibleSources = new Set(member.personalSettings?.integrations.filter(item => item.connectionStatus === 'connected' && item.liaAccess === 'allowed').map(item => item.sourceId) || [])
@@ -161,7 +179,8 @@ function responseFor(data: AppData, conversation: LiaConversation, member: Perso
     return { text: 'אין לי כרגע המלצה קודמת שאפשר להסביר. אפשר לשאול מי פנוי להסעה.', context }
   }
   if (intent === 'HELP') return { text: childMode ? 'אני יכולה לעזור עם הלו״ז שלך, החוגים ומי אוסף אותך.' : 'אני יכולה לעזור עם הלו״ז, אירועים קרובים, משימות, הסעות, זמינות, שינויים ומה שדורש טיפול במשפחה.', context }
-  return { text: 'עוד לא יודעת לעשות את זה כאן. אני כן יכולה לעזור עם הלו״ז, משימות, הסעות ומה שדורש טיפול במשפחה.', context }
+  const named = family.people.find(person => normalize(input).includes(normalize(person.name)))
+  return { text: named ? `לא בטוחה מה רצית לבדוק לגבי ${named.name}. רוצה שאבדוק את הלו״ז, המשימות או ההסעות ${named.role === 'בן' || named.role === 'בת' ? 'שלו/ה' : 'שלו/ה'}?` : 'לא בטוחה למה התכוונת. רוצה שאבדוק את הלו״ז של היום, משימות פתוחות או הסעות?', context: { ...context, lastMemberId: named?.id || context.lastMemberId } }
 }
 
 export function performLiaChatAction(data: AppData, conversation: LiaConversation, memberId: string, pending = conversation.contextState?.pendingIntent): { data: AppData; conversation: LiaConversation; success: boolean } {

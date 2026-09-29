@@ -94,6 +94,7 @@ test('תכנון יום הולדת בחמישי יוצר אירוע ומשימה
 
 test('נתונים ישנים נטענים ללא אובדן אירועים ועם תפקידי משפחה מוגדרים', () => {
   const legacy = structuredClone(dataModule.initialData)
+  legacy.events.forEach((event, index) => { event.date = dataModule.localDate(index + 1) })
   delete legacy.transportationRequests
   legacy.families[0].people[0].role = 'אמא'
   legacy.families[0].people[1].role = 'אבא'

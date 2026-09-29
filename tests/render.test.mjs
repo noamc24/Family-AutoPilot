@@ -27,7 +27,7 @@ test('מסך הבית משתנה בין הורה לילד ומציג תוכן מ
     assert.match(parent, /LIA זיהתה עומס בדרך/)
     assert.doesNotMatch(parent, /lia-demo-handled/)
     assert.match(parent, /למה LIA ממליצה/)
-    assert.match(parent, /עדכונים ממקורות/)
+    assert.doesNotMatch(parent, /עדכונים ממקורות/)
     assert.match(parent, /מה קרה היום/)
     assert.match(parent, /וויז/)
     person = 'Orel'
@@ -54,9 +54,8 @@ test('כרטיס מצב משפחתי תקין מציג רק נתונים קיי�
   globalThis.localStorage = { getItem: key => key === 'family-autopilot-he-v1' ? JSON.stringify(saved) : key === 'family-autopilot-family' ? 'quiet' : key === 'family-autopilot-person' ? 'parent' : null }
   try {
     const markup = render()
-    assert.match(markup, /הכל בשליטה/)
-    assert.match(markup, /0 אירועים היום/)
-    assert.match(markup, /אין נושאים פתוחים/)
-    assert.match(markup, /LIA לא זיהתה כרגע משהו שדורש ממך פעולה/)
+    assert.match(markup, /הכול מכוסה כרגע/)
+    assert.equal((markup.match(/הכול מכוסה כרגע/g) ?? []).length, 1)
+    assert.doesNotMatch(markup, /0 אירועים היום|אין נושאים פתוחים/)
   } finally { globalThis.localStorage = originalStorage }
 })

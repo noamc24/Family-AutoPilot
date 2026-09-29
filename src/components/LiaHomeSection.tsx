@@ -9,7 +9,7 @@ export function LiaHomeSection({ data, family, actorId }: { data: AppData; famil
   const viewer = family.people.find(person => person.id === actorId)
   const items = buildLiaInterventions(data, family.id).filter(item => !item.signalId || (viewer?.age || 0) >= 18)
   const active = items.filter(item => !['completed', 'noAction'].includes(item.status)).slice(0, 4)
-  const handled = items.filter(item => ['completed', 'noAction'].includes(item.status)).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 2)
+  const handled = items.filter(item => ['completed', 'noAction'].includes(item.status) && (!item.relatedEventId || !data.events.some(event => event.id === item.relatedEventId))).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 2)
   const act = (id: string, action: LiaActionKind) => window.dispatchEvent(new CustomEvent('fampilot:lia-action', { detail: { interventionId: id, action } }))
   const forActor = (item: LiaIntervention): LiaIntervention => {
     if (item.type !== 'traffic' || !item.relatedEventId) return item

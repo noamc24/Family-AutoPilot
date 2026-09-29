@@ -78,6 +78,7 @@ test('סריקה מראש מזהה שתי הסעות, משימה חשובה וי
 
 test('טעינה מנקה תווי קידוד פגומים בלי למחוק אירועים', () => {
   const data = fresh()
+  data.events.forEach((event, index) => { event.date = model.localDate(index + 1) })
   data.events[0].details = 'תור' + String.fromCharCode(0xfffd)
   const storage = globalThis.localStorage
   globalThis.localStorage = { getItem: () => JSON.stringify(data) }

@@ -8,6 +8,7 @@ const chars = (...codes) => String.fromCharCode(...codes)
 
 test('טעינה מתקנת סימני פיסוק פגומים בכל שדות הטקסט בלי למחוק נתונים', () => {
   const saved = structuredClone(model.initialData)
+  saved.events.forEach((event, index) => { event.date = model.localDate(index + 1) })
   const left = chars(0x201c)
   const right = chars(0x201d)
   const brokenQuote = chars(0x00e2, 0x20ac, 0x0153)
