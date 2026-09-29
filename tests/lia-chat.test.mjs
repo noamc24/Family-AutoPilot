@@ -197,11 +197,15 @@ test('follow-up מחליף נהג לפי שם ושולח את הפעולה הק�
 
 test('אירוע שכבר מכוסה מחזיר סטטוס ואינו מציג פעולת בקשה שעתידה להיכשל', () => {
   const data = simpleData()
+  data.events[0].date = localDate(1)
   data.events[0].responsibleId = 'a'
+  data.transportationRequests.push({ id: 'stale-open', familyId: 'f', eventId: 'club', passengerId: 'c', eligibleMemberIds: ['a', 'm'], responses: { a: 'PENDING', m: 'PENDING' }, selectedDriverId: '', status: 'OPEN', createdById: 'm', origin: 'בית', destination: 'חוג', requiredAt: `${localDate()}T17:00` })
   const next = sendLiaChatMessage(data, 'f', 'm', 'מי יכול להסיע את איתמר?').data
   const message = conversationFor(next, 'f', 'm').messages.at(-1)
   assert.match(message.text, /אוראל כבר אחראי.*האיסוף מכוסה/)
   assert.equal(message.action, undefined)
+  const withContext = sendLiaChatMessage(sendLiaChatMessage(data, 'f', 'm', 'מה יש השבוע?').data, 'f', 'm', 'אז מי כן?').data
+  assert.equal(conversationFor(withContext, 'f', 'm').messages.at(-1).action, undefined)
 })
 
 test('למה משתמש בהקשר האחרון ו-fallback עם Member מציע הבהרה ממוקדת', () => {
@@ -210,4 +214,48 @@ test('למה משתמש בהקשר האחרון ו-fallback עם Member מציע
   assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /אוראל.*זמין|אוראל.*תנאי הנהיגה/)
   data = sendLiaChatMessage(data, 'f', 'm', 'תעשי משהו עם מור').data
   assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /לגבי מור.*לו״ז.*משימות.*הסעות/)
+})
+
+test('מחר והשבוע מכבדים ניסוח טבעי וסינון לפי Member', () => {
+  const data = simpleData()
+  data.events.push(
+    { ...data.events[0], id: 'mor-tomorrow', title: 'פגישה של מור', date: localDate(1), participantIds: ['m'], requiresDriver: false },
+    { ...data.events[0], id: 'itamar-week', title: 'חוג מדעים של איתמר', date: localDate(2), participantIds: ['c'], requiresDriver: false },
+  )
+  let next = sendLiaChatMessage(data, 'f', 'm', 'מה יש לי מחר?').data
+  assert.match(conversationFor(next, 'f', 'm').messages.at(-1).text, /פגישה של מור/)
+  next = sendLiaChatMessage(next, 'f', 'm', 'ומה יש לאיתמר השבוע?').data
+  const answer = conversationFor(next, 'f', 'm').messages.at(-1).text
+  assert.match(answer, /חוג מדעים של איתמר/)
+  assert.doesNotMatch(answer, /פגישה של מור/)
+})
+
+test('שאלות סטטוס טבעיות שומרות את הקשר בקשת ההסעה ואינן מכפילות אותה', () => {
+  let data = sendLiaChatMessage(simpleData(), 'f', 'm', 'מי יכול להסיע את איתמר?').data
+  data = sendLiaChatMessage(data, 'f', 'm', 'אז תשלחי לו').data
+  assert.equal(data.transportationRequests.filter(request => request.eventId === 'club').length, 1)
+  for (const prompt of ['שלחת?', 'למי שלחת?', 'מה הסטטוס?']) {
+    data = sendLiaChatMessage(data, 'f', 'm', prompt).data
+    assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /שלחתי|ממתינה|פתוחה/)
+  }
+  assert.equal(data.transportationRequests.filter(request => request.eventId === 'club').length, 1)
+})
+
+test('שאלות מקור, next, שעות וסיכום משולב מחזירות נתונים ולא fallback', () => {
+  let data = sendLiaChatMessage(simpleData(), 'f', 'm', 'מה שינית היום?').data
+  data = sendLiaChatMessage(data, 'f', 'm', 'מאיזה מקור זה הגיע?').data
+  assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /התוכנית המשפחתית/)
+  data = sendLiaChatMessage(data, 'f', 'm', 'מה האירוע הבא?').data
+  assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /האירוע הבא/)
+  data = sendLiaChatMessage(data, 'f', 'm', 'מי פנוי בין 18:00 ל-20:00?').data
+  assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /בין 18:00 ל־20:00/)
+  data = sendLiaChatMessage(data, 'f', 'm', 'תני לי ביחד אירועים, הסעות, משימות והחלטות').data
+  assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /אירועים קרובים.*הסעות פתוחות.*משימות פתוחות.*החלטות/s)
+})
+
+test('פקודה עמומה, קרבת משפחה ומידע חי מקבלים הבהרה בלי ניחוש', () => {
+  for (const [prompt, expected] of [['תעשי את זה', /לא ברור לי איזו פעולה/], ['ומה עם אחותו?', /לא בטוחה לאיזה בן או בת משפחה/], ['מה מזג האוויר עכשיו?', /אין לי גישה למידע חי/], ['מה כתבו עכשיו בוואטסאפ?', /לא תוכן פרטי|אין לי גישה/]]) {
+    const data = sendLiaChatMessage(simpleData(), 'f', 'm', prompt).data
+    assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, expected)
+  }
 })

@@ -31,6 +31,8 @@ export type LiaConversationContext = {
   lastEventId?: string
   lastMemberId?: string
   lastInterventionId?: string
+  lastActivityId?: string
+  lastSourceId?: string
   lastIntent?: string
 }
 
