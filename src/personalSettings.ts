@@ -36,3 +36,7 @@ export function updateProactiveSuggestions(settings: PersonalSettings, enabled: 
   const normalized = normalizePersonalSettings(settings)
   return { ...normalized, lia: { ...normalized.lia, proactiveSuggestions: enabled } }
 }
+
+export function proactiveSuggestionsEnabled(settings: PersonalSettings | undefined) {
+  return normalizePersonalSettings(settings).lia.proactiveSuggestions
+}

@@ -106,7 +106,7 @@ import { CalendarView } from './components/CalendarView'
 import { TasksView } from './components/TasksView'
 import { FamilyView } from './components/FamilyView'
 import { clearLiaConversation, conversationFor, performLiaChatAction, sendLiaChatMessage } from './liaChat'
-import { notificationPreferenceAllows, type OptionalNotificationCategory } from './personalSettings'
+import { notificationPreferenceAllows, proactiveSuggestionsEnabled, type OptionalNotificationCategory } from './personalSettings'
 import type { LiaMessage } from './liaChatTypes'
 import { homeGreeting, remainingToday } from './uiModel'
 
@@ -329,13 +329,14 @@ function App() {
   const attentionTasks = familyTasks.filter((task) => !task.done && !task.ownerId && !!currentPerson && currentPerson.age >= 18)
   const conflictedEvents = familyEvents.filter((event) => !!event.createdById && scheduleConflicts(data, event).length > 0)
   const futureRisks = useMemo(() => scanFutureRisks(data, family.id), [data, family.id])
+  const visibleFutureRisks = proactiveSuggestionsEnabled(currentPerson?.personalSettings) ? futureRisks : []
   const attentionCount =
     attention.length +
     attentionTasks.length +
     actionableRequests.length +
     unresolvedRequests.length +
     conflictedEvents.filter((event) => !requestForEvent(data, event.id)).length +
-    futureRisks.length
+    visibleFutureRisks.length
   const openIssues = closureIssues(data, family.id)
   const familyDecisionCount = openIssues.length
   const familyTodayEvents = familyEvents.filter((event) => event.date === localDate()).length
@@ -1502,7 +1503,7 @@ function App() {
                   data={data}
                   family={family}
                   actorId={activePersonId}
-                  futureRisks={futureRisks}
+                  futureRisks={visibleFutureRisks}
                   onRespond={answerRide}
                   onConfirm={approveRide}
                   onFind={(eventId, riskId) => setDialog({ type: 'solution', eventId, riskId })}

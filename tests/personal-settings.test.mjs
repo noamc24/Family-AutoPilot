@@ -87,6 +87,19 @@ test('העדפות התראה אופציונליות נשמרות בנפרד ו�
   assert.equal(legacy.notifications.routineUpdates, false)
 })
 
+test('המלצות יזומות הן העדפה אישית שמשפיעה על תחזיות אופציונליות בלבד', () => {
+  let first = model.defaultPersonalSettings()
+  const second = model.defaultPersonalSettings()
+  first = settingsModel.updateProactiveSuggestions(first, false)
+  assert.equal(settingsModel.proactiveSuggestionsEnabled(first), false)
+  assert.equal(settingsModel.proactiveSuggestionsEnabled(second), true)
+
+  const appSource = readFileSync('src/App.tsx', 'utf8')
+  assert.match(appSource, /visibleFutureRisks = proactiveSuggestionsEnabled\(currentPerson\?\.personalSettings\) \? futureRisks : \[\]/)
+  assert.match(appSource, /futureRisks=\{visibleFutureRisks\}/)
+  assert.match(appSource, /visibleFutureRisks\.length/)
+})
+
 test('Settings מציג פרטיות ובטיחות בלי לחשוף raw/private source content או להמציא בקרות', async () => {
   const source = readFileSync('src/components/SettingsPage.tsx', 'utf8')
   for (const title of ['הפרופיל שלי', 'LIA', 'חיבורים', 'התראות', 'המשפחה', 'פרטיות ובטיחות']) assert.match(source, new RegExp(title))

@@ -205,7 +205,7 @@ p { color: var(--fp-body); }
   .mobile-logo { color: var(--fp-indigo-deep); }
   .content { padding: 28px 18px 104px; }
   .mobile-nav {
-    display: grid; grid-template-columns: repeat(5,1fr); gap: 2px; padding: 7px 8px max(8px,env(safe-area-inset-bottom));
+    display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap: 2px; padding: 7px 8px max(8px,env(safe-area-inset-bottom));
     background: rgba(255,255,253,.95); border-color: var(--fp-line); box-shadow: 0 -8px 26px rgba(28,29,42,.045); backdrop-filter: blur(18px);
   }
   .mobile-nav button { min-height: 48px; color: var(--fp-muted); border-radius: 12px; }
