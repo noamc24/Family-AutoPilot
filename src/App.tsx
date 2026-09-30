@@ -1726,6 +1726,8 @@ function App() {
               onAutonomyChange={(value) => { updateFamilyPreferences({ autonomy: value }); setToast('רמת הפעולה של LIA עודכנה ✓') }}
               onChange={updateActiveSettings}
               onEditProfile={() => openProfile(currentPerson)}
+              familyCount={family.people.length}
+              familyContent={!childMode ? <FamilyPreferencesPanel family={family} onPreferences={updateFamilyPreferences} onPerson={updatePersonPreferences} /> : <section className="section-card family-management-settings"><div className="section-heading"><div><span className="section-kicker">המשפחה שלי</span><h2>{family.name}</h2></div></div><p className="family-management-intro">ניהול המשפחה זמין למבוגרים במשפחה. במצב ילד ההרשאות נקבעות אוטומטית לפי הגיל.</p></section>}
             />
           ) : (
             <>

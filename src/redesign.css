@@ -536,6 +536,22 @@ h2 { letter-spacing: -.02em; }
 .privacy-safety-row small { max-width: 560px; color: var(--text-muted); font-size: 10px; line-height: 1.65; }
 .privacy-status { flex: none; padding: 6px 10px; border-radius: 999px; background: var(--surface-subtle); color: var(--text-muted); font-size: 9px; font-weight: 800; white-space: nowrap; }
 .privacy-safety-note { max-width: 760px; margin: 12px 2px 0; color: var(--text-muted); font-size: 10px; line-height: 1.6; }
+.settings-layout { display: grid; grid-template-columns: 244px minmax(0,1fr); gap: 34px; align-items: start; }
+.settings-nav { display: grid; border: 1px solid var(--border); border-radius: 17px; background: var(--surface); overflow: hidden; box-shadow: var(--shadow-subtle); }
+.settings-nav button { width: 100%; min-height: 64px; display: grid; grid-template-columns: 30px minmax(0,1fr) 16px; align-items: center; gap: 10px; padding: 10px 12px; border: 0; border-top: 1px solid var(--border); background: transparent; color: var(--text); text-align: right; }
+.settings-nav button:first-child { border-top: 0; }
+.settings-nav button:hover, .settings-nav button.active { background: var(--surface-subtle); }
+.settings-nav button.active { box-shadow: inset -3px 0 var(--lia-primary); }
+.settings-nav-icon { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 9px; color: var(--text-muted); }
+.settings-nav-icon svg { width: 17px; height: 17px; }
+.settings-nav button > span:nth-child(2) { min-width: 0; display: grid; gap: 2px; }
+.settings-nav strong { font-size: 12px; }
+.settings-nav small { color: var(--text-muted); font-size: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.settings-nav button > svg { color: var(--text-muted); }
+.settings-section-view { min-width: 0; animation: enter-soft var(--motion-fast) ease; }
+.settings-section-view .settings-route-heading { margin-top: 2px; }
+.settings-section-view > .family-management-settings { margin: 0; }
+.settings-mobile-back { display: none; }
 .family-management-settings { max-width: 820px; }
 .family-management-intro { margin: -5px 0 18px; color: var(--text-muted); font-size: 11px; line-height: 1.6; }
 .family-settings-group, .member-settings-row { border: 1px solid var(--border); border-radius: 15px; background: var(--surface); overflow: hidden; }
@@ -608,6 +624,16 @@ h2 { letter-spacing: -.02em; }
   .lia-chat-message { max-width: 90%; }
   .settings-hub { grid-template-columns: 1fr; }
   .settings-tile { min-height: 94px; }
+  .settings-layout { display: block; }
+  .settings-nav { border-radius: 16px; }
+  .settings-nav button { min-height: 68px; grid-template-columns: 34px minmax(0,1fr) 16px; padding: 11px 14px; }
+  .settings-nav-icon { width: 34px; height: 34px; }
+  .settings-nav strong { font-size: 13px; }
+  .settings-nav small { font-size: 10px; }
+  .settings-section-view { padding-bottom: 12px; }
+  .settings-mobile-back { min-height: 38px; display: inline-flex; align-items: center; gap: 5px; margin: 0 0 18px; padding: 0; border: 0; background: transparent; color: var(--text-muted); font-size: 11px; font-weight: 800; }
+  .settings-page.has-active-setting .settings-hero, .settings-page.has-active-setting .settings-nav { display: none; }
+  .settings-section-view .settings-route-heading { margin-bottom: 20px; }
   .connections-grid { grid-template-columns: 1fr 1fr; }
   .autonomy-options { grid-template-columns: 1fr; }
 }
