@@ -813,6 +813,7 @@ function App() {
       const requiresDriver = form.requiresDriver === 'true'
       const selectedEventDays = (form.eventDays || '')
         .split(',')
+        .filter(Boolean)
         .map(Number)
         .filter((day) => Number.isInteger(day) && day >= 0 && day < 7)
       const eventStartDate = selectedEventDays.length
@@ -2269,25 +2270,88 @@ function EventDatePicker({ value, onChange }: { value: string; onChange: (value:
 }
 
 function TimeWheel({ value, onChange, optional = false }: { value: string; onChange: (value: string) => void; optional?: boolean }) {
+  if (optional && !value) return <button type="button" className="time-wheel-add" onClick={() => onChange('18:00')}><Plus size={15}/> הוספת שעת סיום</button>
   const [rawHour, rawMinute] = (value || '17:00').split(':').map(Number)
   const hour = Number.isInteger(rawHour) ? rawHour : 17
   const minute = Number.isInteger(rawMinute) ? rawMinute : 0
   const commit = (nextHour: number, nextMinute: number) => onChange(`${pad2((nextHour + 24) % 24)}:${pad2((nextMinute + 60) % 60)}`)
   return <div className={`time-wheel ${!value ? 'is-empty' : ''}`} aria-label="בחירת שעה">
-    <div className="time-wheel-unit">
-      <button type="button" onClick={() => commit(hour + 1, minute)} aria-label="שעה הבאה">+</button>
-      <select aria-label="שעה" value={hour} onChange={event => commit(Number(event.target.value), minute)}>{Array.from({ length: 24 }, (_, index) => <option key={index} value={index}>{pad2(index)}</option>)}</select>
-      <button type="button" onClick={() => commit(hour - 1, minute)} aria-label="שעה קודמת">−</button>
-      <small>שעה</small>
-    </div>
+    <TimeWheelColumn value={hour} max={24} label="שעה" onChange={nextHour => commit(nextHour, minute)} />
     <b>:</b>
-    <div className="time-wheel-unit">
-      <button type="button" onClick={() => commit(hour, minute + 1)} aria-label="דקה הבאה">+</button>
-      <select aria-label="דקה" value={minute} onChange={event => commit(hour, Number(event.target.value))}>{Array.from({ length: 60 }, (_, index) => <option key={index} value={index}>{pad2(index)}</option>)}</select>
-      <button type="button" onClick={() => commit(hour, minute - 1)} aria-label="דקה קודמת">−</button>
-      <small>דקות</small>
-    </div>
+    <TimeWheelColumn value={minute} max={60} label="דקה" onChange={nextMinute => commit(hour, nextMinute)} />
     {optional && <button type="button" className="time-wheel-clear" onClick={() => onChange('')}>{value ? 'ללא שעת סיום' : 'לא הוגדרה שעת סיום'}</button>}
+  </div>
+}
+
+function TimeWheelColumn({ value, max, label, onChange }: { value: number; max: number; label: string; onChange: (value: number) => void }) {
+  const valueRef = useRef(value)
+  const drag = useRef({ active: false, pointerId: -1, lastY: 0, lastTime: 0, velocity: 0, carry: 0, moved: false })
+  const momentumTimer = useRef<number | null>(null)
+  useEffect(() => { valueRef.current = value }, [value])
+  useEffect(() => () => { if (momentumTimer.current !== null) window.clearTimeout(momentumTimer.current) }, [])
+  const wrap = (next: number) => (next + max) % max
+  const shift = (amount: number) => {
+    const next = wrap(valueRef.current + amount)
+    valueRef.current = next
+    onChange(next)
+  }
+  const release = (target: HTMLDivElement) => {
+    if (!drag.current.active) return
+    if (target.hasPointerCapture(drag.current.pointerId)) target.releasePointerCapture(drag.current.pointerId)
+    drag.current.active = false
+    const direction = Math.sign(drag.current.velocity)
+    let remaining = Math.min(14, Math.max(0, Math.round(Math.abs(drag.current.velocity) * 9)))
+    const coast = () => {
+      if (!remaining || !direction) return
+      shift(direction)
+      remaining -= 1
+      momentumTimer.current = window.setTimeout(coast, 42 + (14 - remaining) * 7)
+    }
+    if (remaining > 1) coast()
+    window.setTimeout(() => { drag.current.moved = false }, 0)
+  }
+  return <div
+    className="time-wheel-column"
+    role="spinbutton"
+    aria-label={label}
+    aria-valuenow={value}
+    aria-valuemin={0}
+    aria-valuemax={max - 1}
+    tabIndex={0}
+    onWheel={event => { event.preventDefault(); shift(event.deltaY > 0 ? 1 : -1) }}
+    onKeyDown={event => { if (event.key === 'ArrowUp') { event.preventDefault(); shift(-1) } else if (event.key === 'ArrowDown') { event.preventDefault(); shift(1) } }}
+    onPointerDown={event => {
+      if (momentumTimer.current !== null) window.clearTimeout(momentumTimer.current)
+      event.currentTarget.setPointerCapture(event.pointerId)
+      drag.current = { active: true, pointerId: event.pointerId, lastY: event.clientY, lastTime: performance.now(), velocity: 0, carry: 0, moved: false }
+    }}
+    onPointerMove={event => {
+      if (!drag.current.active || drag.current.pointerId !== event.pointerId) return
+      const now = performance.now()
+      const delta = drag.current.lastY - event.clientY
+      const elapsed = Math.max(8, now - drag.current.lastTime)
+      drag.current.velocity = delta / elapsed
+      drag.current.carry += delta
+      drag.current.lastY = event.clientY
+      drag.current.lastTime = now
+      if (Math.abs(drag.current.carry) >= 24) {
+        const steps = Math.trunc(drag.current.carry / 24)
+        shift(steps)
+        drag.current.carry -= steps * 24
+        drag.current.moved = true
+      }
+    }}
+    onPointerUp={event => release(event.currentTarget)}
+    onPointerCancel={event => release(event.currentTarget)}
+  >
+    {[-2, -1, 0, 1, 2].map(offset => <button
+      type="button"
+      key={offset}
+      className={offset === 0 ? 'active' : ''}
+      aria-label={`${label} ${pad2(wrap(value + offset))}`}
+      aria-current={offset === 0 ? 'true' : undefined}
+      onClick={() => { if (!drag.current.moved && offset) shift(offset) }}
+    >{pad2(wrap(value + offset))}</button>)}
   </div>
 }
 
