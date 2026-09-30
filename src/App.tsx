@@ -1487,7 +1487,7 @@ function App() {
                   <button className="concept-e-add" onClick={() => openEvent()}><Plus size={14}/> הוספת אירוע</button>
                 </section>
                 {operationalCount > 0 && <section className={`concept-e-attention-zone action-center ${attentionExpanded ? 'is-expanded' : ''}`}>
-                  <header className="action-center-header"><div><span>מרכז פעולה</span><h2>דורש ממך פעולה <b>{operationalCount}</b></h2></div><p>הדברים החשובים שמחכים להחלטה שלך.</p></header>
+                  <header className="action-center-header"><div><span>מרכז פעולה</span><h2>דורש ממך פעולה <b>{operationalCount}</b></h2></div><p>היארועים החשובים שמחכים להחלטה שלך.</p></header>
                 <DecisionCenter
                   data={data}
                   family={family}
@@ -1781,7 +1781,7 @@ function App() {
             if (e.target === e.currentTarget && !processing) setDialog(null)
           }}
         >
-          <div className="plan-modal" role="dialog" aria-modal="true" aria-label="חלון עריכה">
+          <div className={`plan-modal ${dialog?.type === 'event' ? 'event-modal' : ''}`} role="dialog" aria-modal="true" aria-label="חלון עריכה">
             <button className="modal-close" onClick={() => setDialog(null)} aria-label="סגירה">
               <X size={19} />
             </button>
@@ -1804,19 +1804,19 @@ function App() {
                     <input required value={form.title || ''} onChange={(e) => updateForm('title', e.target.value)} placeholder="למשל, חוג שחייה" />
                   </Field>
                   <Field label="תאריך">
-                    <input type="date" value={form.date || ''} onChange={(e) => updateForm('date', e.target.value)} />
+                    <EventDatePicker value={form.date || localDate()} onChange={(value) => updateForm('date', value)} />
                   </Field>
                   <Field label="שעה">
-                    <input type="time" value={form.time || ''} onChange={(e) => updateForm('time', e.target.value)} />
+                    <TimeWheel value={form.time || '17:00'} onChange={(value) => updateForm('time', value)} />
                   </Field>
-                  <Field label="סיום" className="compact">
-                    <input type="time" value={form.endTime || ''} onChange={(e) => updateForm('endTime', e.target.value)} />
+                  <Field label="שעת סיום (רשות)" className="compact">
+                    <TimeWheel value={form.endTime || ''} onChange={(value) => updateForm('endTime', value)} optional />
                   </Field>
                   <Field label="פרטי הגעה / הערה" className="full">
                     <input value={form.details || ''} onChange={(e) => updateForm('details', e.target.value)} placeholder="למשל, נקודת מפגש וכתובת" />
                   </Field>
                   <Field label="שבץ לאורך ימים" className="full">
-                    <input value={form.eventDays || ''} onChange={(e) => updateForm('eventDays', e.target.value)} placeholder="למשל 1,3,5" />
+                    <WeekdayPicker value={form.eventDays || ''} onChange={(value) => updateForm('eventDays', value)} />
                   </Field>
                 </div>
                 <label className="rule-check">
@@ -1873,9 +1873,6 @@ function App() {
                   <div className="form-grid">
                     <Field label="סמל">
                       <input value={form.icon || ''} onChange={(e) => updateForm('icon', e.target.value)} maxLength={4} />
-                    </Field>
-                    <Field label="שעת סיום (רשות)">
-                      <input type="time" value={form.endTime || ''} onChange={(e) => updateForm('endTime', e.target.value)} />
                     </Field>
                     <Field label="חשיבות">
                       <select value={form.priority || 'normal'} onChange={(e) => updateForm('priority', e.target.value)}>
@@ -2236,6 +2233,72 @@ function Field({ label, children, className }: { label: string; children: React.
       {localized}
     </label>
   )
+}
+
+const pad2 = (value: number) => String(value).padStart(2, '0')
+
+function EventDatePicker({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const fallback = localDate()
+  const [rawYear, rawMonth, rawDay] = (value || fallback).split('-').map(Number)
+  const year = Number.isInteger(rawYear) ? rawYear : Number(fallback.slice(0, 4))
+  const month = Number.isInteger(rawMonth) ? rawMonth : Number(fallback.slice(5, 7))
+  const day = Number.isInteger(rawDay) ? rawDay : Number(fallback.slice(8, 10))
+  const currentYear = new Date().getFullYear()
+  const years = Array.from(new Set([year, ...Array.from({ length: 8 }, (_, index) => currentYear - 1 + index)])).sort((a, b) => a - b)
+  const daysInMonth = new Date(year, month, 0).getDate()
+  const update = (nextYear: number, nextMonth: number, nextDay: number) => {
+    const validDay = Math.min(nextDay, new Date(nextYear, nextMonth, 0).getDate())
+    onChange(`${nextYear}-${pad2(nextMonth)}-${pad2(validDay)}`)
+  }
+  const shiftDay = (amount: number) => {
+    const next = new Date(`${value || fallback}T12:00:00`)
+    next.setDate(next.getDate() + amount)
+    onChange(`${next.getFullYear()}-${pad2(next.getMonth() + 1)}-${pad2(next.getDate())}`)
+  }
+  return <div className="event-date-picker" aria-label="בחירת תאריך">
+    <button type="button" onClick={() => shiftDay(-1)} aria-label="היום הקודם">−</button>
+    <div>
+      <select aria-label="יום" value={Math.min(day, daysInMonth)} onChange={event => update(year, month, Number(event.target.value))}>{Array.from({ length: daysInMonth }, (_, index) => <option key={index + 1} value={index + 1}>{pad2(index + 1)}</option>)}</select>
+      <span>/</span>
+      <select aria-label="חודש" value={month} onChange={event => update(year, Number(event.target.value), day)}>{Array.from({ length: 12 }, (_, index) => <option key={index + 1} value={index + 1}>{pad2(index + 1)}</option>)}</select>
+      <span>/</span>
+      <select aria-label="שנה" value={year} onChange={event => update(Number(event.target.value), month, day)}>{years.map(option => <option key={option} value={option}>{option}</option>)}</select>
+    </div>
+    <button type="button" onClick={() => shiftDay(1)} aria-label="היום הבא">+</button>
+  </div>
+}
+
+function TimeWheel({ value, onChange, optional = false }: { value: string; onChange: (value: string) => void; optional?: boolean }) {
+  const [rawHour, rawMinute] = (value || '17:00').split(':').map(Number)
+  const hour = Number.isInteger(rawHour) ? rawHour : 17
+  const minute = Number.isInteger(rawMinute) ? rawMinute : 0
+  const commit = (nextHour: number, nextMinute: number) => onChange(`${pad2((nextHour + 24) % 24)}:${pad2((nextMinute + 60) % 60)}`)
+  return <div className={`time-wheel ${!value ? 'is-empty' : ''}`} aria-label="בחירת שעה">
+    <div className="time-wheel-unit">
+      <button type="button" onClick={() => commit(hour + 1, minute)} aria-label="שעה הבאה">+</button>
+      <select aria-label="שעה" value={hour} onChange={event => commit(Number(event.target.value), minute)}>{Array.from({ length: 24 }, (_, index) => <option key={index} value={index}>{pad2(index)}</option>)}</select>
+      <button type="button" onClick={() => commit(hour - 1, minute)} aria-label="שעה קודמת">−</button>
+      <small>שעה</small>
+    </div>
+    <b>:</b>
+    <div className="time-wheel-unit">
+      <button type="button" onClick={() => commit(hour, minute + 1)} aria-label="דקה הבאה">+</button>
+      <select aria-label="דקה" value={minute} onChange={event => commit(hour, Number(event.target.value))}>{Array.from({ length: 60 }, (_, index) => <option key={index} value={index}>{pad2(index)}</option>)}</select>
+      <button type="button" onClick={() => commit(hour, minute - 1)} aria-label="דקה קודמת">−</button>
+      <small>דקות</small>
+    </div>
+    {optional && <button type="button" className="time-wheel-clear" onClick={() => onChange('')}>{value ? 'ללא שעת סיום' : 'לא הוגדרה שעת סיום'}</button>}
+  </div>
+}
+
+function WeekdayPicker({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const selected = value.split(',').map(Number).filter(day => Number.isInteger(day))
+  const days = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳']
+  const toggle = (day: number) => onChange((selected.includes(day) ? selected.filter(value => value !== day) : [...selected, day]).sort().join(','))
+  return <div className="weekday-picker" aria-label="בחירת ימים">
+    <p>רק לאירוע שנמשך לאורך כמה ימים</p>
+    <div>{days.map((label, day) => <button type="button" key={day} className={selected.includes(day) ? 'selected' : ''} aria-pressed={selected.includes(day)} onClick={() => toggle(day)}>{label}</button>)}</div>
+  </div>
 }
 
 function LocalizedDateTimeInput({ element }: { element: React.ReactElement<any> }) {
@@ -2631,7 +2694,7 @@ function HomeBrief({
         <h2>המשך היום</h2>
       </div>
       {!brief.events.length && !brief.tasks.length ? (
-        <p className="quiet-copy">אין עוד דברים מתוכננים להיום.</p>
+        <p className="quiet-copy">אין עוד אירועים מתוכננים להיום.</p>
       ) : (
         <div className="brief-list">
           {brief.events.map((event) => (
@@ -3195,9 +3258,6 @@ function ChildHome({
   const reminders = tasks.filter((task) => !task.done)
   return (
     <div className="child-home">
-      <button className="dark-button child-add-event" onClick={onCreateEvent}>
-        <Plus size={16} /> הוספת אירוע
-      </button>
       <div className="welcome-row">
         <div>
           <div className="eyebrow">
@@ -3207,13 +3267,16 @@ function ChildHome({
           <p>האירועים והתזכורות ששייכים לך ב־{family.name}.</p>
         </div>
       </div>
+      <button className="dark-button child-add-event" onClick={onCreateEvent}>
+        <Plus size={16} /> הוספת אירוע
+      </button>
       <section className="pulse-card covered">
         <div className="pulse-icon">
           <Sparkles size={25} />
         </div>
         <div className="pulse-copy">
           <span className="pulse-kicker">בשבילך היום</span>
-          <h2>{today.length ? `${today.length} דברים בתוכנית שלך` : 'יום רגוע לפניך'}</h2>
+          <h2>{today.length ? `${today.length} אירועים בתוכנית שלך` : 'יום רגוע לפניך'}</h2>
           <p>{reminders.length ? `ויש לך ${reminders.length} תזכורות פתוחות.` : 'אין משימות שמחכות לך כרגע.'}</p>
         </div>
       </section>

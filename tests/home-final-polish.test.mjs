@@ -11,7 +11,7 @@ test('Calm Home מציג אישור אחד ו-brief עתידי עם empty state'
   assert.match(home, /הכול מכוסה כרגע/)
   assert.doesNotMatch(home, /הכול בשליטה/)
   assert.match(app, /remainingToday\(events, tasks, memberId\)/)
-  assert.match(app, /אין עוד דברים מתוכננים להיום/)
+  assert.match(app, /אין עוד אירועים מתוכננים להיום/)
   assert.match(css, /content:has\(\.lia-all-good\) \.family-status\.covered \{ display: none; \}/)
 })
 

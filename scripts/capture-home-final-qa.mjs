@@ -81,7 +81,7 @@ for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844
   if (viewport.width === 1440) {
     const { context, page } = await open(viewport, 'empty')
     await assertCalm(page, 0)
-    await page.getByText('אין עוד דברים מתוכננים להיום.').waitFor()
+    await page.getByText('אין עוד אירועים מתוכננים להיום.').waitFor()
     await shot(page, `desktop-calm-empty-${viewport.width}x${viewport.height}.png`)
     await context.close()
   }

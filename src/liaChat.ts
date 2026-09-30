@@ -147,7 +147,7 @@ function responseFor(data: AppData, conversation: LiaConversation, member: Perso
     const tasks = data.tasks.filter(task => task.familyId === family.id && !task.done && (task.priority === 'high' || task.priority === 'critical')).slice(0, 2)
     const rides = data.transportationRequests.filter(request => request.familyId === family.id && !['COVERED', 'CANCELLED'].includes(request.status)).slice(0, 2)
     const items = [...interventions.slice(0, 2).map(item => item.detectedChange), ...rides.map(request => `עדיין אין נהג מאושר ל־${data.events.find(event => event.id === request.eventId)?.title || 'הסעה'}`), ...tasks.map(task => `${task.title} עד ${dateLabel(task.due)}`)].slice(0, 4)
-    return { text: items.length ? `יש כרגע ${items.length === 1 ? 'דבר אחד' : `${items.length} דברים`} שדורשים תשומת לב:\n${shortList(items)}` : 'הכול בשליטה כרגע. אין משהו שדורש ממך פעולה.', type: 'entitySummary', context: { ...context, lastInterventionId: interventions[0]?.id } }
+    return { text: items.length ? `יש כרגע ${items.length === 1 ? 'דבר אחד' : `${items.length} אירועים`} שדורשים תשומת לב:\n${shortList(items)}` : 'הכול בשליטה כרגע. אין משהו שדורש ממך פעולה.', type: 'entitySummary', context: { ...context, lastInterventionId: interventions[0]?.id } }
   }
   if (intent === 'WHO_CAN_DRIVE') {
     if (childMode) {
@@ -208,7 +208,7 @@ function responseFor(data: AppData, conversation: LiaConversation, member: Perso
   if (intent === 'ALREADY_HANDLED') {
     if (childMode) return { text: 'אני יכולה לעדכן אותך לגבי האירועים והאיסופים שלך.', context }
     const handled = visibleInterventions(data, family.id, member, false).filter(item => ['completed', 'noAction'].includes(item.status)).slice(0, 4)
-    return { text: handled.length ? `אלה הדברים שכבר טופלו:\n${shortList(handled.map(item => item.resolutionSummary || item.title))}` : 'לא מצאתי כרגע פעולות שסומנו כטופלו.', type: 'entitySummary', context }
+    return { text: handled.length ? `אלה האירועים שכבר טופלו:\n${shortList(handled.map(item => item.resolutionSummary || item.title))}` : 'לא מצאתי כרגע פעולות שסומנו כטופלו.', type: 'entitySummary', context }
   }
   if (intent === 'RIDE_STATUS') {
     const event = data.events.find(item => item.id === context.lastEventId) || matchingEvent(data, family.id, input, conversation)
