@@ -6,7 +6,8 @@ const result = await build({ entryPoints: ['src/workflow.ts', 'src/domain.ts', '
 const modules = Object.fromEntries(await Promise.all(result.outputFiles.map(async file => [file.path.split(/[\\/]/).at(-1), await import(`data:text/javascript;base64,${Buffer.from(file.text).toString('base64')}`)])))
 const workflow = modules['workflow.js']
 const domain = modules['domain.js']
-const { initialData, localDate } = modules['data.js']
+const model = modules['data.js']
+const { initialData, localDate } = model
 
 test('שגרה מרובת ימים נחשבת כקבועה לכל אחד מהימים שנבחרו', () => {
   const data = structuredClone(initialData)
@@ -40,6 +41,32 @@ test('לו״ז שבועי חוסם הסעה באותה שעה ואפשר לאש�
   const event = { id: 'new-ride', familyId: data.families[0].id, date: localDate(), time: '16:00' }
   assert.match(domain.pickupIneligibility(person, event, data), /בלו״ז קבוע/)
   assert.equal(domain.pickupIneligibility(person, { ...event, routineOverride: true }, data), null)
+})
+
+test('שגרה וזמינות נשמרות לכל בן משפחה בנפרד', () => {
+  const data = structuredClone(initialData)
+  const orel = data.families[0].people.find(person => person.id === 'Orel')
+  const mor = data.families[0].people.find(person => person.id === 'Mor')
+  const originalMor = structuredClone({ routines: mor.routines, availability: mor.availability, unavailableFrom: mor.unavailableFrom, unavailableTo: mor.unavailableTo })
+  orel.routines = [{ id: 'orel-work', kind: 'work', label: 'עבודה', days: [1, 2], start: '09:00', end: '17:00' }]
+  orel.availability = 'work'
+  orel.unavailableFrom = '16:00'
+  orel.unavailableTo = '19:00'
+  const storage = globalThis.localStorage
+  globalThis.localStorage = { getItem: () => JSON.stringify(data) }
+  try {
+    const restored = model.readData().families[0].people
+    const restoredOrel = restored.find(person => person.id === 'Orel')
+    const restoredMor = restored.find(person => person.id === 'Mor')
+    assert.equal(restoredOrel.routines[0].id, 'orel-work')
+    assert.equal(restoredOrel.availability, 'work')
+    assert.equal(restoredOrel.unavailableFrom, '16:00')
+    assert.equal(restoredOrel.unavailableTo, '19:00')
+    assert.equal(JSON.stringify(restoredMor.routines), JSON.stringify(originalMor.routines))
+    assert.equal(restoredMor.availability, originalMor.availability)
+    assert.equal(restoredMor.unavailableFrom, originalMor.unavailableFrom)
+    assert.equal(restoredMor.unavailableTo, originalMor.unavailableTo)
+  } finally { globalThis.localStorage = storage }
 })
 
 test('אירוע מרובה ימים נוצר ככפילות יומיות בלוח', () => {

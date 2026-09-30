@@ -46,6 +46,8 @@ test('בית הספר מעדכן טיול ויוצר משימה; אוניברס�
   assert.equal(data.events.find(event => event.id === 'trip').time, '09:00')
   assert.ok(data.tasks.some(task => task.eventId === 'trip' && /אישור חתום/.test(task.title) && task.ownerId === 'Mor'))
   const count = data.events.length
+  const university = data.families[0].people.find(person => person.id === 'Mor').personalSettings.integrations.find(item => item.sourceId === 'university')
+  Object.assign(university, { connectionStatus: 'connected', liaAccess: 'allowed' })
   data = integrations.simulateIntegration(data, 'Avrahami', 'Mor', 'university').data
   assert.equal(data.events.length, count + 1)
   const event = data.events.find(item => item.title === 'הרצאה באוניברסיטה')
@@ -106,7 +108,9 @@ test('עדכוני ההדמיה ויומן גוגל המדומה נשמרים ב
 
 test('הדמיית מקור משפיעה רק על התא המשפחתי הפעיל', () => {
   const data = fresh()
-  data.families.push({ id: 'levi', name: 'משפחת לוי', people: [{ id: 'lee', name: 'לי', role: 'אם', color: 'sage', age: 35, hasLicense: true, hasCar: true, availableForPickup: true }] })
+  const settings = model.defaultPersonalSettings()
+  Object.assign(settings.integrations.find(item => item.sourceId === 'university'), { connectionStatus: 'connected', liaAccess: 'allowed' })
+  data.families.push({ id: 'levi', name: 'משפחת לוי', people: [{ id: 'lee', name: 'לי', role: 'אם', color: 'sage', age: 35, hasLicense: true, hasCar: true, availableForPickup: true, personalSettings: settings }] })
   const result = integrations.simulateIntegration(data, 'levi', 'lee', 'university')
   assert.equal(result.applied, true)
   assert.ok(result.data.events.some(event => event.familyId === 'levi' && event.title === 'הרצאה באוניברסיטה'))

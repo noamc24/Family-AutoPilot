@@ -2,6 +2,7 @@ import { localDate, uid, type AppData, type FamilyEvent, type IntegrationLog, ty
 import { ensureRequests } from './coordination'
 import { saveEventAndDependents } from './domain'
 import { sourceDefinitions } from './sourceDefinitions'
+import { memberAllowsSource } from './trafficSignals'
 
 export type IntegrationScenario = 'waze' | 'whatsapp' | 'school' | 'university'
 export const integrationNames = Object.fromEntries(sourceDefinitions.map(source => [source.id, source.displayName])) as Record<IntegrationSource, string>
@@ -31,6 +32,7 @@ export function simulateIntegration(data: AppData, familyId: string, actorId: st
   const family = data.families.find(item => item.id === familyId)
   const actor = family?.people.find(person => person.id === actorId)
   if (!family || !actor) return { data, message: 'יש לבחור בן משפחה לפני בדיקת העדכונים.', applied: false }
+  if (!memberAllowsSource(data, familyId, actorId, source)) return { data, message: `${integrationNames[source]} אינו פעיל עבור ${actor.name}.`, applied: false }
 
   if (source === 'waze') {
     const event = data.events.filter(item => item.familyId === familyId && item.requiresDriver && item.responsibleId && item.date >= localDate())

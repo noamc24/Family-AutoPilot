@@ -28,6 +28,7 @@ import {
   detectScenario,
   initialData,
   localDate,
+  normalizePersonalSettings,
   readData,
   removePersonAndTheirData,
   sanitizeAppData,
@@ -96,7 +97,6 @@ import {
   sensitiveAutomaticChange,
   syncAcknowledgements,
 } from './workflow'
-import { sourceDefinitionById } from './sourceDefinitions'
 import { LiaHomeSection } from './components/LiaHomeSection'
 import { applyTrafficFlowAction, initializeTrafficCoreFlow, triggerTrafficCoreFlow } from './liaCoreFlow'
 import { SettingsPage } from './components/SettingsPage'
@@ -107,6 +107,7 @@ import { CalendarView } from './components/CalendarView'
 import { TasksView } from './components/TasksView'
 import { FamilyView } from './components/FamilyView'
 import { clearLiaConversation, conversationFor, performLiaChatAction, sendLiaChatMessage } from './liaChat'
+import { notificationPreferenceAllows, type OptionalNotificationCategory } from './personalSettings'
 import type { LiaMessage } from './liaChatTypes'
 import { homeGreeting, remainingToday } from './uiModel'
 
@@ -115,6 +116,7 @@ type Dialog =
   | { type: 'event'; item?: FamilyEvent }
   | { type: 'task'; item?: FamilyTask }
   | { type: 'person'; item?: Person }
+  | { type: 'profile'; item: Person }
   | { type: 'family'; item?: FamilyUnit }
   | { type: 'plan'; scenario: 'birthday' | 'late' | 'reminder'; input: string }
   | { type: 'resolve'; item: FamilyEvent }
@@ -222,7 +224,6 @@ function App() {
   const [form, setForm] = useState<Record<string, string>>({})
   const [participants, setParticipants] = useState<string[]>([])
   const [routines, setRoutines] = useState<WeeklyRoutine[]>([])
-  const [, setMemberIntegrations] = useState<PersonalIntegration[]>([])
   const [today, setToday] = useState(localDate)
   const [responsibilities, setResponsibilities] = useState<Pick<FamilyTask, 'id' | 'title' | 'ownerId'>[]>([])
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -303,6 +304,9 @@ function App() {
       ),
     }))
     setToast(feedback)
+  }
+  const showOptionalNotification = (category: OptionalNotificationCategory, message: string) => {
+    if (notificationPreferenceAllows(currentPerson?.personalSettings, category)) setToast(message)
   }
   const eventPeople = (event: FamilyEvent) => [...new Set([...event.participantIds, event.responsibleId].filter(Boolean))].map(personName).join(' · ')
   const relevant = (item: FamilyEvent) => item.participantIds.includes(activePersonId) || item.responsibleId === activePersonId
@@ -391,7 +395,7 @@ function App() {
     const unseen = birthdayReminders.filter(({ person, date }) => !localStorage.getItem(`family-autopilot-birthday-reminder-${family.id}-${person.id}-${date}`))
     if (!unseen.length) return
     unseen.forEach(({ person, date }) => localStorage.setItem(`family-autopilot-birthday-reminder-${family.id}-${person.id}-${date}`, '1'))
-    setToast(
+    showOptionalNotification('routineUpdates',
       unseen.length === 1
         ? `יום ההולדת של ${unseen[0].person.name} ${unseen[0].daysUntil ? `בעוד ${unseen[0].daysUntil} ימים` : 'היום'} 🎂`
         : `ימי הולדת מתקרבים: ${unseen.map((item) => item.person.name).join(' · ')} 🎂`,
@@ -423,7 +427,7 @@ function App() {
             localStorage.setItem(storageKey, String(now))
             dataRef.current = next
             setData(next)
-            setToast('משימה גמישה הועברה למועד פנוי לפי רמת הפעולה הרגילה')
+            showOptionalNotification('liaUpdates', 'משימה גמישה הועברה למועד פנוי לפי רמת הפעולה הרגילה')
             return
           }
         }
@@ -455,7 +459,7 @@ function App() {
       localStorage.setItem(storageKey, String(now))
       dataRef.current = result.data
       setData(result.data)
-      setToast(result.message)
+      showOptionalNotification('importantChanges', result.message)
     }
     scheduleNext()
     return () => {
@@ -496,7 +500,7 @@ function App() {
       }
       dataRef.current = result.data
       setData(result.data)
-      setToast(result.message)
+      showOptionalNotification('liaUpdates', result.message)
     }
     scheduleNext()
     return () => {
@@ -743,7 +747,6 @@ function App() {
   function openPerson(item?: Person) {
     setRoutines(item?.routines || [])
     personalIntegrationDraft = structuredClone(item?.personalSettings?.integrations || defaultPersonalSettings().integrations)
-    setMemberIntegrations(personalIntegrationDraft)
     if (childMode) {
       setToast('ניהול המשפחה זמין בתצוגת מבוגר')
       return
@@ -761,6 +764,8 @@ function App() {
             availableForPickup: String(item.availableForPickup),
             availability: item.availability || 'available',
             unavailableUntil: item.unavailableUntil || '',
+            unavailableFrom: item.unavailableFrom || '',
+            unavailableTo: item.unavailableTo || '',
             notifications: String(item.personalSettings?.notifications.enabled ?? true),
             proactiveSuggestions: String(item.personalSettings?.lia.proactiveSuggestions ?? true),
           }
@@ -775,11 +780,21 @@ function App() {
             availableForPickup: 'false',
             availability: 'available',
             unavailableUntil: '',
+            unavailableFrom: '',
+            unavailableTo: '',
             notifications: 'true',
             proactiveSuggestions: 'true',
           },
     )
     setDialog({ type: 'person', item })
+  }
+  function openProfile(item: Person) {
+    if (childMode) {
+      setToast('עריכת הפרופיל זמינה בתצוגת מבוגר')
+      return
+    }
+    setForm({ name: item.name, role: item.role, color: item.color, birthDate: item.birthDate || '' })
+    setDialog({ type: 'profile', item })
   }
   function openFamily(item?: FamilyUnit) {
     if (childMode) {
@@ -925,6 +940,20 @@ function App() {
       }
       setData((previous) => ({ ...previous, tasks: dialog.item ? previous.tasks.map((t) => (t.id === task.id ? task : t)) : [...previous.tasks, task] }))
       setToast(dialog.item ? 'המשימה עודכנה' : 'המשימה נוספה')
+    } else if (dialog.type === 'profile') {
+      const birthDate = form.birthDate || undefined
+      if (!form.name?.trim() || !birthDate || !validBirthDate(birthDate)) return
+      const person: Person = {
+        ...dialog.item,
+        name: form.name.trim(),
+        role: (['אב', 'אם', 'בן', 'בת'].includes(form.role) ? form.role : dialog.item.role) as Person['role'],
+        color: form.color || dialog.item.color,
+        birthDate,
+        birthYear: Number(birthDate.slice(0, 4)),
+        age: ageFromBirthDate(birthDate),
+      }
+      setData((previous) => updatePersonAndRevalidate(previous, family.id, person))
+      setToast('הפרופיל עודכן')
     } else if (dialog.type === 'person') {
       const birthDate = form.birthDate || undefined
       const birthYear = birthDate ? Number(birthDate.slice(0, 4)) : dialog.item?.birthYear
@@ -951,6 +980,8 @@ function App() {
       }
       if (!form.name?.trim() || !Number.isInteger(age) || age < 0 || age > 120) return
       const adult = age >= 18
+      const existingNotifications = normalizePersonalSettings(dialog.item?.personalSettings).notifications
+      const notificationsEnabled = form.notifications === 'true'
       const person: Person = {
         id: dialog.item?.id || uid(),
         name: form.name.trim(),
@@ -966,15 +997,17 @@ function App() {
         unavailableUntil: form.unavailableUntil || '',
         travelMinutes: dialog.item?.travelMinutes,
         activeDriver: dialog.item?.activeDriver,
-        unavailableFrom: dialog.item?.unavailableFrom,
-        unavailableTo: dialog.item?.unavailableTo,
+        unavailableFrom: form.unavailableFrom || undefined,
+        unavailableTo: form.unavailableTo || undefined,
         preferredMaxRides: dialog.item?.preferredMaxRides,
         lastResortDriver: dialog.item?.lastResortDriver,
         canUseTransit: dialog.item?.canUseTransit,
         canTravelAlone: dialog.item?.canTravelAlone,
         routines: routineDaysSelected,
         personalSettings: {
-          notifications: { enabled: form.notifications === 'true' },
+          notifications: notificationsEnabled
+            ? { ...existingNotifications, enabled: true }
+            : { enabled: false, importantChanges: false, liaUpdates: false, routineUpdates: false },
           lia: { proactiveSuggestions: form.proactiveSuggestions === 'true' },
           integrations: personalIntegrationDraft,
         },
@@ -1687,7 +1720,13 @@ function App() {
               onClear={clearChat}
             />
           ) : view === 'settings' && currentPerson ? (
-            <SettingsPage person={currentPerson} onChange={updateActiveSettings} onEditProfile={() => openPerson(currentPerson)} />
+            <SettingsPage
+              person={currentPerson}
+              autonomy={autonomy}
+              onAutonomyChange={(value) => { updateFamilyPreferences({ autonomy: value }); setToast('רמת הפעולה של LIA עודכנה ✓') }}
+              onChange={updateActiveSettings}
+              onEditProfile={() => openProfile(currentPerson)}
+            />
           ) : (
             <>
               <div className="page-header">
@@ -1938,6 +1977,31 @@ function App() {
                 </details>
                 <ModalActions onSave={() => saveForm()} onDelete={dialog.item ? () => removeTask(dialog.item!) : undefined} disabled={!form.title?.trim() || !form.due} />
               </>
+            ) : dialog?.type === 'profile' ? (
+              <>
+                <ModalHeading title="הפרופיל שלי" description="הפרטים האישיים שמזהים אותך בתוך המשפחה." />
+                <div className="profile-edit-header"><span className={`avatar large ${form.color || dialog.item.color}`}>{(form.name || dialog.item.name).slice(0, 1)}</span><div><strong>{form.name || dialog.item.name}</strong><small>{form.role || dialog.item.role} · גיל {form.birthDate && validBirthDate(form.birthDate) ? ageFromBirthDate(form.birthDate) : dialog.item.age}</small></div></div>
+                <div className="form-grid profile-identity-fields">
+                  <Field label="שם">
+                    <input value={form.name || ''} onChange={(event) => updateForm('name', event.target.value)} placeholder="שם פרטי" />
+                  </Field>
+                  <Field label="תפקיד במשפחה">
+                    <select value={form.role || dialog.item.role} onChange={(event) => updateForm('role', event.target.value)}>
+                      <option value="אב">אב</option><option value="אם">אם</option><option value="בן">בן</option><option value="בת">בת</option>
+                    </select>
+                  </Field>
+                  <Field label="תאריך לידה">
+                    <input required type="date" max={localDate()} value={form.birthDate || ''} onChange={(event) => updateForm('birthDate', event.target.value)} />
+                  </Field>
+                  <Field label="צבע הפרופיל">
+                    <select value={form.color || dialog.item.color} onChange={(event) => updateForm('color', event.target.value)}>
+                      <option value="peach">אפרסק</option><option value="sage">מרווה</option><option value="lavender">לבנדר</option><option value="butter">חמאה</option>
+                    </select>
+                  </Field>
+                </div>
+                <p className="profile-role-note">התפקיד והגיל משפיעים על הרשאות העריכה ומצב הילד הקיימים.</p>
+                <ModalActions onSave={() => saveForm()} disabled={!form.name?.trim() || !form.birthDate || !validBirthDate(form.birthDate)} />
+              </>
             ) : dialog?.type === 'person' ? (
               <>
                 <ModalHeading title={dialog.item ? 'עריכת בן משפחה' : 'בן משפחה חדש'} description={`הפרטים שייכים ל־${family.name}.`} />
@@ -1991,7 +2055,9 @@ function App() {
                     זמין/ה לאיסוף
                   </label>
                 </div>
-                <div className="form-grid availability-form">
+                <details className="member-schedule-group availability-settings" open>
+                  <summary><span><strong>זמינות</strong><small>מצב נוכחי ושעות קבועות שבהן לא ניתן להסיע</small></span><span>ניהול</span></summary>
+                  <div className="member-schedule-body"><div className="form-grid availability-form">
                   <Field label="זמינות נוכחית">
                     <select value={form.availability || 'available'} onChange={(e) => updateForm('availability', e.target.value)}>
                       <option value="available">זמין/ה</option>
@@ -2009,7 +2075,14 @@ function App() {
                       onChange={(e) => updateForm('unavailableUntil', e.target.value)}
                     />
                   </Field>
-                </div>
+                  <Field label="לא פנוי/ה בדרך כלל משעה">
+                    <input type="time" value={form.unavailableFrom || ''} onChange={(event) => updateForm('unavailableFrom', event.target.value)} />
+                  </Field>
+                  <Field label="עד שעה">
+                    <input type="time" value={form.unavailableTo || ''} onChange={(event) => updateForm('unavailableTo', event.target.value)} />
+                  </Field>
+                  </div><small className="availability-note">חריגה חד־פעמית מאושרת מתוך האירוע עצמו ואינה משנה את השגרה.</small></div>
+                </details>
                 <ModalActions
                   onSave={() => saveForm()}
                   onDelete={dialog.item ? () => removePerson(dialog.item!) : undefined}
@@ -2413,9 +2486,9 @@ function RoutineEditor({ routines, people, onChange }: { routines: WeeklyRoutine
   }
   return (
     <>
-      <section className="routine-editor">
-        <h3>לו״ז שבועי קבוע</h3>
-        <p>סמנו עיסוק והגדירו ימים ושעות. LIA תתחשב בהם בתיאום.</p>
+      <details className="routine-editor member-schedule-group" open={routines.length === 0}>
+        <summary><span><strong>שגרה קבועה</strong><small>{routines.length ? `${routines.length} פריטים שבועיים` : 'לא הוגדרה שגרה'}</small></span><span>ניהול</span></summary>
+        <div className="member-schedule-body"><p>עבודה, לימודים ופעילויות שחוזרים בכל שבוע.</p>
         <div className="routine-kinds">
           {kinds.map((kind) => (
             <label key={kind.id}>
@@ -2475,58 +2548,12 @@ function RoutineEditor({ routines, people, onChange }: { routines: WeeklyRoutine
               ))}
           </div>
         )}
-      </section>
-      <PersonalConnections />
+        </div>
+      </details>
     </>
   )
 }
 
-function PersonalConnections() {
-  const [items, setItems] = useState(() => structuredClone(personalIntegrationDraft.length ? personalIntegrationDraft : defaultPersonalSettings().integrations))
-  const update = (sourceId: PersonalIntegration['sourceId'], change: Partial<PersonalIntegration>) =>
-    setItems((previous) => {
-      const next = previous.map((item) => (item.sourceId === sourceId ? { ...item, ...change } : item))
-      personalIntegrationDraft = next
-      return next
-    })
-  return (
-    <section className="personal-connections">
-      <h3>חיבורים ומקורות מידע</h3>
-      <p>החיבורים והרשאות LIA נשמרים בנפרד לכל בן משפחה.</p>
-      <div className="connection-list">
-        {items.map((item) => {
-          const source = sourceDefinitionById[item.sourceId]
-          return source ? (
-            <div className="connection-row" key={item.sourceId}>
-              <span>{source.icon}</span>
-              <div>
-                <strong>{source.displayName}</strong>
-                <small>{source.description}</small>
-              </div>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={item.connectionStatus === 'connected'}
-                  onChange={(event) => update(item.sourceId, { connectionStatus: event.target.checked ? 'connected' : 'disconnected' })}
-                />
-                מחובר
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={item.liaAccess === 'allowed'}
-                  disabled={item.connectionStatus !== 'connected'}
-                  onChange={(event) => update(item.sourceId, { liaAccess: event.target.checked ? 'allowed' : 'notAllowed' })}
-                />
-                לאפשר ל־LIA
-              </label>
-            </div>
-          ) : null
-        })}
-      </div>
-    </section>
-  )
-}
 function ResponsibilityEditor({
   people,
   items,
@@ -2980,37 +3007,34 @@ function FamilyPreferencesPanel({
     { key: 'moveFlexibleTasks', label: 'לאפשר דחייה של משימות גמישות', defaultValue: true },
     { key: 'allowPublicTransit', label: 'לאפשר תחבורה ציבורית כשיש חלופה בטוחה', defaultValue: false },
   ]
+  const roleLabel = (person: Person) => person.role === 'אב' ? 'אבא' : person.role === 'אם' ? 'אמא' : person.role
   return (
-    <section className="section-card family-preferences">
+    <section className="section-card family-management-settings">
       <div className="section-heading">
         <div>
-          <span className="section-kicker">התוכנית שלכם</span>
-          <h2>חוקים והעדפות משפחתיות</h2>
+          <span className="section-kicker">המשפחה שלי</span>
+          <h2>ניהול המשפחה</h2>
         </div>
       </div>
-      <p>ההעדפות נשמרות עבור {family.name} ומשפיעות על המלצות ההסעה והפתרונות.</p>
-      <div className="autonomy-choice">
-        <strong>רמת פעולה אוטומטית</strong>
-        <select value={preferences.autonomy || 'autopilot'} onChange={(event) => onPreferences({ autonomy: event.target.value as FamilyPreferences['autonomy'] })}>
-          <option value="conservative">שמרני · זיהוי בלבד, בלי פעולות רקע</option>
-          <option value="balanced">רגיל · עדכוני זמינות והזזת משימות גמישות</option>
-          <option value="autopilot">אוטופיילוט · תרחישים ועדכונים אוטומטיים, עם אישור לשינוי רגיש</option>
-        </select>
-        <small>שינוי שמשפיע על בן משפחה אחר נשאר פתוח עד לאישורו. רכישות וביטולים דורשים פעולה מפורשת.</small>
-      </div>
-      <div className="preference-grid">
-        {rules.map((rule) => (
-          <label className="rule-check" key={rule.key}>
-            <input type="checkbox" checked={preferences[rule.key] ?? rule.defaultValue} onChange={(event) => onPreferences({ [rule.key]: event.target.checked })} />
-            {rule.label}
-          </label>
-        ))}
-      </div>
-      <div className="person-preferences">
+      <p className="family-management-intro">העדפות משותפות נשמרות עבור {family.name}. הגדרות אישיות נשמרות בנפרד לכל בן משפחה.</p>
+      <details className="family-settings-group">
+        <summary><span><strong>העדפות משפחתיות</strong><small>כללי תכנון שמשפיעים על כל בני המשפחה</small></span><span>{rules.filter(rule => preferences[rule.key] ?? rule.defaultValue).length} פעילות</span></summary>
+        <div className="preference-grid family-rule-grid">
+          {rules.map((rule) => (
+            <label className="rule-check" key={rule.key}>
+              <input type="checkbox" checked={preferences[rule.key] ?? rule.defaultValue} onChange={(event) => onPreferences({ [rule.key]: event.target.checked })} />
+              {rule.label}
+            </label>
+          ))}
+        </div>
+      </details>
+      <div className="member-settings-list">
         {family.people.map((person) => (
-          <div className="person-preference" key={person.id}>
-            <strong>{person.name}</strong>
-            <div className="preference-grid">
+          <details className="member-settings-row" key={person.id}>
+            <summary><span className={`avatar mini ${person.color}`}>{person.name.slice(0, 1)}</span><span><strong>{person.name}</strong><small>{roleLabel(person)} · {person.age < 18 ? `ילד/ה · גיל ${person.age}` : `מבוגר/ת · גיל ${person.age}`}</small></span><span>ניהול</span></summary>
+            <div className="member-settings-body">
+              <p>{person.age < 18 ? 'מצב ילד והגבלות עריכה נקבעים אוטומטית לפי הגיל.' : 'הרשאות נהיגה תלויות גם בגיל, רישיון, רכב וזמינות לאיסוף.'}</p>
+              <div className="preference-grid member-permission-grid">
               <label className="rule-check">
                 <input
                   type="checkbox"
@@ -3042,8 +3066,8 @@ function FamilyPreferencesPanel({
                 />
                 רשאי/ת לנסוע לבד
               </label>
-            </div>
-            <div className="form-grid">
+              </div>
+              {person.age >= 18 && <div className="member-ride-limit">
               <Field label="מקסימום הסעות מועדף ביום">
                 <input
                   type="number"
@@ -3054,19 +3078,9 @@ function FamilyPreferencesPanel({
                   onChange={(event) => onPerson(person.id, { preferredMaxRides: event.target.value === '' ? undefined : Math.max(0, Math.min(10, Number(event.target.value))) })}
                 />
               </Field>
-              <Field label="לא פנוי/ה בדרך כלל משעה">
-                <input
-                  type="time"
-                  value={person.unavailableFrom || ''}
-                  disabled={person.age < 18}
-                  onChange={(event) => onPerson(person.id, { unavailableFrom: event.target.value })}
-                />
-              </Field>
-              <Field label="עד שעה">
-                <input type="time" value={person.unavailableTo || ''} disabled={person.age < 18} onChange={(event) => onPerson(person.id, { unavailableTo: event.target.value })} />
-              </Field>
+              </div>}
             </div>
-          </div>
+          </details>
         ))}
       </div>
     </section>

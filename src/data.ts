@@ -5,7 +5,8 @@ export type EventAcknowledgement = { eventId: string; personId: string; signatur
 export type PendingAction = { id: string; familyId: string; source: 'external' | 'scenario'; scenarioId: string; message: string; createdAt: string }
 export type FamilyPreferences = { preferFewerTrips?: boolean; balanceRides?: boolean; preferNearbyDriver?: boolean; moveFlexibleTasks?: boolean; allowPublicTransit?: boolean; autonomy?: 'conservative' | 'balanced' | 'autopilot' }
 export type PersonalIntegration = { sourceId: IntegrationSource; connectionStatus: 'connected' | 'disconnected'; liaAccess: 'allowed' | 'notAllowed'; mode: 'demo' | 'live' }
-export type PersonalSettings = { notifications: { enabled: boolean }; lia: { proactiveSuggestions: boolean }; integrations: PersonalIntegration[] }
+export type NotificationPreferences = { enabled: boolean; importantChanges: boolean; liaUpdates: boolean; routineUpdates: boolean }
+export type PersonalSettings = { notifications: NotificationPreferences; lia: { proactiveSuggestions: boolean }; integrations: PersonalIntegration[] }
 export type Person = { id: string; name: string; role: 'אב' | 'אם' | 'בן' | 'בת'; color: string; age: number; birthYear?: number; birthDate?: string; hasLicense: boolean; hasCar: boolean; availableForPickup: boolean; availability?: 'available' | 'home' | 'work' | 'travel' | 'unavailable'; unavailableUntil?: string; travelMinutes?: number; activeDriver?: boolean; unavailableFrom?: string; unavailableTo?: string; preferredMaxRides?: number; lastResortDriver?: boolean; canUseTransit?: boolean; canTravelAlone?: boolean; routines?: WeeklyRoutine[]; personalSettings?: PersonalSettings }
 export type FamilyUnit = { id: string; name: string; people: Person[]; preferences?: FamilyPreferences }
 export type FamilyEvent = { id: string; familyId: string; title: string; date: string; time: string; endDate?: string; endTime?: string; icon: string; participantIds: string[]; responsibleId: string; details: string; needsAttention?: boolean; requiresDriver?: boolean; departureTime?: string; routeMinutes?: number; createdById?: string; issueReason?: string; sourceNote?: string; sourceSignalId?: string; priority?: Priority; preferredDriverId?: string; transitAvailable?: boolean; routineOverride?: boolean }
@@ -26,12 +27,17 @@ export const ageFromBirthYear = (year: number) => new Date().getFullYear() - yea
 export const DEFAULT_FAMILY_ID = 'Avrahami'
 export const personalSourceIds: IntegrationSource[] = ['calendar', 'whatsapp', 'email', 'waze', 'location', 'school', 'university', 'work', 'club', 'transit']
 export function defaultPersonalSettings(): PersonalSettings {
-  return { notifications: { enabled: true }, lia: { proactiveSuggestions: true }, integrations: personalSourceIds.map(sourceId => ({ sourceId, connectionStatus: 'disconnected', liaAccess: 'notAllowed', mode: 'demo' })) }
+  return { notifications: { enabled: true, importantChanges: true, liaUpdates: true, routineUpdates: true }, lia: { proactiveSuggestions: true }, integrations: personalSourceIds.map(sourceId => ({ sourceId, connectionStatus: 'disconnected', liaAccess: 'notAllowed', mode: 'demo' })) }
 }
 export function normalizePersonalSettings(settings?: Partial<PersonalSettings>): PersonalSettings {
   const existing = new Map((settings?.integrations || []).map(item => [item.sourceId, item]))
   return {
-    notifications: { enabled: settings?.notifications?.enabled ?? true },
+    notifications: {
+      enabled: settings?.notifications?.enabled ?? true,
+      importantChanges: settings?.notifications?.importantChanges ?? settings?.notifications?.enabled ?? true,
+      liaUpdates: settings?.notifications?.liaUpdates ?? settings?.notifications?.enabled ?? true,
+      routineUpdates: settings?.notifications?.routineUpdates ?? settings?.notifications?.enabled ?? true,
+    },
     lia: { proactiveSuggestions: settings?.lia?.proactiveSuggestions ?? true },
     integrations: personalSourceIds.map(sourceId => {
       const item = existing.get(sourceId)

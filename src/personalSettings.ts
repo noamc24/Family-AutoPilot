@@ -1,4 +1,4 @@
-import { normalizePersonalSettings, type IntegrationSource, type PersonalSettings } from './data'
+import { normalizePersonalSettings, type IntegrationSource, type NotificationPreferences, type PersonalSettings } from './data'
 
 export function updateConnection(settings: PersonalSettings, sourceId: IntegrationSource, connected: boolean): PersonalSettings {
   const normalized = normalizePersonalSettings(settings)
@@ -20,9 +20,16 @@ export function updateLiaAccess(settings: PersonalSettings, sourceId: Integratio
   }
 }
 
-export function updateNotifications(settings: PersonalSettings, enabled: boolean): PersonalSettings {
+export type OptionalNotificationCategory = Exclude<keyof NotificationPreferences, 'enabled'>
+
+export function updateNotifications(settings: PersonalSettings, category: OptionalNotificationCategory, enabled: boolean): PersonalSettings {
   const normalized = normalizePersonalSettings(settings)
-  return { ...normalized, notifications: { enabled } }
+  const notifications = { ...normalized.notifications, [category]: enabled }
+  return { ...normalized, notifications: { ...notifications, enabled: notifications.importantChanges || notifications.liaUpdates || notifications.routineUpdates } }
+}
+
+export function notificationPreferenceAllows(settings: PersonalSettings | undefined, category: OptionalNotificationCategory) {
+  return normalizePersonalSettings(settings).notifications[category]
 }
 
 export function updateProactiveSuggestions(settings: PersonalSettings, enabled: boolean): PersonalSettings {

@@ -2,6 +2,7 @@ import { localDate, uid, type AppData, type FamilyEvent, type IntegrationSource 
 import { ensureRequests, requestForEvent, respondToRequest } from './coordination'
 import { applyLatePlan, getLateImpact, removeEventAndDependents, saveEventAndDependents } from './domain'
 import { addLog, simulateIntegration } from './integrations'
+import { memberAllowsSource } from './trafficSignals'
 
 export type ExternalScenarioId = 'waze-traffic' | 'waze-accident' | 'decision-demo' | 'calendar-meeting' | 'calendar-cancel' | 'whatsapp-appointment' | 'whatsapp-earlier' | 'whatsapp-no-pickup' | 'school-trip' | 'email-school-early' | 'university-lecture' | 'university-online' | 'weather-rain' | 'location-near' | 'work-late' | 'club-delay' | 'transit-cancel'
 export type ExternalScenario = { id: ExternalScenarioId; source: IntegrationSource; title: string; description: string; icon: string }
@@ -51,6 +52,8 @@ function moveEvent(data: AppData, event: FamilyEvent, time: string, sourceNote: 
 export function runExternalScenario(data: AppData, familyId: string, actorId: string, id: ExternalScenarioId, trigger: 'manual' | 'automatic' = 'manual') {
   const family = familyOf(data, familyId)
   if (!family) return noChange(data, 'לא נמצא תא משפחתי')
+  const scenario = externalScenarios.find(item => item.id === id)
+  if (scenario && !memberAllowsSource(data, familyId, actorId, scenario.source)) return noChange(data, `${scenario.title}: המקור אינו פעיל עבור בן המשפחה הנוכחי`)
   const scenarioKey = `external:${familyId}:${id}`
   if (data.integrationLogs.some(log => log.scenarioKey === scenarioKey)) return noChange(data, 'העדכון הזה כבר נוסף לתוכנית')
   if (id === 'waze-traffic' || id === 'whatsapp-appointment' || id === 'school-trip' || id === 'university-lecture') return simulateIntegration(data, familyId, actorId, id === 'waze-traffic' ? 'waze' : id === 'whatsapp-appointment' ? 'whatsapp' : id === 'school-trip' ? 'school' : 'university', trigger)
