@@ -87,7 +87,6 @@ import { applyForecastSolution, scanFutureRisks, suggestForecastSolution, type F
 import { activityFeed } from './activityFeed'
 import { upcomingBirthdays, type BirthdayReminder } from './birthdays'
 import {
-  closureIssues,
   materializeRoutineTasks,
   nextRepeatDate,
   routineAt,
@@ -337,12 +336,7 @@ function App() {
     unresolvedRequests.length +
     conflictedEvents.filter((event) => !requestForEvent(data, event.id)).length +
     visibleFutureRisks.length
-  const openIssues = closureIssues(data, family.id)
-  const familyDecisionCount = openIssues.length
   const familyTodayEvents = familyEvents.filter((event) => event.date === localDate()).length
-  const statusDetails = familyDecisionCount
-    ? openIssues.slice(0, 2).join(' · ') + (openIssues.length > 2 ? ` · ועוד ${openIssues.length - 2} לטיפול` : '')
-    : `${countLabel(familyTodayEvents, 'אירוע היום', 'אירועים היום')} · אין נושאים פתוחים`
   const lateImpact = getLateImpact(data, family, activePersonId)
   const operationalWindowEnd = Date.now() + 2 * 60 * 60_000
   const operationalDecisionCount = familyEvents.filter((event) => {
@@ -1486,11 +1480,6 @@ function App() {
                     ))}
                   </div>
                 </header>
-                <section className={`concept-e-state ${familyDecisionCount ? 'needs-care' : ''}`}>
-                  <span className="concept-e-state-icon">{familyDecisionCount ? <Sparkles size={17}/> : <CheckCircle2 size={17}/>}</span>
-                  <div><strong>{familyDecisionCount ? 'צריך טיפול' : 'הכול מכוסה כרגע'}</strong><small>{statusDetails}</small></div>
-                  <span className="concept-e-state-status"><i/>{familyDecisionCount ? `${familyDecisionCount} פתוחים` : 'מעודכן'}</span>
-                </section>
                 <LiaHomeSection data={data} family={family} actorId={activePersonId} />
                 <section className="concept-e-agenda">
                   <div className="concept-e-section-heading"><div><span>התוכנית שלך</span><h2>המשך היום</h2></div><button onClick={() => setView('events')}>ליומן המלא <ArrowLeft size={14}/></button></div>

@@ -21,10 +21,18 @@ export function LiaHomeSection({ data, family, actorId }: { data: AppData; famil
     const candidates = trafficHandoffCandidates(data, item.id)
     return candidates.length ? { ...item, statusDetail: `${item.statusDetail || ''} · מומלץ: ${candidates[0].person.name}`.trim(), actions: [] } : { ...item, actions: [] }
   }
+  const visibleActive = active.map(forActor)
+  const hasUrgentEvent = visibleActive.some(item => {
+    const event = item.relatedEventId ? data.events.find(entry => entry.id === item.relatedEventId) : undefined
+    return event?.priority === 'critical' || /חריג|דחוף|אין כרגע/i.test(`${item.title} ${item.statusDetail || ''}`)
+  })
+  const needsMyAction = visibleActive.some(item => item.actions.length > 0 && ['decisionRequired', 'waiting'].includes(item.status))
+  const tone = hasUrgentEvent ? 'urgent' : needsMyAction ? 'attention' : 'covered'
   return <div className="lia-home" aria-label="LIA במסך הבית">
-    <section className={`lia-priority ${active.length ? '' : 'lia-all-good'}`}>
+    <section className={`lia-priority lia-tone-${tone} ${active.length ? '' : 'lia-all-good'}`}>
+      <i className="lia-live-dot" aria-hidden="true"/>
       <div className="lia-section-heading"><span className="lia-section-icon">{active.length ? <Sparkles size={22}/> : <CheckCircle2 size={22}/>}</span><div><span>LIA · Life Intelligence Assistant</span><h2>{active.some(item => item.status === 'decisionRequired') ? 'LIA צריכה החלטה ממך' : active.length ? 'LIA זיהתה עבורך' : 'הכול מכוסה כרגע'}</h2><p>{active.length ? 'הדבר המשמעותי שכדאי לדעת עכשיו.' : 'LIA לא זיהתה כרגע משהו שדורש ממך פעולה.'}</p></div></div>
-      {active.length > 0 && <div className="lia-card-grid">{active.map(item => { const visible = forActor(item); return <LiaCard key={item.id} item={visible} memberName={id => family.people.find(person => person.id === id)?.name || 'בן משפחה'} onAction={action => act(item.id, action)}/> })}</div>}
+      {visibleActive.length > 0 && <div className="lia-card-grid">{visibleActive.map(item => <LiaCard key={item.id} item={item} memberName={id => family.people.find(person => person.id === id)?.name || 'בן משפחה'} onAction={action => act(item.id, action)}/>)}</div>}
     </section>
     {handled.length > 0 && <section className="lia-handled"><div className="lia-handled-heading"><CheckCircle2 size={18}/><div><h2>LIA כבר טיפלה</h2><p>דברים שנסגרו ולא דורשים ממך בדיקה.</p></div></div><ul>{handled.map(item => <li key={item.id}><CheckCircle2 size={15}/><span><strong>{item.resolutionSummary || item.title}</strong>{!item.resolutionSummary && item.statusDetail && <small>{item.statusDetail}</small>}<time>{new Intl.DateTimeFormat('he-IL', { hour: '2-digit', minute: '2-digit' }).format(new Date(item.updatedAt))}</time></span></li>)}</ul></section>}
   </div>
