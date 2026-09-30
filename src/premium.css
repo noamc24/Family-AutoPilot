@@ -187,7 +187,18 @@ p { color: var(--fp-body); }
 .settings-tile:hover { transform: translateY(-1px); border-color: var(--fp-indigo-line); box-shadow: var(--fp-shadow); }
 .settings-tile > span, .connection-icon { color: var(--fp-indigo); background: var(--fp-indigo-soft); }
 .preference-row { border-color: var(--fp-line); }
-.toast { color: white; background: #2e3048; border: 1px solid rgba(255,255,255,.12); border-radius: 12px; box-shadow: var(--fp-shadow-raised); }
+.toast {
+  inset-inline-start: 24px; left: auto; bottom: 24px; width: min(390px,calc(100vw - 48px)); min-height: 76px;
+  display: grid; grid-template-columns: 38px minmax(0,1fr) 32px; align-items: center; gap: 12px;
+  color: var(--fp-body); background: #fff; border: 1px solid var(--fp-indigo-line); border-inline-start: 3px solid var(--fp-indigo);
+  border-radius: 4px 15px 15px 15px; padding: 13px 14px; box-shadow: 0 18px 46px rgba(36,35,72,.16);
+}
+.toast-icon { width: 38px; height: 38px; color: var(--fp-indigo); background: var(--fp-indigo-soft); border-radius: 50%; }
+.toast-copy { gap: 4px; }
+.toast-copy strong { color: var(--fp-indigo); font-size: 10px; font-weight: 800; letter-spacing: .04em; }
+.toast-copy small { color: var(--fp-ink); font-size: 12px; font-weight: 650; line-height: 1.55; }
+.toast button { width: 32px; height: 32px; margin: 0; padding: 0; align-self: center; color: var(--fp-muted); border-radius: 50%; }
+.toast button:hover { color: var(--fp-indigo); background: var(--fp-indigo-soft); }
 
 @media (max-width: 768px) {
   .topbar { height: 62px; padding-inline: 18px; background: rgba(250,250,247,.94); }
@@ -207,7 +218,7 @@ p { color: var(--fp-body); }
   .month-day { min-height: 88px; }
   .lia-chat-shell { min-height: calc(100dvh - 170px); height: calc(100dvh - 170px); border-radius: 16px; }
   .detail-sheet { border-radius: 22px 22px 0 0; }
-  .toast { inset-inline: 14px; bottom: 76px; }
+  .toast { inset-inline: 14px; width: auto; bottom: 82px; }
 }
 
 @media (max-width: 480px) {
@@ -228,3 +239,36 @@ p { color: var(--fp-body); }
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
+
+/* Concept E — production Home composition */
+.app-shell:has(.view-home),.main-column:has(.view-home),.view-home { overflow-x:hidden; }
+.view-home { max-width: 1260px; padding-top: 44px; }
+.concept-e-home { width: min(100%, 980px); margin-inline: auto; }
+.concept-e-greeting { display:flex; align-items:flex-end; justify-content:space-between; gap:28px; padding-bottom:22px; border-bottom:1px solid var(--fp-line); }
+.concept-e-greeting .eyebrow { margin-bottom:8px; color:var(--fp-indigo); }
+.concept-e-greeting h1 { margin:0; font-size:clamp(36px,4vw,50px); line-height:1.08; }
+.concept-e-greeting p { margin:8px 0 0; color:var(--fp-muted); font-size:11px; }
+.concept-e-family { display:flex; direction:ltr; padding:4px 5px 5px 0; }
+.concept-e-family .avatar { width:29px; height:29px; margin-left:-7px; border:3px solid var(--fp-canvas); font-size:10px; }
+.concept-e-state { display:grid; grid-template-columns:34px minmax(0,1fr) auto; align-items:center; gap:11px; min-height:66px; border-bottom:1px solid var(--fp-line); }
+.concept-e-state-icon { width:31px; height:31px; display:grid; place-items:center; color:var(--fp-success); background:#edf5ef; border-radius:50%; }
+.concept-e-state.needs-care .concept-e-state-icon { color:#966e1d; background:var(--fp-amber-soft); }
+.concept-e-state strong,.concept-e-state small { display:block; }.concept-e-state strong { font-size:13px; }.concept-e-state small { margin-top:3px; color:var(--fp-muted); font-size:9px; }
+.concept-e-state-status { display:flex; align-items:center; gap:5px; color:var(--fp-success); font-size:9px; font-weight:750; }.concept-e-state-status i { width:6px; height:6px; border-radius:50%; background:currentColor; }.concept-e-state.needs-care .concept-e-state-status { color:#966e1d; }
+.concept-e-home > .lia-home { width:100%; max-width:none; margin:18px 0 21px; }
+.concept-e-home .lia-priority { position:relative; padding:18px 20px 17px 23px; background:#fcfbff; border:1px solid var(--fp-indigo-line); border-radius:3px 16px 16px 16px; box-shadow:0 8px 25px rgba(47,45,95,.045); overflow:hidden; }
+.concept-e-home .lia-priority::before { content:""; position:absolute; inset-block:0; inset-inline-start:0; width:3px; background:var(--fp-indigo); }
+.concept-e-home .lia-section-heading { margin-bottom:14px; align-items:flex-start; }.concept-e-home .lia-section-icon { width:29px; height:29px; background:white; border:1px solid var(--fp-indigo-line); border-radius:50%; }
+.concept-e-home .lia-section-heading > div > span { display:block; color:var(--fp-indigo); font-size:9px; letter-spacing:.05em; }.concept-e-home .lia-section-heading h2 { margin:5px 0 3px; font-size:18px; }.concept-e-home .lia-section-heading p { margin:0; color:var(--fp-muted); font-size:10px; }
+.concept-e-home .lia-priority.lia-all-good .lia-section-heading { margin:0; }.concept-e-home .lia-priority.lia-all-good .lia-section-icon { width:29px; height:29px; }.concept-e-home .lia-priority.lia-all-good .lia-section-heading > div > span { display:block; }.concept-e-home .lia-priority.lia-all-good .lia-section-heading h2 { font-size:18px; }.concept-e-home .lia-priority.lia-all-good .lia-section-heading p { font-size:10px; }
+.concept-e-home .lia-card { padding:15px 0 0; background:transparent; border:0; border-top:1px solid var(--fp-indigo-line); border-radius:0; box-shadow:none; }.concept-e-home .lia-card + .lia-card { padding-block:15px 0; background:transparent; }.concept-e-home .lia-card h3 { font-size:15px; }.concept-e-home .lia-detected { margin:9px 0; font-size:11px; }.concept-e-home .lia-context { padding-block:8px; }.concept-e-home .lia-recommendation { padding-block:9px 0; }.concept-e-home .lia-card-foot { margin-top:10px; padding-top:8px; }
+.concept-e-home .lia-handled { width:100%; margin-top:10px; padding:13px 0 0; }
+.concept-e-agenda { margin-top:2px; }.concept-e-section-heading { display:flex; align-items:flex-end; justify-content:space-between; margin-bottom:9px; }.concept-e-section-heading span,.concept-e-family-note > span,.concept-e-attention-zone > header > span { color:var(--fp-muted); font-size:9px; font-weight:780; letter-spacing:.07em; }.concept-e-section-heading h2 { margin:3px 0 0; font-size:17px; }.concept-e-section-heading button { border:0; background:none; color:var(--fp-indigo); font-size:10px; font-weight:750; display:flex; gap:5px; align-items:center; }
+.concept-e-agenda .home-brief { width:100%; max-width:none; margin:0; padding:5px 17px; background:white; border:1px solid var(--fp-line); border-radius:14px 3px 14px 14px; box-shadow:0 6px 20px rgba(30,31,45,.035); }.concept-e-agenda .home-brief > .section-heading { display:none; }.concept-e-agenda .brief-list { position:relative; padding-inline-start:14px; }.concept-e-agenda .brief-list::before { content:""; position:absolute; inset-block:17px; inset-inline-start:3px; width:1px; background:#d8d7e7; }.concept-e-agenda .brief-row { position:relative; grid-template-columns:52px minmax(0,1fr) 14px; min-height:61px; padding:10px 3px; }.concept-e-agenda .brief-row::before { content:""; position:absolute; inset-inline-start:-15px; width:8px; height:8px; border:2px solid white; border-radius:50%; background:#8583c0; box-shadow:0 0 0 1px #cbc9e4; }.concept-e-agenda .brief-row time { color:var(--fp-indigo-deep); font-weight:800; }.concept-e-agenda .brief-row strong { font-size:12px; }.concept-e-agenda .brief-row strong > small { display:block; margin-top:3px; }
+.concept-e-add { display:inline-flex; align-items:center; gap:5px; margin-top:9px; padding:6px 2px; border:0; background:none; color:var(--fp-indigo); font-size:10px; font-weight:760; }
+.concept-e-context { display:grid; grid-template-columns:1fr 1fr; gap:22px; margin-top:19px; }.concept-e-context > * { margin:0; padding:14px 0; background:transparent; border:0; border-top:2px solid var(--fp-ink); border-radius:0; box-shadow:none; }.concept-e-context .birthday-reminders .section-heading { margin-bottom:9px; }.concept-e-context .birthday-reminders h2 { font-size:12px; }.concept-e-family-note { border-top-color:var(--fp-amber); }.concept-e-family-note strong,.concept-e-family-note small { display:block; }.concept-e-family-note strong { margin:5px 0 3px; font-size:12px; }.concept-e-family-note small { color:var(--fp-muted); font-size:9px; }
+.concept-e-attention-zone { width:min(100%,980px); margin:42px auto 0; padding:25px 27px; background:#f1f0ec; border-block:1px solid #dfded8; }.concept-e-attention-zone > header { margin-bottom:18px; }.concept-e-attention-zone > header h2 { margin:4px 0; font-size:22px; }.concept-e-attention-zone > header p { margin:0; color:var(--fp-muted); font-size:10px; }.concept-e-attention-zone > section { margin:0; padding:18px 0; background:transparent; border:0; border-top:1px solid #d9d8d1; border-radius:0; box-shadow:none; }.concept-e-attention-zone > section:first-of-type { border-top:0; }.concept-e-attention-zone .section-heading { margin-bottom:12px; }.concept-e-attention-zone .section-heading h2 { font-size:16px; }
+.concept-e-details { display:grid; grid-template-columns:minmax(0,1.4fr) minmax(280px,.7fr); gap:clamp(38px,5vw,70px); width:min(100%,980px); margin:48px auto 0; }.concept-e-details .section-card,.concept-e-details .attention-card { padding:21px 0; background:transparent; border:0; border-top:1px solid var(--fp-line-strong); border-radius:0; box-shadow:none; }
+.view-home > .request-board { width:min(100%,980px); margin:42px auto 0; }
+.view-home > .integration-hub,.view-home > .ask-card,.view-home > .trust-note { width:min(100%,980px); margin-inline:auto; }
+@media(max-width:768px){.view-home{padding-top:26px}.concept-e-home{width:100%}.concept-e-greeting{padding-bottom:18px}.concept-e-greeting h1{font-size:30px}.concept-e-family{display:none}.concept-e-state{min-height:62px}.concept-e-state small{max-width:190px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.concept-e-home > .lia-home{margin-block:16px 19px}.concept-e-home .lia-priority{padding:17px 16px 16px 20px}.concept-e-agenda .home-brief{padding-inline:14px}.concept-e-context{gap:14px}.concept-e-attention-zone{width:auto;margin:35px -18px 0;padding:25px 18px}.concept-e-details{grid-template-columns:1fr;gap:22px;width:100%;margin-top:35px}.view-home > .request-board{width:100%;margin-top:34px}}
