@@ -10,7 +10,6 @@ import {
   ClipboardList,
   Home,
   Mic,
-  MoreHorizontal,
   Pencil,
   Plus,
   Settings2,
@@ -111,7 +110,7 @@ import { notificationPreferenceAllows, type OptionalNotificationCategory } from 
 import type { LiaMessage } from './liaChatTypes'
 import { homeGreeting, remainingToday } from './uiModel'
 
-type View = 'home' | 'events' | 'family' | 'tasks' | 'assistant' | 'more' | 'settings'
+type View = 'home' | 'events' | 'family' | 'tasks' | 'assistant' | 'settings'
 type Dialog =
   | { type: 'event'; item?: FamilyEvent }
   | { type: 'task'; item?: FamilyTask }
@@ -131,7 +130,7 @@ const navigation = [
   { id: 'family', label: 'משפחה', icon: Users },
   { id: 'tasks', label: 'משימות', icon: ClipboardList },
   { id: 'assistant', label: 'LIA', icon: Sparkles },
-  { id: 'more', label: 'עוד', icon: MoreHorizontal },
+  { id: 'settings', label: 'הגדרות', icon: Settings2 },
 ] as const
 const palette = ['peach', 'sage', 'lavender', 'butter']
 let personalIntegrationDraft: PersonalIntegration[] = []
@@ -1325,9 +1324,7 @@ function App() {
         </div>
         <div className="side-label">המרחב שלך</div>
         <nav className="side-nav" aria-label="ניווט ראשי">
-          {navigation
-            .filter((item) => !childMode || item.id !== 'more')
-            .map(({ id, label, icon: Icon }) => (
+          {navigation.map(({ id, label, icon: Icon }) => (
               <button key={id} className={`nav-item ${view === id ? 'active' : ''}`} aria-label={label} onClick={() => setView(id)}>
                 <Icon size={19} />
                 {label}
@@ -1661,7 +1658,7 @@ function App() {
                     </section>
                   </div>
                 </div>
-                <IntegrationHub data={data} familyId={family.id} actorId={activePersonId} compact onRun={runExternalSource} onShowAll={() => setView('more')} />
+                <IntegrationHub data={data} familyId={family.id} actorId={activePersonId} compact onRun={runExternalSource} onShowAll={() => setView('settings')} />
                 {inputArea}
                 <div className="trust-note">
                   <ShieldCheck size={16} /> כל פרטי המשפחה והתוכנית זמינים כאן במקום אחד.
@@ -1780,9 +1777,7 @@ function App() {
         </main>
       </div>
       <nav className="mobile-nav" aria-label="ניווט בנייד">
-        {navigation
-          .filter((item) => item.id !== 'more')
-          .map(({ id, label, icon: Icon }) => (
+        {navigation.map(({ id, label, icon: Icon }) => (
             <button key={id} className={view === id ? 'active' : ''} onClick={() => setView(id)}>
               <Icon size={20} />
               <span>{label}</span>
