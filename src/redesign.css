@@ -528,6 +528,14 @@ h2 { letter-spacing: -.02em; }
 .notification-row.essential { background: var(--surface-subtle); }
 .always-on { flex: none; padding: 5px 9px; border-radius: 999px; background: var(--lia-primary-soft); color: var(--lia-primary); font-size: 9px; font-weight: 800; }
 .notification-scope-note { max-width: 760px; margin: 12px 2px 0; color: var(--text-muted); font-size: 10px; line-height: 1.6; }
+.privacy-safety { max-width: 760px; border: 1px solid var(--border); border-radius: 18px; background: var(--surface); overflow: hidden; box-shadow: var(--shadow-subtle); }
+.privacy-safety-row { min-height: 88px; display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 22px; padding: 16px 18px; border-top: 1px solid var(--border); }
+.privacy-safety-row:first-child { border-top: 0; }
+.privacy-safety-row > div { display: grid; gap: 5px; }
+.privacy-safety-row strong { color: var(--text); font-size: 13px; }
+.privacy-safety-row small { max-width: 560px; color: var(--text-muted); font-size: 10px; line-height: 1.65; }
+.privacy-status { flex: none; padding: 6px 10px; border-radius: 999px; background: var(--surface-subtle); color: var(--text-muted); font-size: 9px; font-weight: 800; white-space: nowrap; }
+.privacy-safety-note { max-width: 760px; margin: 12px 2px 0; color: var(--text-muted); font-size: 10px; line-height: 1.6; }
 .family-management-settings { max-width: 820px; }
 .family-management-intro { margin: -5px 0 18px; color: var(--text-muted); font-size: 11px; line-height: 1.6; }
 .family-settings-group, .member-settings-row { border: 1px solid var(--border); border-radius: 15px; background: var(--surface); overflow: hidden; }
@@ -620,6 +628,8 @@ h2 { letter-spacing: -.02em; }
   .connection-row .manage-label { display: none; }
   .connection-row .connection-details { padding-inline: 14px; }
   .notification-row { min-height: 70px; padding: 12px 14px; }
+  .privacy-safety-row { min-height: 0; grid-template-columns: 1fr; gap: 10px; padding: 15px 14px; }
+  .privacy-status { justify-self: start; }
   .member-permission-grid { grid-template-columns: 1fr; gap: 0; }
   .member-schedule-body { padding-inline: 12px; }
   .compact-profile { align-items: flex-start; flex-wrap: wrap; }

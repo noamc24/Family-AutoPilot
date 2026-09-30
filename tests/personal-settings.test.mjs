@@ -87,7 +87,7 @@ test('העדפות התראה אופציונליות נשמרות בנפרד ו�
   assert.equal(legacy.notifications.routineUpdates, false)
 })
 
-test('Settings מרכז disclosure ב-About ושומר פרטיות בלי לחשוף raw/private source content', async () => {
+test('Settings מציג פרטיות ובטיחות בלי לחשוף raw/private source content או להמציא בקרות', async () => {
   const component = await load('src/components/SettingsPage.tsx')
   const { renderToStaticMarkup } = await import('react-dom/server')
   const data = fresh()
@@ -96,6 +96,11 @@ test('Settings מרכז disclosure ב-About ושומר פרטיות בלי לח�
   const html = renderToStaticMarkup(component.SettingsPage({ person, autonomy: 'balanced', onAutonomyChange() {}, onChange() {}, onEditProfile() {} }))
   assert.doesNotMatch(html, />Demo<|מצב Demo|במצב Demo/)
   assert.match(html, /גרסת MVP/)
+  assert.match(html, /פרטיות ובטיחות/)
+  assert.match(html, /ילדים והרשאות/)
+  assert.match(html, /גבולות הגישה של LIA/)
+  assert.match(html, /פעולות רגישות/)
+  assert.match(html, /מנוהל בחיבורים/)
   assert.match(html, /מידע אישי נשאר אישי/)
   assert.doesNotMatch(html, /RAW SECRET MESSAGE|תובנה בטוחה/)
   assert.match(html, /הפרופיל, החיבורים וההעדפות של אוראל/)
