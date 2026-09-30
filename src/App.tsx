@@ -215,6 +215,7 @@ function App() {
   const [prompt, setPrompt] = useState('')
   const [processing, setProcessing] = useState(false)
   const [toast, setToast] = useState('')
+  const [attentionExpanded, setAttentionExpanded] = useState(false)
   const [confirmation, setConfirmation] = useState<{ message: string; onConfirm: () => void } | null>(null)
   const [familyMenu, setFamilyMenu] = useState(false)
   const [profileMenu, setProfileMenu] = useState(false)
@@ -337,6 +338,27 @@ function App() {
     ? openIssues.slice(0, 2).join(' · ') + (openIssues.length > 2 ? ` · ועוד ${openIssues.length - 2} לטיפול` : '')
     : `${countLabel(familyTodayEvents, 'אירוע היום', 'אירועים היום')} · אין נושאים פתוחים`
   const lateImpact = getLateImpact(data, family, activePersonId)
+  const operationalWindowEnd = Date.now() + 2 * 60 * 60_000
+  const operationalDecisionCount = familyEvents.filter((event) => {
+    const time = new Date(`${event.date}T${event.time}:00`).getTime()
+    return time >= Date.now() - 60 * 60_000 && time <= operationalWindowEnd && scheduleConflicts(data, event).length > 0 && !!event.createdById
+  }).length + futureRisks.length
+  const workflowEventCount = new Set(
+    (data.acknowledgements || [])
+      .filter((item) => item.personId === activePersonId && item.status !== 'approved' && familyEvents.some((event) => event.id === item.eventId))
+      .map((item) => item.eventId),
+  ).size
+  const workflowCount =
+    workflowEventCount +
+    data.integrationLogs.filter((item) => item.familyId === family.id && !item.handledAt).length +
+    routineConflictingEvents(data, family.id).length +
+    (data.pendingActions || []).filter((action) => action.familyId === family.id).length
+  const operationalRequestCount = requests.length
+  const operationalCount = operationalDecisionCount + workflowCount + operationalRequestCount
+  const initialActionLimit = 5
+  const decisionLimit = attentionExpanded ? undefined : Math.min(initialActionLimit, operationalDecisionCount)
+  const workflowLimit = attentionExpanded ? undefined : Math.min(Math.max(initialActionLimit - operationalDecisionCount, 0), workflowCount)
+  const requestLimit = attentionExpanded ? undefined : Math.max(initialActionLimit - operationalDecisionCount - workflowCount, 0)
 
   useEffect(() => {
     const clean = syncAcknowledgements(materializeRoutineTasks(ensureRequests(sanitizeAppData(data), activePersonId)))
@@ -1447,8 +1469,8 @@ function App() {
                   <section className="concept-e-family-note"><span>המסלול המשפחתי</span><strong>{family.people.length} בני משפחה בתיאום</strong><small>{familyTodayEvents} אירועים משפחתיים היום</small></section>
                 </div>
                 </section>
-                <section className="concept-e-attention-zone">
-                  <header><span>תיאום משפחתי</span><h2>דורש תשומת לב</h2><p>החלטות, אישורים והסעות שמחכים לסגירה.</p></header>
+                {operationalCount > 0 && <section className={`concept-e-attention-zone action-center ${attentionExpanded ? 'is-expanded' : ''}`}>
+                  <header className="action-center-header"><div><span>מרכז פעולה</span><h2>דורש ממך פעולה <b>{operationalCount}</b></h2></div><p>הדברים החשובים שמחכים להחלטה שלך.</p></header>
                 <DecisionCenter
                   data={data}
                   family={family}
@@ -1457,6 +1479,8 @@ function App() {
                   onRespond={answerRide}
                   onConfirm={approveRide}
                   onFind={(eventId, riskId) => setDialog({ type: 'solution', eventId, riskId })}
+                  limit={decisionLimit}
+                  compact
                 />
                 <WorkflowHub
                   data={data}
@@ -1466,9 +1490,11 @@ function App() {
                   onHandle={handleExternalUpdate}
                   onOverride={approveRoutineException}
                   onReview={reviewPendingAction}
+                  limit={workflowLimit}
+                  compact
                 />
                 <RequestBoard
-                  requests={requests}
+                  requests={requestLimit === undefined ? requests : requests.slice(0, requestLimit)}
                   data={data}
                   actorId={activePersonId}
                   onRespond={answerRide}
@@ -1476,8 +1502,10 @@ function App() {
                   onAlternative={(id) => setDialog({ type: 'alternative', requestId: id })}
                   onWithdraw={(id) => setDialog({ type: 'withdraw', requestId: id })}
                   onTransit={approveTransit}
+                  compact
                 />
-                </section>
+                {operationalCount > initialActionLimit && <button className="action-center-more" onClick={() => setAttentionExpanded((value) => !value)}>{attentionExpanded ? 'הצג פחות' : `הצג עוד ${operationalCount - initialActionLimit}`} <ChevronDown size={14}/></button>}
+                </section>}
                 <div className="concept-e-details">
                   <div className="left-stack">
                     <section className="section-card">
@@ -2210,6 +2238,8 @@ function WorkflowHub({
   onHandle,
   onOverride,
   onReview,
+  limit,
+  compact = false,
 }: {
   data: AppData
   family: FamilyUnit
@@ -2218,44 +2248,53 @@ function WorkflowHub({
   onHandle: (id: string) => void
   onOverride: (eventId: string) => void
   onReview: (action: PendingAction, approved: boolean) => void
+  limit?: number
+  compact?: boolean
 }) {
   const pendingApprovals = (data.acknowledgements || []).filter(
-    (item) => data.events.some((event) => event.id === item.eventId && event.familyId === family.id) && item.status !== 'approved',
+    (item) => item.personId === actorId && data.events.some((event) => event.id === item.eventId && event.familyId === family.id) && item.status !== 'approved',
   )
-  const approvals = (data.acknowledgements || []).filter((item) => pendingApprovals.some((pending) => pending.eventId === item.eventId))
+  const approvalEvents = [...new Set(pendingApprovals.map((item) => item.eventId))]
   const updates = data.integrationLogs.filter((item) => item.familyId === family.id && !item.handledAt)
   const routineConflicts = routineConflictingEvents(data, family.id)
   const pendingActions = (data.pendingActions || []).filter((action) => action.familyId === family.id)
-  if (!pendingApprovals.length && !updates.length && !routineConflicts.length && !pendingActions.length) return null
+  const total = approvalEvents.length + pendingActions.length + routineConflicts.length + updates.length
+  if (!total || limit === 0) return null
+  let remaining = limit ?? total
+  const visibleApprovalEvents = approvalEvents.slice(0, remaining)
+  remaining -= visibleApprovalEvents.length
+  const visiblePendingActions = pendingActions.slice(0, remaining)
+  remaining -= visiblePendingActions.length
+  const visibleRoutineConflicts = routineConflicts.slice(0, remaining)
+  remaining -= visibleRoutineConflicts.length
+  const visibleUpdates = updates.slice(0, remaining)
   return (
-    <section className="section-card workflow-hub" id="workflow">
-      <div className="section-heading">
+    <section className={`section-card workflow-hub ${compact ? 'action-center-group' : ''}`} id="workflow">
+      {!compact && <div className="section-heading">
         <div>
           <span className="section-kicker">סוגרים את המעגל</span>
           <h2>מחכה לאישור או לטיפול</h2>
         </div>
-        <span className="count-badge">{pendingApprovals.length + updates.length + routineConflicts.length + pendingActions.length}</span>
-      </div>
-      {approvals.map((item) => {
+        <span className="count-badge">{total}</span>
+      </div>}
+      {visibleApprovalEvents.map((eventId) => {
+        const eventApprovals = (data.acknowledgements || []).filter((item) => item.eventId === eventId)
+        const item = eventApprovals.find((entry) => entry.personId === actorId) || eventApprovals.find((entry) => entry.status !== 'approved')!
         const event = data.events.find((entry) => entry.id === item.eventId)!
         const missed = new Date(`${event.date}T${event.time}:00`).getTime() < Date.now() && item.status === 'pending'
         return (
-          <div className="workflow-item" key={`${item.eventId}:${item.personId}`}>
+          <div className="workflow-item action-center-item" key={item.eventId}>
             <div>
-              <strong>
-                {event.title} · {family.people.find((person) => person.id === item.personId)?.name || 'בן משפחה'}
-              </strong>
+              <strong>{event.title}</strong>
               <small>
-                {dateLabel(event.date)} ב־{event.time} ·{' '}
+                {dateLabel(event.date)} · {event.time} · {eventApprovals.filter((entry) => entry.status === 'approved').length}/{eventApprovals.length} אישרו
                 {missed
-                  ? 'המועד עבר ללא תגובה'
-                  : item.status === 'approved'
-                    ? 'אושר'
-                    : item.status === 'seen'
-                      ? 'נראה, ממתין לאישור'
-                      : item.status === 'declined'
-                        ? 'נדחה, נדרש פתרון אחר'
-                        : 'ממתין לתגובה שלך'}
+                  ? ' · המועד עבר'
+                  : item.status === 'seen'
+                    ? ' · ראית'
+                    : item.status === 'declined'
+                      ? ' · לא מתאים לך'
+                      : ''}
               </small>
             </div>
             {item.personId === actorId && item.status !== 'approved' && (
@@ -2276,8 +2315,20 @@ function WorkflowHub({
           </div>
         )
       })}
-      {routineConflicts.map((event) => (
-        <div className="workflow-item" key={`routine:${event.id}`}>
+      {visiblePendingActions.map((action) => (
+        <div className="workflow-item action-center-item is-urgent" key={action.id}>
+          <div>
+            <strong>שינוי רגיש ממתין לאישור</strong>
+            <small>{action.message}</small>
+          </div>
+          <div className="workflow-actions">
+            <button className="dark-button" onClick={() => onReview(action, true)}>אישור פעולה</button>
+            <button className="secondary-button" onClick={() => onReview(action, false)}>דחייה</button>
+          </div>
+        </div>
+      ))}
+      {visibleRoutineConflicts.map((event) => (
+        <div className="workflow-item action-center-item" key={`routine:${event.id}`}>
           <div>
             <strong>{event.title}</strong>
             <small>
@@ -2289,24 +2340,8 @@ function WorkflowHub({
           </button>
         </div>
       ))}
-      {pendingActions.map((action) => (
-        <div className="workflow-item" key={action.id}>
-          <div>
-            <strong>שינוי רגיש ממתין לאישור</strong>
-            <small>{action.message}</small>
-          </div>
-          <div className="workflow-actions">
-            <button className="dark-button" onClick={() => onReview(action, true)}>
-              אישור פעולה
-            </button>
-            <button className="secondary-button" onClick={() => onReview(action, false)}>
-              דחייה
-            </button>
-          </div>
-        </div>
-      ))}
-      {updates.map((item) => (
-        <div className="workflow-item" key={item.id}>
+      {visibleUpdates.map((item) => (
+        <div className="workflow-item action-center-item" key={item.id}>
           <div>
             <strong>{integrationDisplayText(item.action)}</strong>
             <small>
@@ -2679,6 +2714,8 @@ function DecisionCenter({
   onRespond,
   onConfirm,
   onFind,
+  limit,
+  compact = false,
 }: {
   data: AppData
   family: FamilyUnit
@@ -2687,6 +2724,8 @@ function DecisionCenter({
   onRespond: (id: string, response: 'CAN_DO' | 'CANNOT_DO') => void
   onConfirm: (id: string, driverId: string) => void
   onFind: (eventId: string, riskId?: string) => void
+  limit?: number
+  compact?: boolean
 }) {
   const now = Date.now()
   const soon = now + 2 * 60 * 60_000
@@ -2697,30 +2736,33 @@ function DecisionCenter({
         event.familyId === family.id &&
         time >= now - 60 * 60_000 &&
         time <= soon &&
-        ((scheduleConflicts(data, event).length > 0 && !!event.createdById) || (!!requestForEvent(data, event.id) && requestForEvent(data, event.id)?.status !== 'COVERED'))
+        scheduleConflicts(data, event).length > 0 && !!event.createdById
       )
     })
     .reverse()
     .slice(0, 6)
-  if (!issues.length && !futureRisks.length) return null
+  const total = issues.length + futureRisks.length
+  if (!total || limit === 0) return null
+  const visibleIssues = issues.slice(0, limit ?? issues.length)
+  const visibleRisks = futureRisks.slice(0, Math.max((limit ?? total) - visibleIssues.length, 0))
   const name = (id: string) => family.people.find((person) => person.id === id)?.name || 'בן משפחה'
   return (
-    <section className="section-card decision-center operational-decision-center" id="decisions">
-      <div className="section-heading">
+    <section className={`section-card decision-center operational-decision-center ${compact ? 'action-center-group' : ''}`} id="decisions">
+      {!compact && <div className="section-heading">
         <div>
           <span className="section-kicker">תיאום תפעולי</span>
           <h2>החלטות שממתינות לך</h2>
         </div>
-        <span className="count-badge">{issues.length + futureRisks.length}</span>
-      </div>
+        <span className="count-badge">{total}</span>
+      </div>}
       <div className="decision-list">
-        {issues.map((event) => {
+        {visibleIssues.map((event) => {
           const request = requestForEvent(data, event.id)
           const conflicts = scheduleConflicts(data, event)
           const recommendation = request && recommendDriver(data, request)
           const pending = request?.responses[actorId] === 'PENDING' && request.eligibleMemberIds.includes(actorId)
           return (
-            <article className="decision-item" key={event.id}>
+            <article className="decision-item action-center-item" key={event.id}>
               <span className="decision-icon">{event.icon}</span>
               <div>
                 <strong>{event.title}</strong>
@@ -2770,14 +2812,14 @@ function DecisionCenter({
           )
         })}
       </div>
-      {futureRisks.length > 0 && (
+      {visibleRisks.length > 0 && (
         <div className="forecast-list">
           <div className="forecast-heading">
             <span>מבט קדימה</span>
             <small>בעיות שעשויות להשפיע על התוכנית בהמשך</small>
           </div>
-          {futureRisks.slice(0, 6).map((risk) => (
-            <article className="forecast-item" key={risk.id}>
+          {visibleRisks.map((risk) => (
+            <article className="forecast-item action-center-item" key={risk.id}>
               <span className="forecast-icon">
                 <CalendarDays size={17} />
               </span>
@@ -3433,6 +3475,7 @@ function RequestBoard({
   onAlternative,
   onWithdraw,
   onTransit,
+  compact = false,
 }: {
   requests: TransportationRequest[]
   data: AppData
@@ -3442,19 +3485,20 @@ function RequestBoard({
   onAlternative: (id: string) => void
   onWithdraw: (id: string) => void
   onTransit: (id: string) => void
+  compact?: boolean
 }) {
   const [explanation, setExplanation] = useState<string | null>(null)
   const names = new Map(data.families.flatMap((f) => f.people.map((p) => [p.id, p.name] as const)))
   if (!requests.length) return null
   return (
-    <section className="section-card request-board">
-      <div className="section-heading">
+    <section className={`section-card request-board ${compact ? 'action-center-group' : ''}`}>
+      {!compact && <div className="section-heading">
         <div>
           <span className="section-kicker">תיאום משותף</span>
           <h2>בקשות הסעה במשפחה</h2>
         </div>
         <span className="count-badge">{requests.filter((r) => r.status !== 'COVERED').length}</span>
-      </div>
+      </div>}
       <div className="request-grid">
         {requests.map((request) => {
           const event = data.events.find((item) => item.id === request.eventId)
@@ -3466,7 +3510,7 @@ function RequestBoard({
           const answer = request.responses[actorId]
           const status = request.status === 'COVERED' ? 'יש נהג/ת' : request.status === 'UNRESOLVED' ? 'עדיין אין פתרון' : recommendation ? 'ממתין לאישור נהג/ת' : 'ממתינים לתשובות'
           return (
-            <article className="request-card" key={request.id}>
+            <article className="request-card action-center-item" key={request.id}>
               <div className="request-top">
                 <span className="request-icon">🚗</span>
                 <span className={`request-status ${request.status.toLowerCase()}`}>{status}</span>

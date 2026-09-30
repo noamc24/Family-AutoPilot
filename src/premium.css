@@ -272,3 +272,53 @@ p { color: var(--fp-body); }
 .view-home > .request-board { width:min(100%,980px); margin:42px auto 0; }
 .view-home > .integration-hub,.view-home > .ask-card,.view-home > .trust-note { width:min(100%,980px); margin-inline:auto; }
 @media(max-width:768px){.view-home{padding-top:26px}.concept-e-home{width:100%}.concept-e-greeting{padding-bottom:18px}.concept-e-greeting h1{font-size:30px}.concept-e-family{display:none}.concept-e-state{min-height:62px}.concept-e-state small{max-width:190px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.concept-e-home > .lia-home{margin-block:16px 19px}.concept-e-home .lia-priority{padding:17px 16px 16px 20px}.concept-e-agenda .home-brief{padding-inline:14px}.concept-e-context{gap:14px}.concept-e-attention-zone{width:auto;margin:35px -18px 0;padding:25px 18px}.concept-e-details{grid-template-columns:1fr;gap:22px;width:100%;margin-top:35px}.view-home > .request-board{width:100%;margin-top:34px}}
+
+/* Concept E action center — compact operational hierarchy */
+.concept-e-attention-zone.action-center { padding: 22px 27px 16px; background: #f4f2ed; border-color: #dedbd1; }
+.action-center-header { display:flex; align-items:flex-end; justify-content:space-between; gap:24px; margin-bottom:8px !important; padding-bottom:15px; border-bottom:1px solid #d9d5ca; }
+.action-center-header h2 { display:flex; align-items:center; gap:9px; margin:4px 0 0 !important; font-size:20px !important; }
+.action-center-header h2 b { min-width:23px; height:23px; display:inline-grid; place-items:center; padding-inline:6px; color:#745e25; background:#e9dfbf; border-radius:99px; font-size:10px; font-weight:800; }
+.action-center-header p { max-width:280px; text-align:left; }
+.concept-e-attention-zone .action-center-group { padding:0; border:0; }
+.concept-e-attention-zone .action-center-group + .action-center-group { border-top:0; }
+.concept-e-attention-zone .decision-list,.concept-e-attention-zone .request-grid { display:block; }
+.concept-e-attention-zone .forecast-list { margin-top:0; border-top:0; }
+.concept-e-attention-zone .forecast-heading { display:none; }
+.concept-e-attention-zone .action-center-item { position:relative; display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:12px 18px; min-height:70px; margin:0; padding:13px 2px; background:transparent; border:0; border-top:1px solid #dedbd2; border-radius:0; box-shadow:none; }
+.concept-e-attention-zone .action-center-group:first-of-type .action-center-item:first-child { border-top:0; }
+.concept-e-attention-zone .decision-item { grid-template-columns:31px minmax(0,1fr); }
+.concept-e-attention-zone .decision-icon,.concept-e-attention-zone .forecast-icon,.concept-e-attention-zone .request-icon { width:29px; height:29px; display:grid; place-items:center; align-self:start; margin-top:2px; background:#ebe9f4; color:var(--fp-indigo); border-radius:50%; font-size:14px; }
+.concept-e-attention-zone .action-center-item strong { color:var(--fp-ink); font-size:12px; line-height:1.4; }
+.concept-e-attention-zone .action-center-item p,.concept-e-attention-zone .action-center-item small { margin:3px 0 0; color:var(--fp-muted); font-size:10px; line-height:1.5; }
+.concept-e-attention-zone .workflow-item > div:first-child { gap:0; }
+.concept-e-attention-zone .workflow-actions,.concept-e-attention-zone .decision-actions,.concept-e-attention-zone .request-actions,.concept-e-attention-zone .recommendation { display:flex; align-items:center; gap:6px; margin:7px 0 0; padding:0; border:0; }
+.concept-e-attention-zone .workflow-actions { justify-self:end; margin:0; }
+.concept-e-attention-zone .dark-button,.concept-e-attention-zone .secondary-button { min-height:30px; padding:6px 10px; border-radius:8px; font-size:9px; white-space:nowrap; }
+.concept-e-attention-zone .response-list { margin:7px 0 0; gap:5px; }
+.concept-e-attention-zone .response-list span { padding:3px 7px; color:var(--fp-muted); background:#faf9f6; border-color:#ddd9ce; border-radius:99px; font-size:9px; }
+.concept-e-attention-zone .request-card { grid-template-columns:minmax(0,1fr) auto; }
+.concept-e-attention-zone .request-card .request-top { grid-column:2; grid-row:1/5; align-self:start; gap:7px; }
+.concept-e-attention-zone .request-card .request-icon { display:none; }
+.concept-e-attention-zone .request-card h3 { margin:0; font-size:12px; }
+.concept-e-attention-zone .request-card > p { margin:3px 0 0; }
+.concept-e-attention-zone .request-status { padding:4px 8px; background:#ebe9f4; color:var(--fp-indigo-deep); border-radius:99px; font-size:9px; }
+.concept-e-attention-zone .request-status.unresolved { background:#f3e4ca; color:#866323; }
+.concept-e-attention-zone .request-actions,.concept-e-attention-zone .recommendation,.concept-e-attention-zone .ride-alternatives,.concept-e-attention-zone .my-answer,.concept-e-attention-zone .covered-note,.concept-e-attention-zone .unresolved-note { grid-column:1/-1; }
+.concept-e-attention-zone .request-actions strong,.concept-e-attention-zone .recommendation strong { width:auto; margin-inline-end:4px; }
+.concept-e-attention-zone .decision-details { margin-top:5px; }
+.concept-e-attention-zone .decision-details summary { font-size:9px; }
+.action-center-more { width:100%; display:flex; align-items:center; justify-content:center; gap:5px; margin-top:5px; padding:10px; border:0; border-top:1px solid #d9d5ca; background:transparent; color:var(--fp-indigo); font-size:10px; font-weight:800; }
+.action-center-more svg { transition:transform .18s ease; }.action-center.is-expanded .action-center-more svg { transform:rotate(180deg); }
+
+@media(max-width:768px){
+  .concept-e-attention-zone.action-center { padding:21px 18px 13px; }
+  .action-center-header { align-items:flex-start; gap:8px; }
+  .action-center-header p { display:none; }
+  .concept-e-attention-zone .action-center-item { grid-template-columns:1fr; gap:8px; min-height:0; padding-block:13px; }
+  .concept-e-attention-zone .decision-item { grid-template-columns:29px minmax(0,1fr); }
+  .concept-e-attention-zone .decision-item .decision-actions { grid-column:1/-1; }
+  .concept-e-attention-zone .workflow-actions { justify-self:start; }
+  .concept-e-attention-zone .request-card { grid-template-columns:minmax(0,1fr) auto; }
+  .concept-e-attention-zone .request-card .request-top { grid-column:2; }
+  .concept-e-attention-zone .dark-button,.concept-e-attention-zone .secondary-button { min-height:32px; }
+}
