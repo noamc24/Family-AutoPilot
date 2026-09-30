@@ -15,8 +15,9 @@ test('Calm Home מציג אישור אחד ו-brief עתידי עם empty state'
   assert.match(css, /content:has\(\.lia-all-good\) \.family-status\.covered \{ display: none; \}/)
 })
 
-test('future brief נשען על המודל המסודר ומציג נהג ו-LIA marker', () => {
-  assert.match(app, /brief\.events\.slice/)
+test('future brief נשען על המודל המסודר ומציג את כל פריטי היום, נהג ו-LIA marker', () => {
+  assert.match(app, /brief\.events\.map/)
+  assert.match(app, /brief\.tasks\.map/)
   assert.match(app, /brief-driver/)
   assert.match(app, /sourceSignalId.*✦/s)
 })

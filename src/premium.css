@@ -275,6 +275,7 @@ p { color: var(--fp-body); }
 
 /* Concept E action center — compact operational hierarchy */
 .concept-e-attention-zone.action-center { padding: 22px 27px 16px; background: #f4f2ed; border-color: #dedbd1; }
+.concept-e-home > .concept-e-attention-zone.action-center { margin-top:28px; }
 .action-center-header { display:flex; align-items:flex-end; justify-content:space-between; gap:24px; margin-bottom:8px !important; padding-bottom:15px; border-bottom:1px solid #d9d5ca; }
 .action-center-header h2 { display:flex; align-items:center; gap:9px; margin:4px 0 0 !important; font-size:20px !important; }
 .action-center-header h2 b { min-width:23px; height:23px; display:inline-grid; place-items:center; padding-inline:6px; color:#745e25; background:#e9dfbf; border-radius:99px; font-size:10px; font-weight:800; }

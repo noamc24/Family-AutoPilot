@@ -313,8 +313,10 @@ function App() {
   const myEvents = familyEvents.filter(relevant)
   const myTasks = data.tasks.filter((t) => t.familyId === family.id && t.ownerId === activePersonId)
   const familyTasks = data.tasks.filter((t) => t.familyId === family.id)
-  const todayEvents = myEvents.filter((e) => e.date === localDate())
   const upcoming = myEvents.filter((e) => e.date > localDate()).slice(0, 5)
+  const homeBriefItems = remainingToday(familyEvents, familyTasks, activePersonId)
+  const homeBriefTaskIds = new Set(homeBriefItems.tasks.map((task) => task.id))
+  const remainingMyTasks = myTasks.filter((task) => !homeBriefTaskIds.has(task.id))
   const requests = data.transportationRequests.filter((r) => r.familyId === family.id && r.status !== 'CANCELLED')
   const actionableRequests = requests.filter((r) => r.eligibleMemberIds.includes(activePersonId) && r.responses[activePersonId] === 'PENDING')
   const unresolvedRequests = requests.filter((r) => r.status === 'UNRESOLVED' && ((!!currentPerson && currentPerson.age >= 18) || r.passengerId === activePersonId))
@@ -1461,13 +1463,8 @@ function App() {
                 <LiaHomeSection data={data} family={family} actorId={activePersonId} />
                 <section className="concept-e-agenda">
                   <div className="concept-e-section-heading"><div><span>התוכנית שלך</span><h2>המשך היום</h2></div><button onClick={() => setView('events')}>ליומן המלא <ArrowLeft size={14}/></button></div>
-                  <HomeBrief events={familyEvents} tasks={familyTasks} family={family} memberId={activePersonId} excludedEventIds={new Set((data.liaInterventions || []).filter(item => !['completed','noAction'].includes(item.status)).map(item => item.relatedEventId).filter(Boolean) as string[])}/>
+                  <HomeBrief events={familyEvents} tasks={familyTasks} family={family} memberId={activePersonId}/>
                   <button className="concept-e-add" onClick={() => openEvent()}><Plus size={14}/> הוספת אירוע</button>
-                </section>
-                <div className="concept-e-context">
-                  <BirthdayReminderPanel reminders={birthdayReminders} />
-                  <section className="concept-e-family-note"><span>המסלול המשפחתי</span><strong>{family.people.length} בני משפחה בתיאום</strong><small>{familyTodayEvents} אירועים משפחתיים היום</small></section>
-                </div>
                 </section>
                 {operationalCount > 0 && <section className={`concept-e-attention-zone action-center ${attentionExpanded ? 'is-expanded' : ''}`}>
                   <header className="action-center-header"><div><span>מרכז פעולה</span><h2>דורש ממך פעולה <b>{operationalCount}</b></h2></div><p>הדברים החשובים שמחכים להחלטה שלך.</p></header>
@@ -1506,33 +1503,13 @@ function App() {
                 />
                 {operationalCount > initialActionLimit && <button className="action-center-more" onClick={() => setAttentionExpanded((value) => !value)}>{attentionExpanded ? 'הצג פחות' : `הצג עוד ${operationalCount - initialActionLimit}`} <ChevronDown size={14}/></button>}
                 </section>}
+                <div className="concept-e-context">
+                  <BirthdayReminderPanel reminders={birthdayReminders} />
+                  <section className="concept-e-family-note"><span>המסלול המשפחתי</span><strong>{family.people.length} בני משפחה בתיאום</strong><small>{familyTodayEvents} אירועים משפחתיים היום</small></section>
+                </div>
+                </section>
                 <div className="concept-e-details">
                   <div className="left-stack">
-                    <section className="section-card">
-                      <div className="section-heading">
-                        <div>
-                          <span className="section-kicker">מה בתוכנית</span>
-                          <h2>בשבילך היום</h2>
-                        </div>
-                        <div className="heading-actions">
-                          <button className="text-link" onClick={() => setView('events')}>
-                            כל האירועים <ArrowLeft size={15} />
-                          </button>
-                          <button className="text-link" onClick={() => openEvent()}>
-                            <Plus size={16} /> אירוע
-                          </button>
-                        </div>
-                      </div>
-                      {todayEvents.length ? (
-                        <div className="timeline">
-                          {todayEvents.map((e) => (
-                            <EventRow key={e.id} event={e} people={eventPeople(e)} onEdit={() => (canEditEvents ? openEvent(e) : setToast('עריכת אירועים זמינה להורים'))} />
-                          ))}
-                        </div>
-                      ) : (
-                        <Empty text="אין לך אירועים היום. אפשר להוסיף אירוע חדש." />
-                      )}
-                    </section>
                     <section className="section-card">
                       <div className="section-heading">
                         <div>
@@ -1644,10 +1621,10 @@ function App() {
                           הכול <ArrowLeft size={15} />
                         </button>
                       </div>
-                      {myTasks.slice(0, 3).map((t) => (
+                      {remainingMyTasks.slice(0, 3).map((t) => (
                         <TaskRow key={t.id} task={t} onToggle={() => toggleTask(t)} onEdit={() => openTask(t)} />
                       ))}
-                      {!myTasks.length && <Empty text="אין משימות שמשויכות אליך." />}
+                      {!remainingMyTasks.length && <Empty text="אין משימות נוספות שמשויכות אליך." />}
                     </section>
                   </div>
                 </div>
@@ -2626,16 +2603,13 @@ function HomeBrief({
   tasks,
   family,
   memberId,
-  excludedEventIds = new Set<string>(),
 }: {
   events: FamilyEvent[]
   tasks: FamilyTask[]
   family: FamilyUnit
   memberId: string
-  excludedEventIds?: Set<string>
 }) {
-  const current = remainingToday(events, tasks, memberId)
-  const brief = { ...current, events: current.events.filter((event) => !excludedEventIds.has(event.id)) }
+  const brief = remainingToday(events, tasks, memberId)
   const name = (id: string) => family.people.find((person) => person.id === id)?.name
   return (
     <section className="home-brief">
@@ -2646,13 +2620,13 @@ function HomeBrief({
         <p className="quiet-copy">אין עוד דברים מתוכננים להיום.</p>
       ) : (
         <div className="brief-list">
-          {brief.events.slice(0, 4).map((event) => (
+          {brief.events.map((event) => (
             <button key={event.id} className="brief-row">
               <time>{event.time}</time>
               <span>
                 <strong>
                   {event.title}
-                  {event.participantIds.length > 0 && <small> · {event.participantIds.map(name).filter(Boolean).join(', ')}</small>}
+                  <small> · {event.participantIds.length === family.people.length ? 'משפחתי' : 'אישי'}{event.participantIds.length > 0 ? ` · ${event.participantIds.map(name).filter(Boolean).join(', ')}` : ''}</small>
                 </strong>
                 {event.responsibleId && (
                   <small className="brief-driver">
@@ -2663,9 +2637,9 @@ function HomeBrief({
               {event.sourceSignalId && <b title="LIA עדכנה">✦</b>}
             </button>
           ))}
-          {brief.tasks.slice(0, 2).map((task) => (
+          {brief.tasks.map((task) => (
             <button key={task.id} className="brief-row task">
-              <time>משימה</time>
+              <time>{task.due.includes('T') ? task.due.split('T')[1]?.slice(0, 5) : 'משימה'}</time>
               <span>
                 <strong>{task.title}</strong>
                 <small>עד היום</small>

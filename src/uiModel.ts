@@ -22,7 +22,13 @@ export function remainingToday(events: FamilyEvent[], tasks: FamilyTask[], membe
   const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
   const remainingEvents = events.filter(event => event.date === date && event.time >= time && (event.participantIds.includes(memberId) || event.responsibleId === memberId))
     .sort((left, right) => left.time.localeCompare(right.time))
-  const urgentTasks = tasks.filter(task => !task.done && task.ownerId === memberId && task.due <= date && (task.priority === 'high' || task.priority === 'critical'))
+  const urgentTasks = tasks.filter(task => {
+    if (task.done || task.ownerId !== memberId) return false
+    const dueToday = task.due === date || task.due.startsWith(`${date}T`)
+    const overdueAndUrgent = task.due < date && (task.priority === 'high' || task.priority === 'critical')
+    return dueToday || overdueAndUrgent
+  })
+    .sort((left, right) => left.due.localeCompare(right.due) || left.title.localeCompare(right.title, 'he'))
   return { events: remainingEvents, tasks: urgentTasks }
 }
 

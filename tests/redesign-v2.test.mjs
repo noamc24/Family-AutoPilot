@@ -40,6 +40,16 @@ test('brief ביתי כולל רק פריטים מהשעה הנוכחית והל
   assert.deepEqual(brief.events.map(event => event.id), ['future'])
 })
 
+test('brief ביתי כולל משימות להיום ומונע הצפת משימות עתידיות', () => {
+  const tasks = [
+    { id: 'today', familyId: 'f', title: 'להיום', ownerId: 'a', due: '2026-09-27', done: false },
+    { id: 'timed', familyId: 'f', title: 'בשעה', ownerId: 'a', due: '2026-09-27T18:00', done: false },
+    { id: 'future', familyId: 'f', title: 'לעתיד', ownerId: 'a', due: '2026-09-28', done: false },
+  ]
+  const brief = remainingToday([], tasks, 'a', at(15))
+  assert.deepEqual(brief.tasks.map(task => task.id), ['today', 'timed'])
+})
+
 test('ברירת המחדל של היומן היא ימים, טבלה וחודש וכל הטווחים זמינים', () => {
   assert.deepEqual(defaultCalendarView, { grouping: 'days', display: 'table', range: 'month' })
   assert.equal(calendarDays(at(12), 'day').length, 1)
