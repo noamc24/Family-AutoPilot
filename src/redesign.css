@@ -499,8 +499,8 @@ h2 { letter-spacing: -.02em; }
 .connection-row > summary::-webkit-details-marker { display: none; }
 .connection-row .connection-icon { width: 38px; height: 38px; border-radius: 11px; }
 .connection-name { display: grid; gap: 2px; min-width: 0; overflow: hidden; }
-.connection-name strong { min-width: 0; overflow: hidden; color: var(--text); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; unicode-bidi: plaintext; }
-.connection-name small { font-size: 10px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.connection-name strong { width: 100%; min-width: 0; overflow: hidden; color: var(--text); font-size: 13px; text-align: right; text-overflow: ellipsis; white-space: nowrap; unicode-bidi: plaintext; }
+.connection-name small { width: 100%; overflow: hidden; color: var(--text-muted); font-size: 10px; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
 .connection-state { width: 62px; position: relative; z-index: 1; text-align: center; padding: 5px 8px; border-radius: 999px; background: var(--surface-subtle); color: var(--text-muted); font-size: 10px; font-style: normal; font-weight: 800; white-space: nowrap; }
 .connection-state.active { background: #e8f2e9; color: #39704c; }
 .manage-label { color: var(--lia-primary); font-size: 11px; font-weight: 800; }
