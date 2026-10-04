@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { CalendarDays, Car, ChevronLeft, ChevronRight, List, Pencil, Plus, Repeat2, Rows3, X } from 'lucide-react'
+import { CalendarDays, Car, ChevronLeft, ChevronRight, List, Pencil, Plus, Repeat2, Rows3, Sparkles, X } from 'lucide-react'
 import { dateLabel, localDate, type FamilyEvent, type FamilyTask, type FamilyUnit } from '../data'
 import { calendarDatesForRange, calendarRendererFor, deriveRoutineOccurrences, timeMinutes, visibleMonthItems, type RoutineOccurrence } from '../calendarModel'
 import { calendarDays, defaultCalendarView, eventsForMembers, localIsoDate, startOfWeek, visibleMemberIds, type CalendarDisplay, type CalendarGrouping, type CalendarRange } from '../uiModel'
@@ -32,6 +32,7 @@ export function CalendarView({ family, events, tasks, actorId, childMode, onCrea
   const visibleTasks = useMemo(() => tasks.filter(task => task.familyId === family.id && selected.includes(task.ownerId)), [tasks, family.id, selected.join('|')])
   const routines = useMemo(() => deriveRoutineOccurrences(family, dates, visibleEvents, selected), [family, dates.map(localIsoDate).join('|'), visibleEvents, selected.join('|')])
   const renderer = calendarRendererFor(range, grouping, display)
+  const isEmpty = !events.some(event => event.familyId === family.id) && !tasks.some(task => task.familyId === family.id) && !family.people.some(person => person.routines?.length)
 
   const go = (delta: number) => setAnchor(previous => { const next = new Date(previous); if (range === 'day') next.setDate(next.getDate() + delta); else if (range === 'week') next.setDate(next.getDate() + delta * 7); else if (range === 'month') next.setMonth(next.getMonth() + delta); else next.setFullYear(next.getFullYear() + delta); return next })
   const openDay = (day: Date) => { setAnchor(day); setRange('day') }
@@ -44,7 +45,10 @@ export function CalendarView({ family, events, tasks, actorId, childMode, onCrea
     <div className="calendar-commandbar"><div className="calendar-period"><button onClick={() => go(1)} aria-label="הבא"><ChevronRight size={18}/></button><strong>{title}</strong><button onClick={() => go(-1)} aria-label="הקודם"><ChevronLeft size={18}/></button><button className="today-button" onClick={() => setAnchor(new Date())}>היום</button></div><Segment className="range-segment" label="טווח" value={range} options={Object.entries(rangeLabels)} onChange={value => setRange(value as CalendarRange)}/></div>
     <div className="calendar-toolbar"><Segment label="יומן" value={grouping} options={[['personal', 'אישי'], ['family', 'משפחתי']]} onChange={value => setGrouping(value as CalendarGrouping)}/><Segment label="תצוגה" value={display} options={[['table', 'טבלה'], ['rows', 'שורות']]} onChange={value => setDisplay(value as CalendarDisplay)} icons={[<CalendarDays size={14}/>, <Rows3 size={14}/>]}/></div>
     {grouping === 'family' && <div className="people-filter" aria-label="בחירת בני משפחה">{visiblePeople.map(person => <button key={person.id} className={`${selected.includes(person.id) ? 'selected' : ''} ${person.color}`} onClick={() => togglePerson(person.id)} disabled={childMode}><span className={`avatar mini ${person.color}`}>{person.name[0]}</span>{person.name}</button>)}</div>}
-    <CalendarBody renderer={renderer} anchor={anchor} days={dates} people={visiblePeople.filter(person => selected.includes(person.id))} events={visibleEvents} routines={routines} tasks={visibleTasks} family={family} personal={personal} onDay={openDay} onItem={showItem} onTask={onOpenTask} onMonth={month => { setAnchor(new Date(anchor.getFullYear(), month, 1)); setRange('month') }}/>
+    {isEmpty
+      ? <section className="first-empty-state calendar-empty-state"><span className="first-empty-mark"><CalendarDays size={22}/><i><Sparkles size={10}/></i></span><div><span className="first-empty-kicker">היומן מוכן</span><h2>עדיין אין אירועים</h2><p>הוסיפו את האירוע הראשון והלו״ז המשפחתי יתחיל להיבנות כאן.</p></div><button className="primary-action" onClick={() => onCreate(localIsoDate(anchor))}><Plus size={16}/> הוספת אירוע ראשון</button></section>
+      : <CalendarBody renderer={renderer} anchor={anchor} days={dates} people={visiblePeople.filter(person => selected.includes(person.id))} events={visibleEvents} routines={routines} tasks={visibleTasks} family={family} personal={personal} onDay={openDay} onItem={showItem} onTask={onOpenTask} onMonth={month => { setAnchor(new Date(anchor.getFullYear(), month, 1)); setRange('month') }}/>
+    }
     {detail && (
       <CalendarDetail detail={detail} family={family} childMode={childMode} personal={personal} onClose={() => setDetail(null)} onEdit={event => { setDetail(null); onOpenEvent(event) }} onDelete={event => { setDetail(null); onDeleteEvent(event) }}/>
     )}

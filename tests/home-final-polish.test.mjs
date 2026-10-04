@@ -8,7 +8,7 @@ const card = fs.readFileSync('src/components/LiaCard.tsx', 'utf8')
 const css = fs.readFileSync('src/redesign.css', 'utf8')
 
 test('Calm Home מציג אישור אחד ו-brief עתידי עם empty state', () => {
-  assert.match(home, /הכול מכוסה כרגע/)
+  assert.match(home, /הכול שקט כרגע/)
   assert.doesNotMatch(home, /הכול בשליטה/)
   assert.match(app, /remainingToday\(events, tasks, memberId\)/)
   assert.match(app, /אין עוד אירועים מתוכננים להיום/)

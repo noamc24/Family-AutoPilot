@@ -37,7 +37,7 @@ export function LiaChatPreview({ conversation, processing, onSend, onAction, onC
   return <section className="lia-chat-shell" aria-label="שיחה עם LIA">
     <header className="lia-chat-header"><span className="lia-header-mark" aria-hidden="true">✦</span><div><h1>LIA</h1><p>העוזרת המשפחתית שלך</p></div>{messages.length > 0 && <button className="lia-clear-chat" onClick={onClear} aria-label="ניקוי השיחה"><Trash2 size={15}/><span>נקה שיחה</span></button>}</header>
     <div className="lia-conversation" ref={scrollRef} aria-live="polite" onScroll={event => { const element = event.currentTarget; wasNearBottom.current = element.scrollHeight - element.scrollTop - element.clientHeight < 90 }}>
-      {!messages.length && <div className="lia-chat-welcome"><span aria-hidden="true">✦</span><h2>איך אפשר לעזור?</h2><p>אפשר לשאול על הלו״ז, משימות, הסעות ומה דורש טיפול.</p></div>}
+      {!messages.length && <div className="lia-chat-welcome"><span aria-hidden="true">✦</span><h2>הכול שקט כרגע</h2><p>אין ל־LIA עדכון חדש עבורך. אפשר לשאול על הלו״ז, משימות או תיאום משפחתי.</p></div>}
       {messages.map(item => <article className={`lia-chat-message ${item.sender}`} key={item.id} data-message-type={item.type} data-status={item.status}>{item.sender === 'lia' && <span className="lia-message-mark" aria-hidden="true">✦</span>}<div className="lia-message-bubble"><MessageText text={item.text}/><ActionCard message={item} onAction={() => onAction(item)}/></div></article>)}
       {processing && <div className="lia-chat-message lia"><span className="lia-message-mark" aria-hidden="true">✦</span><div className="lia-typing" aria-label="LIA מקלידה"><i/><i/><i/></div></div>}
     </div>

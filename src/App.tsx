@@ -107,6 +107,7 @@ import { LiaChatPreview } from './components/LiaChatPreview'
 import { CalendarView } from './components/CalendarView'
 import { TasksView } from './components/TasksView'
 import { FamilyView } from './components/FamilyView'
+import { FirstTimeExperience } from './components/FirstTimeExperience'
 import { clearLiaConversation, conversationFor, performLiaChatAction, sendLiaChatMessage } from './liaChat'
 import { notificationPreferenceAllows, proactiveSuggestionsEnabled, type OptionalNotificationCategory } from './personalSettings'
 import type { LiaMessage } from './liaChatTypes'
@@ -357,6 +358,7 @@ function App() {
     (data.pendingActions || []).filter((action) => action.familyId === family.id).length
   const operationalRequestCount = requests.length
   const operationalCount = operationalDecisionCount + workflowCount + operationalRequestCount
+  const homeIsEmpty = familyEvents.length === 0 && familyTasks.length === 0 && attentionCount === 0 && operationalCount === 0
   const initialActionLimit = 5
   const decisionLimit = attentionExpanded ? undefined : Math.min(initialActionLimit, operationalDecisionCount)
   const workflowLimit = attentionExpanded ? undefined : Math.min(Math.max(initialActionLimit - operationalDecisionCount, 0), workflowCount)
@@ -1308,7 +1310,12 @@ function App() {
     </section>
   )
 
-  if (needsOnboarding) return <div className="app-shell" dir="rtl" data-onboarding-state="required" />
+  if (needsOnboarding) return <FirstTimeExperience onComplete={(newFamily, currentMemberId) => {
+    setData(previous => ({ ...previous, families: [newFamily] }))
+    setFamilyId(newFamily.id)
+    setPersonId(currentMemberId)
+    setView('home')
+  }}/>
 
   return (
     <div className={`app-shell ${childMode ? 'child-mode' : ''}`} dir="rtl">
@@ -1486,11 +1493,15 @@ function App() {
                   </div>
                 </header>
                 <LiaHomeSection data={data} family={family} actorId={activePersonId} />
-                <section className="concept-e-agenda">
+                {homeIsEmpty ? <section className="first-empty-state home-empty-state">
+                  <span className="first-empty-mark"><CalendarDays size={23}/></span>
+                  <div><span className="first-empty-kicker">הכול מוכן להתחלה</span><h2>התוכנית המשפחתית עדיין פנויה</h2><p>אין אירועים, משימות או החלטות שמחכים לכם. אפשר להתחיל בפריט הראשון.</p></div>
+                  <div className="home-empty-actions"><button className="primary-action" onClick={() => openEvent()}><Plus size={16}/> הוספת אירוע</button><button className="empty-secondary-action" onClick={() => openTask()}><ClipboardList size={15}/> הוספת משימה</button></div>
+                </section> : <section className="concept-e-agenda">
                   <div className="concept-e-section-heading"><div><span>התוכנית שלך</span><h2>המשך היום</h2></div><button onClick={() => setView('events')}>ליומן המלא <ArrowLeft size={14}/></button></div>
                   <HomeBrief events={familyEvents} tasks={familyTasks} family={family} memberId={activePersonId}/>
                   <button className="concept-e-add" onClick={() => openEvent()}><Plus size={14}/> הוספת אירוע</button>
-                </section>
+                </section>}
                 {operationalCount > 0 && <section className={`concept-e-attention-zone action-center ${attentionExpanded ? 'is-expanded' : ''}`}>
                   <header className="action-center-header"><div><span>מרכז פעולה</span><h2>דורש ממך פעולה <b>{operationalCount}</b></h2></div><p>היארועים החשובים שמחכים להחלטה שלך.</p></header>
                 <DecisionCenter
@@ -1528,12 +1539,12 @@ function App() {
                 />
                 {operationalCount > initialActionLimit && <button className="action-center-more" onClick={() => setAttentionExpanded((value) => !value)}>{attentionExpanded ? 'הצג פחות' : `הצג עוד ${operationalCount - initialActionLimit}`} <ChevronDown size={14}/></button>}
                 </section>}
-                <div className="concept-e-context">
+                {!homeIsEmpty && <div className="concept-e-context">
                   <BirthdayReminderPanel reminders={birthdayReminders} />
                   <section className="concept-e-family-note"><span>המסלול המשפחתי</span><strong>{family.people.length} בני משפחה בתיאום</strong><small>{familyTodayEvents} אירועים משפחתיים היום</small></section>
-                </div>
+                </div>}
                 </section>
-                <div className="concept-e-details">
+                {!homeIsEmpty && <div className="concept-e-details">
                   <div className="left-stack">
                     <section className="section-card">
                       <div className="section-heading">
@@ -1652,9 +1663,9 @@ function App() {
                       {!remainingMyTasks.length && <Empty text="אין משימות נוספות שמשויכות אליך." />}
                     </section>
                   </div>
-                </div>
-                <IntegrationHub data={data} familyId={family.id} actorId={activePersonId} compact onRun={runExternalSource} onShowAll={() => setView('settings')} />
-                {inputArea}
+                </div>}
+                {!homeIsEmpty && <IntegrationHub data={data} familyId={family.id} actorId={activePersonId} compact onRun={runExternalSource} onShowAll={() => setView('settings')} />}
+                {!homeIsEmpty && inputArea}
                 <div className="trust-note">
                   <ShieldCheck size={16} /> כל פרטי המשפחה והתוכנית זמינים כאן במקום אחד.
                 </div>
