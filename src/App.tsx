@@ -29,6 +29,7 @@ import {
   localDate,
   normalizePersonalSettings,
   readData,
+  removeFamilyAndTheirData,
   removePersonAndTheirData,
   sanitizeAppData,
   uid,
@@ -217,6 +218,7 @@ function App() {
   const [processing, setProcessing] = useState(false)
   const [toast, setToast] = useState('')
   const [attentionExpanded, setAttentionExpanded] = useState(false)
+  const [calendarNavigationTarget, setCalendarNavigationTarget] = useState<{ eventId: string; date: string; key: number } | null>(null)
   const [confirmation, setConfirmation] = useState<{ message: string; onConfirm: () => void } | null>(null)
   const [familyMenu, setFamilyMenu] = useState(false)
   const [profileMenu, setProfileMenu] = useState(false)
@@ -250,6 +252,12 @@ function App() {
   const birthdayReminders = useMemo(() => upcomingBirthdays(family, today), [family, today])
   const currentPerson = family.people.find((p) => p.id === personId) || family.people[0]
   const activePersonId = currentPerson?.id || ''
+  const openCalendarEvent = (eventId: string) => {
+    const event = data.events.find(item => item.id === eventId && item.familyId === family.id)
+    if (!event) return
+    setCalendarNavigationTarget({ eventId: event.id, date: event.date, key: Date.now() })
+    setView('events')
+  }
   useEffect(() => {
     // Presentation-only: intentionally undiscoverable shortcuts with no visible UI.
     const handlePresentationShortcut = (event: KeyboardEvent) => {
@@ -270,11 +278,15 @@ function App() {
   }, [activePersonId, family.id])
   useEffect(() => {
     const handleLiaAction = (event: Event) => {
-      const detail = (event as CustomEvent<{ interventionId: string; action: import('./liaInterventions').LiaActionKind }>).detail
+      const detail = (event as CustomEvent<{ interventionId: string; action: import('./liaInterventions').LiaActionKind; targetMemberId?: string }>).detail
       if (detail?.interventionId && detail.action)
         setData((previous) => {
-          const showcased = applyShowcaseAction(previous, detail.interventionId, detail.action, activePersonId)
-          return showcased !== previous ? showcased : applyTrafficFlowAction(previous, detail.interventionId, detail.action, activePersonId)
+          const showcased = applyShowcaseAction(previous, detail.interventionId, detail.action, activePersonId, detail.targetMemberId)
+          if (showcased !== previous) return showcased
+          const traffic = applyTrafficFlowAction(previous, detail.interventionId, detail.action, activePersonId, detail.targetMemberId)
+          return detail.action === 'takeOwnership' && traffic !== previous
+            ? applyTrafficFlowAction(traffic, detail.interventionId, 'complete', activePersonId)
+            : traffic
         })
     }
     window.addEventListener('fampilot:lia-action', handleLiaAction)
@@ -1093,38 +1105,36 @@ function App() {
     })
   }
   function removePerson(item: Person) {
+    if (family.people.length <= 1) {
+      setToast('לא ניתן למחוק את בן המשפחה היחיד. אפשר למחוק את המשפחה כולה בתחתית המסך.')
+      return
+    }
     const removedEvents = data.events.filter(
       (event) => event.familyId === family.id && (event.responsibleId === item.id || event.participantIds.includes(item.id) || event.createdById === item.id),
     )
     const eventCount = removedEvents.length
     const removedIds = new Set(removedEvents.map((event) => event.id))
     const taskCount = data.tasks.filter((task) => task.familyId === family.id && (task.ownerId === item.id || removedIds.has(task.eventId || ''))).length
-    askConfirmation(`להסיר את ${item.name}? יחד איתו/ה יימחקו ${eventCount} אירועים (גם משותפים) ו־${taskCount} משימות המשויכים אליו/ה.`, () => {
+    askConfirmation(`למחוק את בן המשפחה ${item.name}? יחד איתו/ה יימחקו ${eventCount} אירועים (גם משותפים) ו־${taskCount} משימות המשויכים אליו/ה.`, () => {
       setData((previous) => removePersonAndTheirData(previous, family.id, item.id))
-      if (activePersonId === item.id) setPersonId(family.people.find((p) => p.id !== item.id)?.id || '')
+      if (activePersonId === item.id) setPersonId(family.people.find((person) => person.id !== item.id)!.id)
       setDialog(null)
       setToast('בן המשפחה והפריטים המשויכים אליו/ה הוסרו')
     })
   }
   function removeFamily(item: FamilyUnit) {
     if (data.families.length === 1) {
-      setToast('צריך להשאיר לפחות תא משפחתי אחד')
+      setToast('במצב Presentation נשמרת משפחת הדמו הפעילה')
       return
     }
-    askConfirmation(`למחוק את "${item.name}" ואת כל האירועים והמשימות שלו?`, () => {
-      const next = data.families.find((f) => f.id !== item.id)!
-      setData((previous) =>
-        sanitizeAppData({
-          ...previous,
-          families: previous.families.filter((f) => f.id !== item.id),
-          dismissedActionIds: (previous.dismissedActionIds || []).filter((id) => !id.includes(`:${item.id}:`)),
-        }),
-      )
-      setFamilyId(next.id)
-      setPersonId(next.people[0]?.id || '')
+    askConfirmation(`למחוק את המשפחה "${item.name}"? כל בני המשפחה, האירועים, המשימות, ההסעות, החיבורים והיסטוריית LIA שלה יימחקו.`, () => {
+      const next = data.families.find((candidate) => candidate.id !== item.id)
+      setData((previous) => removeFamilyAndTheirData(previous, item.id))
+      setFamilyId(next?.id || '')
+      setPersonId(next?.people[0]?.id || '')
       setDialog(null)
       setView('home')
-      setToast('התא המשפחתי נמחק')
+      setToast('המשפחה נמחקה')
     })
   }
   function toggleTask(item: FamilyTask) {
@@ -1509,7 +1519,7 @@ function App() {
                   <button className="concept-e-add" onClick={() => openEvent()}><Plus size={14}/> הוספת אירוע</button>
                 </section>
                 {operationalCount > 0 && <section className={`concept-e-attention-zone action-center ${attentionExpanded ? 'is-expanded' : ''}`}>
-                  <header className="action-center-header"><div><span>מרכז פעולה</span><h2>דורש ממך פעולה <b>{operationalCount}</b></h2></div><p>היארועים החשובים שמחכים להחלטה שלך.</p></header>
+                  <header className="action-center-header"><div><span>מרכז פעולה</span><h2>דורש ממך פעולה <b>{operationalCount}</b></h2></div><p>האירועים החשובים שמחכים להחלטה שלך.</p></header>
                 <DecisionCenter
                   data={data}
                   family={family}
@@ -1518,6 +1528,7 @@ function App() {
                   onRespond={answerRide}
                   onConfirm={approveRide}
                   onFind={(eventId, riskId) => setDialog({ type: 'solution', eventId, riskId })}
+                  onOpenEvent={openCalendarEvent}
                   limit={decisionLimit}
                   compact
                 />
@@ -1529,6 +1540,7 @@ function App() {
                   onHandle={handleExternalUpdate}
                   onOverride={approveRoutineException}
                   onReview={reviewPendingAction}
+                  onOpenEvent={openCalendarEvent}
                   limit={workflowLimit}
                   compact
                 />
@@ -1541,6 +1553,7 @@ function App() {
                   onAlternative={(id) => setDialog({ type: 'alternative', requestId: id })}
                   onWithdraw={(id) => setDialog({ type: 'withdraw', requestId: id })}
                   onTransit={approveTransit}
+                  onOpenEvent={openCalendarEvent}
                   compact
                 />
                 {operationalCount > initialActionLimit && <button className="action-center-more" onClick={() => setAttentionExpanded((value) => !value)}>{attentionExpanded ? 'הצג פחות' : `הצג עוד ${operationalCount - initialActionLimit}`} <ChevronDown size={14}/></button>}
@@ -1684,6 +1697,7 @@ function App() {
               tasks={familyTasks}
               actorId={activePersonId}
               childMode={childMode}
+              navigationTarget={calendarNavigationTarget}
               onCreate={(date) => openEvent(undefined, date)}
               onOpenEvent={(event) => openEvent(event)}
               onOpenTask={(task) => openTask(task)}
@@ -1758,6 +1772,7 @@ function App() {
                 onHandle={handleExternalUpdate}
                 onOverride={approveRoutineException}
                 onReview={reviewPendingAction}
+                onOpenEvent={openCalendarEvent}
               />
               <IntegrationHub data={data} familyId={family.id} actorId={activePersonId} onRun={runExternalSource} />
               <AutopilotHub onRun={runFamilyScenario} />
@@ -2424,6 +2439,7 @@ function WorkflowHub({
   onHandle,
   onOverride,
   onReview,
+  onOpenEvent,
   limit,
   compact = false,
 }: {
@@ -2434,6 +2450,7 @@ function WorkflowHub({
   onHandle: (id: string) => void
   onOverride: (eventId: string) => void
   onReview: (action: PendingAction, approved: boolean) => void
+  onOpenEvent: (eventId: string) => void
   limit?: number
   compact?: boolean
 }) {
@@ -2470,8 +2487,9 @@ function WorkflowHub({
         const missed = new Date(`${event.date}T${event.time}:00`).getTime() < Date.now() && item.status === 'pending'
         return (
           <div className="workflow-item action-center-item" key={item.eventId}>
-            <div>
-              <strong>{event.title}</strong>
+            <div className="action-center-copy">
+              <span className="action-center-kind">אישור אירוע</span>
+              <button className="action-center-event-link" onClick={() => onOpenEvent(event.id)}>{event.title}<ArrowLeft size={12}/></button>
               <small>
                 {dateLabel(event.date)} · {event.time} · {eventApprovals.filter((entry) => entry.status === 'approved').length}/{eventApprovals.length} אישרו
                 {missed
@@ -2482,6 +2500,7 @@ function WorkflowHub({
                       ? ' · לא מתאים לך'
                       : ''}
               </small>
+              <span className={`action-center-state ${missed ? 'urgent' : ''}`}>{missed ? 'המועד עבר' : item.status === 'seen' ? 'נצפה · ממתין לאישור' : item.status === 'declined' ? 'נדחה' : 'ממתין לתגובה'}</span>
             </div>
             {item.personId === actorId && item.status !== 'approved' && (
               <div className="workflow-actions">
@@ -2503,9 +2522,11 @@ function WorkflowHub({
       })}
       {visiblePendingActions.map((action) => (
         <div className="workflow-item action-center-item is-urgent" key={action.id}>
-          <div>
+          <div className="action-center-copy">
+            <span className="action-center-kind">אישור שינוי</span>
             <strong>שינוי רגיש ממתין לאישור</strong>
             <small>{action.message}</small>
+            <span className="action-center-state urgent">דורש החלטה</span>
           </div>
           <div className="workflow-actions">
             <button className="dark-button" onClick={() => onReview(action, true)}>אישור פעולה</button>
@@ -2515,11 +2536,13 @@ function WorkflowHub({
       ))}
       {visibleRoutineConflicts.map((event) => (
         <div className="workflow-item action-center-item" key={`routine:${event.id}`}>
-          <div>
-            <strong>{event.title}</strong>
+          <div className="action-center-copy">
+            <span className="action-center-kind">חריגה מהשגרה</span>
+            <button className="action-center-event-link" onClick={() => onOpenEvent(event.id)}>{event.title}<ArrowLeft size={12}/></button>
             <small>
               {dateLabel(event.date)} ב־{event.time} · חופף ללו״ז הקבוע של בן משפחה
             </small>
+            <span className="action-center-state">ממתין לאישור חריגה</span>
           </div>
           <button className="secondary-button" onClick={() => onOverride(event.id)}>
             אישור חריגה חד־פעמית
@@ -2528,11 +2551,13 @@ function WorkflowHub({
       ))}
       {visibleUpdates.map((item) => (
         <div className="workflow-item action-center-item" key={item.id}>
-          <div>
-            <strong>{integrationDisplayText(item.action)}</strong>
+          <div className="action-center-copy">
+            <span className="action-center-kind">עדכון ממקור מחובר</span>
+            {item.eventId && data.events.some(event => event.id === item.eventId) ? <button className="action-center-event-link" onClick={() => onOpenEvent(item.eventId!)}>{integrationDisplayText(item.action)}<ArrowLeft size={12}/></button> : <strong>{integrationDisplayText(item.action)}</strong>}
             <small>
               עדכון מ־{integrationNames[item.source]} · {integrationDisplayText(item.sourceText)}
             </small>
+            <span className="action-center-state">חדש · ממתין לטיפול</span>
           </div>
           <button className="secondary-button" onClick={() => onHandle(item.id)}>
             טופל
@@ -2851,6 +2876,7 @@ function DecisionCenter({
   onRespond,
   onConfirm,
   onFind,
+  onOpenEvent,
   limit,
   compact = false,
 }: {
@@ -2861,6 +2887,7 @@ function DecisionCenter({
   onRespond: (id: string, response: 'CAN_DO' | 'CANNOT_DO') => void
   onConfirm: (id: string, driverId: string) => void
   onFind: (eventId: string, riskId?: string) => void
+  onOpenEvent: (eventId: string) => void
   limit?: number
   compact?: boolean
 }) {
@@ -2901,12 +2928,13 @@ function DecisionCenter({
           return (
             <article className="decision-item action-center-item" key={event.id}>
               <span className="decision-icon">{event.icon}</span>
-              <div>
-                <strong>{event.title}</strong>
+              <div className="action-center-copy">
+                <span className="action-center-kind">תיאום אירוע</span>
+                <button className="action-center-event-link" onClick={() => onOpenEvent(event.id)}>{event.title}<ArrowLeft size={12}/></button>
                 <p>
                   {dateLabel(event.date)} · {event.time} · {event.participantIds.map(name).join(', ') || 'המשפחה'}
                 </p>
-                <small className="decision-summary">
+                <span className={`action-center-state ${request?.status === 'UNRESOLVED' ? 'urgent' : ''}`}>
                   {request?.status === 'UNRESOLVED'
                     ? 'אין כרגע נהג זמין להסעה'
                     : recommendation
@@ -2914,7 +2942,7 @@ function DecisionCenter({
                       : conflicts.length
                         ? 'יש חפיפה בתוכנית'
                         : 'נדרשת החלטה לגבי ההסעה'}
-                </small>
+                </span>
                 {(conflicts.length > 0 || event.sourceNote || event.issueReason || event.createdById) && (
                   <details className="decision-details">
                     <summary>למה?</summary>
@@ -2960,8 +2988,10 @@ function DecisionCenter({
               <span className="forecast-icon">
                 <CalendarDays size={17} />
               </span>
-              <div>
-                <strong>{risk.title}</strong>
+              <div className="action-center-copy">
+                <span className="action-center-kind">מבט קדימה</span>
+                <button className="action-center-event-link" onClick={() => onOpenEvent(risk.eventId)}>{risk.title}<ArrowLeft size={12}/></button>
+                <span className="action-center-state">כדאי להיערך</span>
                 <details className="decision-details">
                   <summary>למה?</summary>
                   <p>{risk.detail}</p>
@@ -3599,6 +3629,7 @@ function RequestBoard({
   onAlternative,
   onWithdraw,
   onTransit,
+  onOpenEvent,
   compact = false,
 }: {
   requests: TransportationRequest[]
@@ -3609,6 +3640,7 @@ function RequestBoard({
   onAlternative: (id: string) => void
   onWithdraw: (id: string) => void
   onTransit: (id: string) => void
+  onOpenEvent: (eventId: string) => void
   compact?: boolean
 }) {
   const [explanation, setExplanation] = useState<string | null>(null)
@@ -3639,10 +3671,14 @@ function RequestBoard({
                 <span className="request-icon">🚗</span>
                 <span className={`request-status ${request.status.toLowerCase()}`}>{status}</span>
               </div>
-              <h3>{event.title}</h3>
+              <div className="action-center-copy request-event-copy">
+                <span className="action-center-kind">בקשת הסעה</span>
+                <button className="action-center-event-link" onClick={() => onOpenEvent(event.id)}>{event.title}<ArrowLeft size={12}/></button>
+              </div>
               <p>
                 {dateLabel(event.date)} · {event.time} · עבור {names.get(request.passengerId) || 'בן משפחה'}
               </p>
+              <span className={`action-center-state ${request.status === 'UNRESOLVED' ? 'urgent' : ''}`}>{status}</span>
               <div className="response-list">
                 {request.eligibleMemberIds.map((id) => (
                   <span key={id}>

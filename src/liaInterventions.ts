@@ -1,7 +1,7 @@
 import type { AppData, IntegrationSource } from './data'
 
 export type LiaInterventionStatus = 'decisionRequired' | 'waiting' | 'owned' | 'inProgress' | 'completed' | 'noAction'
-export type LiaActionKind = 'takeOwnership' | 'complete' | 'cannotDo' | 'acceptHandoff' | 'declineHandoff' | 'approve' | 'addToCalendar' | 'createTask' | 'dismiss' | 'openDetails'
+export type LiaActionKind = 'takeOwnership' | 'complete' | 'cannotDo' | 'acceptHandoff' | 'declineHandoff' | 'approve' | 'addToCalendar' | 'createTask' | 'dismiss' | 'reassign' | 'openDetails'
 export type LiaInterventionAction = { id: string; kind: LiaActionKind; label: string; primary?: boolean }
 export type LiaInterventionSource = { sourceId: IntegrationSource; mode: 'demo' | 'live'; ownerMemberId?: string }
 export type LiaIntervention = {

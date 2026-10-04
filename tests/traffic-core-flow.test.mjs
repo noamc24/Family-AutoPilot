@@ -93,6 +93,32 @@ test('candidate מאשר ומעביר אחריות באירוע, coordination ו
   assert.match(intervention(data).resolutionSummary, /מור/)
 })
 
+test('העברה ישירה משתמשת בכשירות הקיימת, מעדכנת אירוע וסוגרת את ההמלצה', () => {
+  let data = initialized()
+  const id = intervention(data).id
+  data = flow.applyTrafficFlowAction(data, id, 'reassign', 'Orel', 'Mor')
+  assert.equal(data.events.find(item => item.id === 'traffic-pickup').responsibleId, 'Mor')
+  assert.equal(coordination.requestForEvent(data, 'traffic-pickup').status, 'COVERED')
+  assert.equal(intervention(data).status, 'completed')
+  assert.equal(intervention(data).resolutionType, 'responsibilityTransferred')
+})
+
+test('העברה לנהג לא כשיר אינה משנה מצב', () => {
+  const data = initialized()
+  const result = flow.applyTrafficFlowAction(data, intervention(data).id, 'reassign', 'Orel', 'Itamar')
+  assert.equal(result, data)
+})
+
+test('דחיית המלצת תנועה סוגרת אותה ומחזירה את עדכון המסלול', () => {
+  const data = initialized()
+  const result = flow.applyTrafficFlowAction(data, intervention(data).id, 'dismiss', 'Orel')
+  const event = result.events.find(item => item.id === 'traffic-pickup')
+  assert.equal(intervention(result).status, 'noAction')
+  assert.equal(intervention(result).resolutionType, 'dismissed')
+  assert.equal(event.routeMinutes, 18)
+  assert.equal(event.sourceNote, undefined)
+})
+
 test('candidate מסרב וה-flow אינו נסגר', () => {
   let data = initialized()
   const id = intervention(data).id
