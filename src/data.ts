@@ -25,9 +25,9 @@ export type AppData = { families: FamilyUnit[]; events: FamilyEvent[]; tasks: Fa
 export const uid = () => Math.random().toString(36).slice(2, 10)
 export const ageFromBirthYear = (year: number) => new Date().getFullYear() - year
 export const DEFAULT_FAMILY_ID = 'Avrahami'
-export const personalSourceIds: IntegrationSource[] = ['calendar', 'whatsapp', 'email', 'waze', 'location', 'school', 'university', 'work', 'club', 'transit']
+export const personalSourceIds: IntegrationSource[] = ['calendar', 'whatsapp', 'email', 'waze', 'weather', 'location', 'school', 'university', 'work', 'club', 'transit']
 export function defaultPersonalSettings(): PersonalSettings {
-  return { notifications: { enabled: true, importantChanges: true, liaUpdates: true, routineUpdates: true }, lia: { proactiveSuggestions: true }, integrations: personalSourceIds.map(sourceId => ({ sourceId, connectionStatus: 'disconnected', liaAccess: 'notAllowed', mode: 'demo' })) }
+  return { notifications: { enabled: true, importantChanges: true, liaUpdates: true, routineUpdates: true }, lia: { proactiveSuggestions: true }, integrations: personalSourceIds.map(sourceId => ({ sourceId, connectionStatus: 'connected', liaAccess: 'allowed', mode: 'demo' })) }
 }
 export function normalizePersonalSettings(settings?: Partial<PersonalSettings>): PersonalSettings {
   const existing = new Map((settings?.integrations || []).map(item => [item.sourceId, item]))
@@ -41,13 +41,12 @@ export function normalizePersonalSettings(settings?: Partial<PersonalSettings>):
     lia: { proactiveSuggestions: settings?.lia?.proactiveSuggestions ?? true },
     integrations: personalSourceIds.map(sourceId => {
       const item = existing.get(sourceId)
-      return { sourceId, connectionStatus: item?.connectionStatus === 'connected' ? 'connected' : 'disconnected', liaAccess: item?.liaAccess === 'allowed' ? 'allowed' : 'notAllowed', mode: item?.mode === 'live' ? 'live' : 'demo' }
+      return { sourceId, connectionStatus: item ? item.connectionStatus === 'connected' ? 'connected' : 'disconnected' : 'connected', liaAccess: item ? item.liaAccess === 'allowed' ? 'allowed' : 'notAllowed' : 'allowed', mode: item?.mode === 'live' ? 'live' : 'demo' }
     }),
   }
 }
 function demoPersonalSettings(): PersonalSettings {
-  const settings = defaultPersonalSettings()
-  return { ...settings, integrations: settings.integrations.map(item => ['waze', 'calendar', 'whatsapp', 'email', 'school'].includes(item.sourceId) ? { ...item, connectionStatus: 'connected', liaAccess: 'allowed' } : item) }
+  return defaultPersonalSettings()
 }
 export function validBirthDate(value: string, today = localDate()): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value < '1900-01-01' || value > today) return false
