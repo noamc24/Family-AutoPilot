@@ -84,6 +84,21 @@ test('School מורשה יוצר intervention ומשימה אמיתית עם due
   assert.equal(repeated.tasks.filter(entry => entry.sourceSignalId === received.signal.id).length, 1)
 })
 
+test('העברת המלצת School יוצרת משימה אמיתית רק לבן משפחה בוגר וזמין', () => {
+  const received = receive(fresh(), 'school-action')
+  const pending = itemFor(received.data, received.signal.id)
+  const reassigned = showcase.applyShowcaseAction(received.data, pending.id, 'reassign', 'Mor', 'Orel')
+  const task = reassigned.tasks.find(entry => entry.sourceSignalId === received.signal.id)
+  assert.equal(task.ownerId, 'Orel')
+  assert.equal(itemFor(reassigned, received.signal.id).status, 'completed')
+  assert.equal(itemFor(reassigned, received.signal.id).resolutionType, 'responsibilityTransferred')
+
+  const childAttempt = showcase.applyShowcaseAction(received.data, pending.id, 'reassign', 'Mor', 'Itamar')
+  assert.equal(childAttempt, received.data)
+  const childActorAttempt = showcase.applyShowcaseAction(received.data, pending.id, 'reassign', 'Itamar', 'Orel')
+  assert.equal(childActorAttempt, received.data)
+})
+
 test('School ללא access לא יוצר intervention ו-Members שונים נאכפים בנפרד', () => {
   const data = fresh()
   const mor = owner(data)
@@ -130,4 +145,15 @@ test('LiaCard משתמש ב-sourceDefinitions ו-child viewer אינו מקבל 
   assert.doesNotMatch(cardHtml, /הודעת בית הספר המלאה|פרטי הכיתה/)
   const childHtml = renderToStaticMarkup(sectionModule.LiaHomeSection({ data: received.data, family: received.data.families[0], actorId: 'Itamar' }))
   assert.doesNotMatch(childHtml, /צור משימה|אישור הורים/)
+})
+
+test('LIA מציגה פעולות החלטה ובורר העברה רק למועמדים כשירים', async () => {
+  const received = receive(fresh(), 'school-action')
+  received.data.families[0].people.find(person => person.id === 'Orel').availability = 'unavailable'
+  const sectionModule = await load('src/components/LiaHomeSection.tsx')
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const html = renderToStaticMarkup(sectionModule.LiaHomeSection({ data: received.data, family: received.data.families[0], actorId: 'Mor' }))
+  assert.match(html, />אישור</)
+  assert.match(html, />לא מתאים</)
+  assert.doesNotMatch(html, />העברה</)
 })

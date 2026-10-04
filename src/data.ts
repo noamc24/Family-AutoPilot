@@ -340,25 +340,50 @@ export function readData(): AppData {
 export function removePersonAndTheirData(data: AppData, familyId: string, personId: string): AppData {
   const removedEventIds = new Set(data.events.filter(event => event.familyId === familyId &&
     (event.responsibleId === personId || event.participantIds.includes(personId) || event.createdById === personId)).map(event => event.id))
-  return {
+  const removedTaskIds = new Set(data.tasks.filter(task => task.familyId === familyId && (task.ownerId === personId || removedEventIds.has(task.eventId || ''))).map(task => task.id))
+  return sanitizeAppData({
     families: data.families.map(family => family.id === familyId
       ? { ...family, people: family.people.filter(person => person.id !== personId) }
       : family),
     events: data.events.filter(event => !removedEventIds.has(event.id)),
-    tasks: data.tasks.filter(task => task.familyId !== familyId || (task.ownerId !== personId && !removedEventIds.has(task.eventId || ''))),
+    tasks: data.tasks.filter(task => !removedTaskIds.has(task.id)),
     activity: data.activity.filter(entry => entry.familyId !== familyId || !entry.personIds.includes(personId)),
-    transportationRequests: data.transportationRequests.filter(request => !removedEventIds.has(request.eventId)).map(request => request.familyId === familyId ? { ...request, eligibleMemberIds: request.eligibleMemberIds.filter(id => id !== personId), responses: Object.fromEntries(Object.entries(request.responses).filter(([id]) => id !== personId)), selectedDriverId: request.selectedDriverId === personId ? '' : request.selectedDriverId } : request),
+    transportationRequests: data.transportationRequests.filter(request => !removedEventIds.has(request.eventId) && (request.familyId !== familyId || request.passengerId !== personId && request.createdById !== personId)).map(request => request.familyId === familyId ? { ...request, eligibleMemberIds: request.eligibleMemberIds.filter(id => id !== personId), responses: Object.fromEntries(Object.entries(request.responses).filter(([id]) => id !== personId)), selectedDriverId: request.selectedDriverId === personId ? '' : request.selectedDriverId } : request),
     integrationLogs: data.integrationLogs.filter(entry => entry.familyId !== familyId || (!entry.personIds.includes(personId) && !removedEventIds.has(entry.eventId || ''))),
     calendarMirrors: data.calendarMirrors.filter(entry => entry.familyId !== familyId || (entry.personId !== personId && !removedEventIds.has(entry.eventId))),
     acknowledgements: (data.acknowledgements || []).filter(entry => entry.personId !== personId && !removedEventIds.has(entry.eventId)),
-    suppressedRoutineTaskIds: data.suppressedRoutineTaskIds || [],
+    suppressedRoutineTaskIds: (data.suppressedRoutineTaskIds || []).filter(id => !removedTaskIds.has(id)),
     pendingActions: data.pendingActions || [],
     dismissedActionIds: data.dismissedActionIds || [],
-    trafficSignals: data.trafficSignals || [],
-    externalSignals: (data.externalSignals || []).filter(item => item.familyId !== familyId || item.ownerMemberId !== personId),
-    liaInterventions: (data.liaInterventions || []).filter(item => item.familyId !== familyId || !item.relatedMemberIds.includes(personId)),
+    trafficSignals: (data.trafficSignals || []).filter(item => !removedEventIds.has(item.relatedEventId)),
+    externalSignals: (data.externalSignals || []).filter(item => item.familyId !== familyId || item.ownerMemberId !== personId && item.eventCandidate?.relatedMemberId !== personId && !removedEventIds.has(item.eventCandidate?.targetEventId || '')),
+    liaInterventions: (data.liaInterventions || []).filter(item => item.familyId !== familyId || !item.relatedMemberIds.includes(personId) && !removedEventIds.has(item.relatedEventId || '')),
     liaConversations: (data.liaConversations || []).filter(item => item.familyId !== familyId || item.memberId !== personId),
-  }
+  })
+}
+
+export function removeFamilyAndTheirData(data: AppData, familyId: string): AppData {
+  const eventIds = new Set(data.events.filter(item => item.familyId === familyId).map(item => item.id))
+  const taskIds = new Set(data.tasks.filter(item => item.familyId === familyId).map(item => item.id))
+  const memberIds = new Set(data.families.find(item => item.id === familyId)?.people.map(person => person.id) || [])
+  return sanitizeAppData({
+    ...data,
+    families: data.families.filter(item => item.id !== familyId),
+    events: data.events.filter(item => item.familyId !== familyId),
+    tasks: data.tasks.filter(item => item.familyId !== familyId),
+    activity: data.activity.filter(item => item.familyId !== familyId),
+    transportationRequests: data.transportationRequests.filter(item => item.familyId !== familyId),
+    integrationLogs: data.integrationLogs.filter(item => item.familyId !== familyId),
+    calendarMirrors: data.calendarMirrors.filter(item => item.familyId !== familyId),
+    acknowledgements: (data.acknowledgements || []).filter(item => !eventIds.has(item.eventId) && !memberIds.has(item.personId)),
+    suppressedRoutineTaskIds: (data.suppressedRoutineTaskIds || []).filter(id => !taskIds.has(id)),
+    pendingActions: (data.pendingActions || []).filter(item => item.familyId !== familyId),
+    dismissedActionIds: (data.dismissedActionIds || []).filter(id => !id.includes(familyId)),
+    trafficSignals: (data.trafficSignals || []).filter(item => item.familyId !== familyId),
+    externalSignals: (data.externalSignals || []).filter(item => item.familyId !== familyId),
+    liaInterventions: (data.liaInterventions || []).filter(item => item.familyId !== familyId),
+    liaConversations: (data.liaConversations || []).filter(item => item.familyId !== familyId),
+  })
 }
 
 export function detectScenario(text: string): 'birthday' | 'late' | 'reminder' | 'unknown' {

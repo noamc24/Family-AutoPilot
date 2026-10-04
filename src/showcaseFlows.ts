@@ -80,7 +80,7 @@ export function triggerShowcase(data: AppData, familyId: string, ownerMemberId: 
   return { data: next, created: true, message: 'LIA זיהתה עדכון חדש והוסיפה אותו למסך הבית.' }
 }
 
-export function applyShowcaseAction(data: AppData, itemId: string, action: LiaActionKind, actorId: string): AppData {
+export function applyShowcaseAction(data: AppData, itemId: string, action: LiaActionKind, actorId: string, assigneeId = ''): AppData {
   const item = (data.liaInterventions || []).find(entry => entry.id === itemId)
   const signal = (data.externalSignals || []).find(entry => entry.id === item?.signalId)
   if (!item || !signal || ['completed', 'noAction'].includes(item.status)) return data
@@ -106,17 +106,23 @@ export function applyShowcaseAction(data: AppData, itemId: string, action: LiaAc
     }
     return addActivityOnce(next, signal, 'completed', `שעת ${candidate.title} עודכנה ביומן ל־${candidate.time}.`, item.relatedMemberIds)
   }
-  if (action === 'createTask' && signal.taskCandidate) {
+  if ((action === 'createTask' || action === 'reassign') && signal.taskCandidate) {
     const candidate = signal.taskCandidate
+    const family = data.families.find(entry => entry.id === signal.familyId)
+    const actor = family?.people.find(person => person.id === actorId)
+    const assignee = action === 'reassign' ? family?.people.find(person => person.id === assigneeId && person.id !== signal.ownerMemberId && person.age >= 18 && !['unavailable', 'travel'].includes(person.availability || 'available')) : undefined
+    if (action === 'reassign' && (!actor || actor.age < 18)) return data
+    if (action === 'reassign' && !assignee) return data
     const taskId = `showcase-task:${signal.id}`
-    const task: FamilyTask = { id: taskId, familyId: signal.familyId, title: candidate.title, ownerId: signal.ownerMemberId, due: candidate.dueDate, done: false, priority: candidate.priority, requiresAdult: true, sourceSignalId: signal.id }
+    const ownerId = assignee?.id || signal.ownerMemberId
+    const task: FamilyTask = { id: taskId, familyId: signal.familyId, title: candidate.title, ownerId, due: candidate.dueDate, done: false, priority: candidate.priority, requiresAdult: true, sourceSignalId: signal.id }
     const tasks = data.tasks.some(entry => entry.id === taskId || entry.sourceSignalId === signal.id) ? data.tasks : [...data.tasks, task]
     let next: AppData = {
       ...data, tasks,
       externalSignals: (data.externalSignals || []).map(entry => entry.id === signal.id ? { ...entry, status: 'handled', resultTaskId: taskId } : entry),
-      liaInterventions: (data.liaInterventions || []).map(entry => entry.id === itemId ? { ...entry, status: 'completed', actions: [], relatedTaskId: taskId, resolvedAt: timestamp, resolvedBy: actorId, resolutionType: 'taskCreated', resolutionSummary: 'נוצרה משימת אישור הורים', statusDetail: 'טופל ✓ המשימה נוספה לתוכנית', updatedAt: timestamp } : entry),
+      liaInterventions: (data.liaInterventions || []).map(entry => entry.id === itemId ? { ...entry, status: 'completed', actions: [], relatedTaskId: taskId, resolvedAt: timestamp, resolvedBy: actorId, resolutionType: action === 'reassign' ? 'responsibilityTransferred' : 'taskCreated', resolutionSummary: assignee ? `המשימה נוצרה והועברה ל${assignee.name}` : 'נוצרה משימת אישור הורים', statusDetail: assignee ? `טופל ✓ הועבר ל${assignee.name}` : 'טופל ✓ המשימה נוספה לתוכנית', updatedAt: timestamp } : entry),
     }
-    return addActivityOnce(next, signal, 'completed', `נוצרה משימה: ${candidate.title}.`, item.relatedMemberIds)
+    return addActivityOnce(next, signal, 'completed', `נוצרה משימה: ${candidate.title} · ${assignee ? `הועברה ל${assignee.name}` : 'נוספה לתוכנית'}.`, [...item.relatedMemberIds, ownerId])
   }
   return data
 }

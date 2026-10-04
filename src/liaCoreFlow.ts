@@ -51,13 +51,36 @@ export function trafficHandoffCandidates(data: AppData, interventionId: string) 
   return rankedDrivers(data, request).filter(option => request.responses[option.person.id] === 'PENDING' && !pickupIneligibility(option.person, event, data)).slice(0, 3)
 }
 
-export function applyTrafficFlowAction(data: AppData, interventionId: string, action: LiaActionKind, actorId: string): AppData {
+export function applyTrafficFlowAction(data: AppData, interventionId: string, action: LiaActionKind, actorId: string, targetMemberId = ''): AppData {
   const intervention = (data.liaInterventions || []).find(item => item.id === interventionId)
   const event = data.events.find(item => item.id === intervention?.relatedEventId)
   const family = data.families.find(item => item.id === intervention?.familyId)
   const actor = family?.people.find(item => item.id === actorId)
   if (!intervention || !event || !family || !actor) return data
   const update = (changes: Partial<LiaIntervention>) => ({ ...data, liaInterventions: (data.liaInterventions || []).map(item => item.id === intervention.id ? { ...item, ...changes, updatedAt: new Date().toISOString() } : item) })
+  if (action === 'dismiss') {
+    const signal = (data.trafficSignals || []).find(item => item.id === intervention.id.replace('lia-traffic:', ''))
+    const previousMinutes = signal?.previousTravelMinutes
+    const departureTime = previousMinutes === undefined ? event.departureTime : recommendedDepartureTime(event.time, previousMinutes)
+    return {
+      ...data,
+      events: data.events.map(item => item.id === event.id ? { ...item, routeMinutes: previousMinutes ?? item.routeMinutes, departureTime, sourceNote: undefined } : item),
+      liaInterventions: (data.liaInterventions || []).map(item => item.id === intervention.id ? { ...item, status: 'noAction', actions: [], statusDetail: 'נדחה · לא בוצע שינוי', resolvedAt: new Date().toISOString(), resolvedBy: actorId, resolutionType: 'dismissed', resolutionSummary: 'ההמלצה נדחתה ולא הוחלה.', updatedAt: new Date().toISOString() } : item),
+    }
+  }
+  if (action === 'reassign') {
+    const target = family.people.find(person => person.id === targetMemberId)
+    if (actor.age < 18 || !target || target.id === event.responsibleId || pickupIneligibility(target, event, data)) return data
+    let next: AppData = { ...data, events: data.events.map(item => item.id === event.id ? { ...item, responsibleId: '', needsAttention: true } : item) }
+    next = ensureRequests(next, actorId)
+    const request = requestForEvent(next, event.id)
+    if (!request?.eligibleMemberIds.includes(target.id)) return data
+    next = respondToRequest(next, request.id, target.id, 'CAN_DO')
+    next = confirmDriver(next, request.id, target.id)
+    const summary = `האחריות ל${event.title} הועברה ל${target.name}.`
+    next = { ...next, liaInterventions: (next.liaInterventions || []).map(item => item.id === intervention.id ? { ...item, status: 'completed', actions: [], statusDetail: summary, resolvedAt: new Date().toISOString(), resolvedBy: actorId, resolutionType: 'responsibilityTransferred', resolutionSummary: summary, updatedAt: new Date().toISOString() } : item) }
+    return addActivityOnce(next, `activity:${intervention.id}:reassigned:${target.id}`, summary, [actorId, target.id], family.id)
+  }
   if (action === 'takeOwnership' && event.responsibleId === actorId) {
     let next = update({ status: 'inProgress', statusDetail: `${actor.name} לקח/ה אחריות`, actions: [{ id: 'complete', kind: 'complete', label: 'אישור וסיום', primary: true }] })
     return addActivityOnce(next, `activity:${intervention.id}:owned:${actorId}`, `${actor.name} אישר/ה שהוא/היא מטפל/ת ב${event.title}`, [actorId], family.id)

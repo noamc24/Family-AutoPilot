@@ -1,11 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { CalendarDays, Car, ChevronLeft, ChevronRight, List, Pencil, Plus, Repeat2, Rows3, Sparkles, X } from 'lucide-react'
 import { dateLabel, localDate, type FamilyEvent, type FamilyTask, type FamilyUnit } from '../data'
 import { calendarDatesForRange, calendarRendererFor, deriveRoutineOccurrences, timeMinutes, visibleMonthItems, type RoutineOccurrence } from '../calendarModel'
 import { calendarDays, defaultCalendarView, eventsForMembers, localIsoDate, startOfWeek, visibleMemberIds, type CalendarDisplay, type CalendarGrouping, type CalendarRange } from '../uiModel'
 import { formatTimeRange } from '../uiFormatting'
 
-type Props = { family: FamilyUnit; events: FamilyEvent[]; tasks: FamilyTask[]; actorId: string; childMode: boolean; onCreate: (date?: string) => void; onOpenEvent: (event: FamilyEvent) => void; onDeleteEvent?: (event: FamilyEvent) => void; onOpenTask: (task: FamilyTask) => void }
+type Props = { family: FamilyUnit; events: FamilyEvent[]; tasks: FamilyTask[]; actorId: string; childMode: boolean; navigationTarget?: { eventId: string; date: string; key: number } | null; onCreate: (date?: string) => void; onOpenEvent: (event: FamilyEvent) => void; onDeleteEvent?: (event: FamilyEvent) => void; onOpenTask: (task: FamilyTask) => void }
 type Detail = { kind: 'event'; event: FamilyEvent } | { kind: 'routine'; routine: RoutineOccurrence }
 type CalendarItem = FamilyEvent | RoutineOccurrence
 
@@ -17,7 +17,7 @@ const isRoutine = (item: CalendarItem): item is RoutineOccurrence => 'kind' in i
 const itemTime = (item: CalendarItem) => isRoutine(item) ? item.start : item.time
 const itemEnd = (item: CalendarItem) => isRoutine(item) ? item.end : item.endTime || `${String(Math.min(23, Number(item.time.slice(0, 2)) + 1)).padStart(2, '0')}:${item.time.slice(3, 5)}`
 
-export function CalendarView({ family, events, tasks, actorId, childMode, onCreate, onOpenEvent, onDeleteEvent = onOpenEvent, onOpenTask }: Props) {
+export function CalendarView({ family, events, tasks, actorId, childMode, navigationTarget, onCreate, onOpenEvent, onDeleteEvent = onOpenEvent, onOpenTask }: Props) {
   const [grouping, setGrouping] = useState<CalendarGrouping>(defaultCalendarView.grouping)
   const [display, setDisplay] = useState<CalendarDisplay>(defaultCalendarView.display)
   const [range, setRange] = useState<CalendarRange>(defaultCalendarView.range)
@@ -34,6 +34,16 @@ export function CalendarView({ family, events, tasks, actorId, childMode, onCrea
   const renderer = calendarRendererFor(range, grouping, display)
   const isEmpty = !events.some(event => event.familyId === family.id) && !tasks.some(task => task.familyId === family.id) && !family.people.some(person => person.routines?.length)
 
+  useEffect(() => {
+    if (!navigationTarget) return
+    const event = events.find(item => item.id === navigationTarget.eventId)
+    const date = new Date(`${navigationTarget.date}T12:00:00`)
+    if (!event || Number.isNaN(date.getTime())) return
+    setAnchor(date)
+    setRange('day')
+    setDetail({ kind: 'event', event })
+  }, [navigationTarget?.key])
+
   const go = (delta: number) => setAnchor(previous => { const next = new Date(previous); if (range === 'day') next.setDate(next.getDate() + delta); else if (range === 'week') next.setDate(next.getDate() + delta * 7); else if (range === 'month') next.setMonth(next.getMonth() + delta); else next.setFullYear(next.getFullYear() + delta); return next })
   const openDay = (day: Date) => { setAnchor(day); setRange('day') }
   const togglePerson = (id: string) => setSelectedPeople(previous => previous.includes(id) ? previous.filter(item => item !== id) : [...previous, id])
@@ -42,8 +52,10 @@ export function CalendarView({ family, events, tasks, actorId, childMode, onCrea
 
   return <div className="calendar-v2" data-grouping={grouping} data-display={display} data-range={range}>
     <header className="calendar-header"><div><span className="overline">{personal ? 'התוכנית האישית שלך' : 'התוכנית המשפחתית'}</span><h1>יומן</h1></div><button className="primary-action" onClick={() => onCreate(localIsoDate(anchor))}><Plus size={17}/> אירוע</button></header>
-    <div className="calendar-commandbar"><div className="calendar-period"><button onClick={() => go(1)} aria-label="הבא"><ChevronRight size={18}/></button><strong>{title}</strong><button onClick={() => go(-1)} aria-label="הקודם"><ChevronLeft size={18}/></button><button className="today-button" onClick={() => setAnchor(new Date())}>היום</button></div><Segment className="range-segment" label="טווח" value={range} options={Object.entries(rangeLabels)} onChange={value => setRange(value as CalendarRange)}/></div>
-    <div className="calendar-toolbar"><Segment label="יומן" value={grouping} options={[['personal', 'אישי'], ['family', 'משפחתי']]} onChange={value => setGrouping(value as CalendarGrouping)}/><Segment label="תצוגה" value={display} options={[['table', 'טבלה'], ['rows', 'שורות']]} onChange={value => setDisplay(value as CalendarDisplay)} icons={[<CalendarDays size={14}/>, <Rows3 size={14}/>]}/></div>
+    <div className="calendar-controls">
+      <div className="calendar-commandbar"><div className="calendar-period"><button onClick={() => go(1)} aria-label="הבא"><ChevronRight size={18}/></button><strong>{title}</strong><button onClick={() => go(-1)} aria-label="הקודם"><ChevronLeft size={18}/></button><button className="today-button" onClick={() => setAnchor(new Date())}>היום</button></div><Segment className="range-segment" label="טווח" value={range} options={Object.entries(rangeLabels)} onChange={value => setRange(value as CalendarRange)}/></div>
+      <div className="calendar-toolbar"><Segment label="יומן" value={grouping} options={[['personal', 'אישי'], ['family', 'משפחתי']]} onChange={value => setGrouping(value as CalendarGrouping)}/><Segment label="תצוגה" value={display} options={[['table', 'טבלה'], ['rows', 'שורות']]} onChange={value => setDisplay(value as CalendarDisplay)} icons={[<CalendarDays size={14}/>, <Rows3 size={14}/>]}/></div>
+    </div>
     {grouping === 'family' && <div className="people-filter" aria-label="בחירת בני משפחה">{visiblePeople.map(person => <button key={person.id} className={`${selected.includes(person.id) ? 'selected' : ''} ${person.color}`} onClick={() => togglePerson(person.id)} disabled={childMode}><span className={`avatar mini ${person.color}`}>{person.name[0]}</span>{person.name}</button>)}</div>}
     {isEmpty
       ? <section className="first-empty-state calendar-empty-state"><span className="first-empty-mark"><CalendarDays size={22}/><i><Sparkles size={10}/></i></span><div><span className="first-empty-kicker">היומן מוכן</span><h2>עדיין אין אירועים</h2><p>הוסיפו את האירוע הראשון והלו״ז המשפחתי יתחיל להיבנות כאן.</p></div><button className="primary-action" onClick={() => onCreate(localIsoDate(anchor))}><Plus size={16}/> הוספת אירוע ראשון</button></section>
@@ -77,8 +89,8 @@ function EventAccent({ event, family }: { event: FamilyEvent; family: FamilyUnit
 }
 
 function MonthItem({ item, family, personal, onItem }: { item: CalendarItem; family: FamilyUnit; personal: boolean; onItem: (item: CalendarItem) => void }) {
-  if (isRoutine(item)) return <span className={`month-event routine ${item.color}`} onClick={event => { event.stopPropagation(); onItem(item) }}><Repeat2 size={9}/><b>{item.start}</b> {item.title}</span>
-  return <span className={`month-event ${item.sourceSignalId ? 'lia-event' : ''} ${item.needsAttention ? 'needs-attention' : ''} ${item.priority === 'critical' ? 'is-critical' : ''}`} title={item.sourceSignalId ? item.sourceNote || 'LIA יצרה או עדכנה את האירוע' : item.title} onClick={event => { event.stopPropagation(); onItem(item) }}>{!personal && <EventAccent event={item} family={family}/>}<b>{item.time}</b> {item.title}{item.sourceSignalId && <em title="LIA עדכנה">✦</em>}</span>
+  if (isRoutine(item)) return <span className={`month-event routine ${item.color}`} onClick={event => { event.stopPropagation(); onItem(item) }}><Repeat2 size={9}/><b>{item.start}</b><span className="month-event-title">{item.title}</span></span>
+  return <span className={`month-event ${item.sourceSignalId ? 'lia-event' : ''} ${item.needsAttention ? 'needs-attention' : ''} ${item.priority === 'critical' ? 'is-critical' : ''}`} title={item.sourceSignalId ? item.sourceNote || 'LIA יצרה או עדכנה את האירוע' : item.title} onClick={event => { event.stopPropagation(); onItem(item) }}>{!personal && <EventAccent event={item} family={family}/>}<b>{item.time}</b><span className="month-event-title">{item.title}</span>{item.sourceSignalId && <em title="LIA עדכנה">✦</em>}</span>
 }
 
 function MonthTable({ anchor, events, routines, tasks, family, personal, onDay, onItem }: { anchor: Date; events: FamilyEvent[]; routines: RoutineOccurrence[]; tasks: FamilyTask[]; family: FamilyUnit; personal: boolean; onDay: (day: Date) => void; onItem: (item: CalendarItem) => void }) {
