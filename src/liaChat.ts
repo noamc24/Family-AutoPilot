@@ -17,7 +17,7 @@ export function detectLiaIntent(input: string, pending?: LiaPendingIntent): LiaC
   if (has(text, [/^(למה|איך את יודעת)/, /^למה (הוא|היא|זה)/])) return 'EXPLAIN'
   if (has(text, [/מה קרה עם .*הסע/, /מה מצב .*הסע/, /הסעה.*אושר/, /מי (לוקח|אוסף|מסיע)/, /^(שלחת|שלחתת)/, /למי שלחת/, /מה הסטטוס/])) return 'RIDE_STATUS'
   if (has(text, [/אירועים.*הסעות.*משימות.*החלטות/, /סיכום.*(הכל|הכול)/])) return 'COMBINED_SUMMARY'
-  if (has(text, [/מה דורש טיפול/, /מה פתוח/, /צריך .*לטפל/, /יש משהו חשוב/, /צריך לעשות/, /דורש תשומת לב/, /מה דחוף/])) return 'WHAT_NEEDS_ATTENTION'
+  if (has(text, [/מה דורש טיפול/, /מה פתוח/, /צריך .*לטפל/, /יש אירוע חשוב/, /צריך לעשות/, /דורש תשומת לב/, /מה דחוף/])) return 'WHAT_NEEDS_ATTENTION'
   if (has(text, [/מה יש לי היום/, /מה קורה היום/, /מה נשאר להיום/, /הלוז שלי/, /לוז שלי/, /לוח שלי היום/, /מה יש היום/, /לוח.*היום/, /אירועים היום/, /מה יש ל.*היום/])) return 'TODAY_SCHEDULE'
   if (has(text, [/מה יש .*מחר+/, /מה יש בהמשך/, /אירועים קרובים/, /מה צפוי/, /השבוע/])) return 'UPCOMING_EVENTS'
   if (has(text, [/מה האירוע הבא/, /מה הדבר הבא/, /מה הבא בלו/])) return 'NEXT_EVENT'
@@ -147,7 +147,7 @@ function responseFor(data: AppData, conversation: LiaConversation, member: Perso
     const tasks = data.tasks.filter(task => task.familyId === family.id && !task.done && (task.priority === 'high' || task.priority === 'critical')).slice(0, 2)
     const rides = data.transportationRequests.filter(request => request.familyId === family.id && !['COVERED', 'CANCELLED'].includes(request.status)).slice(0, 2)
     const items = [...interventions.slice(0, 2).map(item => item.detectedChange), ...rides.map(request => `עדיין אין נהג מאושר ל־${data.events.find(event => event.id === request.eventId)?.title || 'הסעה'}`), ...tasks.map(task => `${task.title} עד ${dateLabel(task.due)}`)].slice(0, 4)
-    return { text: items.length ? `יש כרגע ${items.length === 1 ? 'דבר אחד' : `${items.length} אירועים`} שדורשים תשומת לב:\n${shortList(items)}` : 'הכול בשליטה כרגע. אין משהו שדורש ממך פעולה.', type: 'entitySummary', context: { ...context, lastInterventionId: interventions[0]?.id } }
+    return { text: items.length ? `יש כרגע ${items.length === 1 ? 'דבר אחד' : `${items.length} אירועים`} שדורשים תשומת לב:\n${shortList(items)}` : 'הכול בשליטה כרגע. אין אירוע שדורש ממך פעולה.', type: 'entitySummary', context: { ...context, lastInterventionId: interventions[0]?.id } }
   }
   if (intent === 'WHO_CAN_DRIVE') {
     if (childMode) {

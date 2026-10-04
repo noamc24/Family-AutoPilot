@@ -55,7 +55,7 @@ export function receiveShowcaseSignal(data: AppData, signal: ExternalSignal): Ap
   const taskSignal = signal.signalType === 'task'
   const item: LiaIntervention = {
     id: interventionId(signal.id), familyId: signal.familyId, signalId: signal.id, type: 'message',
-    title: taskSignal ? 'LIA זיהתה משהו שדורש פעולה' : 'LIA זיהתה שינוי באירוע',
+    title: taskSignal ? 'LIA זיהתה אירוע שדורש פעולה' : 'LIA זיהתה שינוי באירוע',
     detectedChange: signal.familyInsight,
     whyItMatters: taskSignal ? 'יש פעולה עם מועד אחרון שכדאי להכניס לתוכנית.' : 'השעה החדשה משפיעה על התוכנית המשפחתית.',
     recommendation: taskSignal ? `ליצור משימה: ${signal.taskCandidate?.title}?` : 'לעדכן את האירוע הקיים ביומן.',

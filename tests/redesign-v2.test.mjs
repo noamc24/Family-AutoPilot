@@ -50,8 +50,8 @@ test('brief ביתי כולל משימות להיום ומונע הצפת משי
   assert.deepEqual(brief.tasks.map(task => task.id), ['today', 'timed'])
 })
 
-test('ברירת המחדל של היומן היא ימים, טבלה וחודש וכל הטווחים זמינים', () => {
-  assert.deepEqual(defaultCalendarView, { grouping: 'days', display: 'table', range: 'month' })
+test('ברירת המחדל של היומן היא אישי, טבלה וחודש וכל הטווחים זמינים', () => {
+  assert.deepEqual(defaultCalendarView, { grouping: 'personal', display: 'table', range: 'month' })
   assert.equal(calendarDays(at(12), 'day').length, 1)
   assert.equal(calendarDays(at(12), 'week').length, 7)
   assert.equal(calendarDays(at(12), 'month').length, 42)
@@ -67,7 +67,7 @@ test('בחירת אנשים מסננת אירועים ו-child mode מוגבל �
 
 test('ה-UI כולל controls לכל מצבי היומן, ניווט יום/חודש ושורות', () => {
   const source = fs.readFileSync('src/components/CalendarView.tsx', 'utf8')
-  for (const copy of ['ימים', 'אנשים', 'טבלה', 'שורות', 'יומי', 'שבועי', 'חודשי', 'שנתי']) assert.match(source, new RegExp(copy))
+  for (const copy of ['אישי', 'משפחתי', 'טבלה', 'שורות', 'יומי', 'שבועי', 'חודשי', 'שנתי']) assert.match(source, new RegExp(copy))
   assert.match(source, /setRange\('day'\)/)
   assert.match(source, /setRange\('month'\)/)
   assert.match(source, /togglePerson/)

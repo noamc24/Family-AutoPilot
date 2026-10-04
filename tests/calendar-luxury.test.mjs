@@ -74,9 +74,13 @@ test('שגרה מסוננת לתאריך הנכון בלבד בכל range', () =
   assert.equal(deriveRoutineOccurrences(family, [tuesday], [], ['child']).length, 0)
 })
 
-test('People Rows משתמש בכל ה-Members שנבחרו וברוחב התוכן', () => {
-  assert.equal(calendarRendererFor('month', 'people', 'rows'), 'people-rows')
+test('יומן משפחתי משתמש בכל בני המשפחה שנבחרו וברוחב התוכן', () => {
+  assert.equal(calendarRendererFor('day', 'family', 'table'), 'people-table')
+  assert.equal(calendarRendererFor('week', 'family', 'table'), 'people-table')
+  assert.equal(calendarRendererFor('month', 'family', 'table'), 'people-table')
+  assert.equal(calendarRendererFor('month', 'family', 'rows'), 'people-rows')
   assert.match(source, /people\.map\(person/)
+  assert.match(source, /grouping === 'family' \? rowDateLabel\(item\.date\)/)
   const css = fs.readFileSync('src/redesign.css', 'utf8')
   assert.match(css, /\.view-events \.grouped-rows \{ width: 100%; max-width: none;/)
   assert.match(css, /\.view-events \.grouped-rows \.calendar-row \{ width: 100%; \}/)

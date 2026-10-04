@@ -24,7 +24,7 @@ export function FamilyView({ family, families, events, tasks, requests, actorId,
     if (person.availability === 'unavailable') return 'לא זמין/ה כרגע'
     if (next?.date === today) return `${next.title} ב־${next.time}`
     if (person.availability === 'available' || person.availability === 'home') return 'פנוי/ה כרגע'
-    return 'אין משהו קרוב כרגע'
+    return 'אין אירוע קרוב כרגע'
   }
   const child = childMode ? people[0] : undefined
   const childEvents = child ? personEvents(child) : []

@@ -1,10 +1,10 @@
 import type { FamilyEvent, FamilyTask, Person } from './data'
 
-export type CalendarGrouping = 'days' | 'people'
+export type CalendarGrouping = 'personal' | 'family'
 export type CalendarDisplay = 'table' | 'rows'
 export type CalendarRange = 'day' | 'week' | 'month' | 'year'
 
-export const defaultCalendarView = { grouping: 'days' as CalendarGrouping, display: 'table' as CalendarDisplay, range: 'month' as CalendarRange }
+export const defaultCalendarView = { grouping: 'personal' as CalendarGrouping, display: 'table' as CalendarDisplay, range: 'month' as CalendarRange }
 
 export function homeGreeting(person: Pick<Person, 'name' | 'role'>, date = new Date()): string {
   const minutes = date.getHours() * 60 + date.getMinutes()

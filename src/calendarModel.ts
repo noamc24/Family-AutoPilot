@@ -28,7 +28,7 @@ export function calendarDatesForRange(anchor: Date, range: CalendarRange) {
 
 export function calendarRendererFor(range: CalendarRange, grouping: CalendarGrouping, display: CalendarDisplay): CalendarRenderer {
   if (range === 'year') return 'yearly-grid'
-  if (grouping === 'people') return display === 'rows' ? 'people-rows' : 'people-table'
+  if (grouping === 'family') return display === 'rows' ? 'people-rows' : 'people-table'
   if (display === 'rows') return 'day-rows'
   if (range === 'month') return 'monthly-grid'
   return range === 'day' ? 'daily-timeline' : 'weekly-timeline'

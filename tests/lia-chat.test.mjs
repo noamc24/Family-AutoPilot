@@ -172,12 +172,12 @@ test('fallback קצר ו-clear chat מנקה רק את השיחה', () => {
 })
 
 test('intent matching תומך בווריאציות ואינו דורש משפט מדויק', () => {
-  assert.equal(detectLiaIntent('יש משהו שאני צריך לעשות?'), 'WHAT_NEEDS_ATTENTION')
+  assert.equal(detectLiaIntent('יש אירוע שאני צריך לעשות?'), 'WHAT_NEEDS_ATTENTION')
   assert.equal(detectLiaIntent('מי פנוי להסיע את איתמר?'), 'WHO_CAN_DRIVE')
   assert.equal(detectLiaIntent('מה נשאר לעשות?'), 'OPEN_TASKS')
   assert.equal(detectLiaIntent('מה השתנה היום?'), 'RECENT_CHANGES')
   assert.equal(detectLiaIntent('מה נשאר להיום?'), 'TODAY_SCHEDULE')
-  assert.equal(detectLiaIntent('יש משהו חשוב?'), 'WHAT_NEEDS_ATTENTION')
+  assert.equal(detectLiaIntent('יש אירוע חשוב?'), 'WHAT_NEEDS_ATTENTION')
   assert.equal(detectLiaIntent('מה יש מחר?'), 'UPCOMING_EVENTS')
   assert.equal(detectLiaIntent('מתי האימון?'), 'EVENT_DETAILS')
 })
@@ -212,7 +212,7 @@ test('למה משתמש בהקשר האחרון ו-fallback עם Member מציע
   let data = sendLiaChatMessage(simpleData(), 'f', 'm', 'מי יכול להסיע את איתמר?').data
   data = sendLiaChatMessage(data, 'f', 'm', 'למה?').data
   assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /אוראל.*זמין|אוראל.*תנאי הנהיגה/)
-  data = sendLiaChatMessage(data, 'f', 'm', 'תעשי משהו עם מור').data
+  data = sendLiaChatMessage(data, 'f', 'm', 'תעשי אירוע עם מור').data
   assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /לגבי מור.*לו״ז.*משימות.*הסעות/)
 })
 
