@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { Bell, Bot, ChevronLeft, ChevronRight, Link2, LockKeyhole, UserRound, UsersRound } from 'lucide-react'
+import { Bell, Bot, ChevronLeft, ChevronRight, Database, Link2, LockKeyhole, UserRound, UsersRound } from 'lucide-react'
 import { normalizePersonalSettings, type FamilyPreferences, type Person, type PersonalSettings } from '../data'
 import { sourceDefinitionById } from '../sourceDefinitions'
 import { updateConnection, updateLiaAccess, updateNotifications, updateProactiveSuggestions } from '../personalSettings'
@@ -13,9 +13,10 @@ type Props = {
   onEditProfile: () => void
   familyCount: number
   familyContent: ReactNode
+  dataContent?: ReactNode
 }
 
-type SettingsSection = 'profile' | 'lia' | 'connections' | 'notifications' | 'family' | 'privacy'
+type SettingsSection = 'profile' | 'lia' | 'connections' | 'notifications' | 'family' | 'privacy' | 'data'
 
 const autonomyOptions: { value: NonNullable<FamilyPreferences['autonomy']>; label: string; description: string }[] = [
   { value: 'conservative', label: 'שמרנית', description: 'LIA מזהה ומציגה שינויים, בלי פעולות רקע.' },
@@ -27,7 +28,7 @@ function Toggle({ checked, disabled, label, onChange }: { checked: boolean; disa
   return <label className={`settings-toggle ${disabled ? 'disabled' : ''}`}><input type="checkbox" checked={checked} disabled={disabled} onChange={event => onChange(event.target.checked)} aria-label={label}/><span aria-hidden="true"/></label>
 }
 
-export function SettingsPage({ person, autonomy, onAutonomyChange, onChange, onEditProfile, familyCount, familyContent }: Props) {
+export function SettingsPage({ person, autonomy, onAutonomyChange, onChange, onEditProfile, familyCount, familyContent, dataContent }: Props) {
   const settings = normalizePersonalSettings(person.personalSettings)
   const connectedCount = settings.integrations.filter(item => item.connectionStatus === 'connected').length
   const notificationCount = 1 + Number(settings.notifications.importantChanges) + Number(settings.notifications.liaUpdates) + Number(settings.notifications.routineUpdates)
@@ -40,6 +41,7 @@ export function SettingsPage({ person, autonomy, onAutonomyChange, onChange, onE
     { id: 'connections', icon: <Link2/>, title: 'חיבורים', summary: `${connectedCount} מקורות פעילים`, content: <><div className="connections-list">{settings.integrations.map(integration => { const source = sourceDefinitionById[integration.sourceId]; if (!source) return null; const connected = integration.connectionStatus === 'connected'; const allowed = connected && integration.liaAccess === 'allowed'; return <details className={`connection-row ${connected ? 'is-active' : ''}`} key={integration.sourceId}><summary><span className="connection-icon"><SourceIcon sourceId={integration.sourceId}/></span><span className="connection-name"><strong>{source.displayName}</strong><small>{source.description}</small></span><span className={`connection-state ${connected ? 'active' : ''}`}>{connected ? 'פעיל' : 'לא פעיל'}</span><span className="manage-label">ניהול</span><ChevronLeft size={15}/></summary><div className="connection-details"><div className="preference-row"><div><strong>שימוש של LIA במקור</strong><small>{source.demoUse}</small></div><Toggle checked={allowed} disabled={!connected} label={`גישה ל־LIA עבור ${source.displayName}`} onChange={value => onChange(updateLiaAccess(settings, integration.sourceId, value), value ? `LIA יכולה כעת להשתמש ב־${source.displayName}.` : `LIA לא תשתמש יותר ב־${source.displayName}.`)}/></div><button className={connected ? 'disconnect-button' : 'primary-action'} onClick={() => onChange(updateConnection(settings, integration.sourceId, !connected), connected ? `${source.displayName} נותק.` : `${source.displayName} הופעל עבור ${person.name}.`)}>{connected ? 'ניתוק' : 'הפעלה'}</button></div></details> })}</div><div className="privacy-note"><LockKeyhole size={17}/><span>מידע אישי נשאר אישי. החיבורים שייכים ל־{person.name}, ומקור לא פעיל לא ייצור עבורו עדכונים.</span></div></> },
     { id: 'notifications', icon: <Bell/>, title: 'התראות', summary: `${notificationCount} קטגוריות פעילות`, content: <><div className="notification-preferences"><div className="notification-row essential"><div><strong>אירועים שדורשים ממני פעולה</strong><small>אישורים, בקשות הסעה והחלטות שממתינות לך.</small></div><span className="always-on">תמיד פעיל</span></div><NotificationPreference title="שינויים חשובים" subtitle="שינויים משמעותיים בתוכנית ממקורות פעילים." checked={settings.notifications.importantChanges} onChange={enabled => onChange(updateNotifications(settings, 'importantChanges', enabled), 'הגדרות ההתראות עודכנו ✓')}/><NotificationPreference title="עדכוני LIA" subtitle="המלצות אוטומטיות וטיפול במשימות גמישות." checked={settings.notifications.liaUpdates} onChange={enabled => onChange(updateNotifications(settings, 'liaUpdates', enabled), 'הגדרות ההתראות עודכנו ✓')}/><NotificationPreference title="עדכונים שוטפים" subtitle="תזכורות אישיות שאינן דורשות פעולה מיידית." checked={settings.notifications.routineUpdates} onChange={enabled => onChange(updateNotifications(settings, 'routineUpdates', enabled), 'הגדרות ההתראות עודכנו ✓')}/></div><p className="notification-scope-note">ההעדפות משפיעות על הודעות קצרות בתוך האפליקציה. פריטים קריטיים נשארים במרכז הטיפול.</p></> },
     { id: 'family', icon: <UsersRound/>, title: 'המשפחה', summary: `${familyCount} בני משפחה`, content: familyContent },
+    ...(dataContent ? [{ id: 'data' as const, icon: <Database/>, title: 'נתוני תוכנית', summary: 'ניהול אירועים שנוספו', content: dataContent }] : []),
     { id: 'privacy', icon: <LockKeyhole/>, title: 'פרטיות ובטיחות', summary: 'הגנות ילדים והרשאות', content: <><div className="privacy-safety"><section className="privacy-safety-row"><div><strong>ילדים והרשאות</strong><small>{person.age < 18 ? `מצב ילד פעיל עבור ${person.name}. ניהול המשפחה, בדיקות מקורות ופעולות LIA מוגבלים אוטומטית.` : 'מצב ילד מופעל אוטומטית לבני משפחה מתחת לגיל 18 ומגביל ניהול ופעולות LIA.'}</small></div><span className="privacy-status">{person.age < 18 ? 'מצב ילד' : 'לפי גיל'}</span></section><section className="privacy-safety-row"><div><strong>גבולות הגישה של LIA</strong><small>LIA משתמשת רק במקורות פעילים שאושרו לאדם בחיבורים. תוכן המקור הגולמי נשאר פרטי, ולמשפחה מוצגת רק תובנת התיאום.</small></div><span className="privacy-status">מנוהל בחיבורים</span></section><section className="privacy-safety-row"><div><strong>פעולות רגישות</strong><small>שינויי תכנית וחריגות מאושרים רק על־ידי הורה; פעולה אוטומטית רגישה ממתינה במרכז הטיפול לאישור או לדחייה של מבוגר.</small></div><span className="privacy-status">אישור מבוגר</span></section></div><div className="privacy-safety-disclosure"><LockKeyhole size={16}/><div><strong>הערה על החיבורים</strong><span>החיבורים לשירותים חיצוניים בגרסת MVP אינם אמיתיים. הם מדומים ופועלים מקומית בלבד.</span></div></div></> },
   ]
   const selected = sections.find(section => section.id === active)

@@ -104,6 +104,7 @@ import { LiaChatPreview } from './components/LiaChatPreview'
 import { CalendarView } from './components/CalendarView'
 import { TasksView } from './components/TasksView'
 import { FamilyView } from './components/FamilyView'
+import { runPresentationShortcut, type PresentationShortcut } from './presentationShortcuts'
 import { clearLiaConversation, conversationFor, performLiaChatAction, sendLiaChatMessage } from './liaChat'
 import { notificationPreferenceAllows, proactiveSuggestionsEnabled, type OptionalNotificationCategory } from './personalSettings'
 import type { LiaMessage } from './liaChatTypes'
@@ -250,6 +251,24 @@ function App() {
   const currentPerson = family.people.find((p) => p.id === personId) || family.people[0]
   const activePersonId = currentPerson?.id || ''
   useEffect(() => {
+    // Presentation-only: intentionally undiscoverable shortcuts with no visible UI.
+    const handlePresentationShortcut = (event: KeyboardEvent) => {
+      if (!event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) return
+      const shortcut: PresentationShortcut | undefined = event.code === 'Digit1' ? 'traffic' : event.code === 'Digit2' ? 'wedding' : event.code === 'Digit3' ? 'rain' : undefined
+      if (!shortcut) return
+      event.preventDefault()
+      const result = runPresentationShortcut(dataRef.current, family.id, activePersonId, shortcut)
+      if (result.applied) {
+        dataRef.current = result.data
+        setData(result.data)
+        setView('home')
+      }
+      setToast(result.message)
+    }
+    window.addEventListener('keydown', handlePresentationShortcut)
+    return () => window.removeEventListener('keydown', handlePresentationShortcut)
+  }, [activePersonId, family.id])
+  useEffect(() => {
     const handleLiaAction = (event: Event) => {
       const detail = (event as CustomEvent<{ interventionId: string; action: import('./liaInterventions').LiaActionKind }>).detail
       if (detail?.interventionId && detail.action)
@@ -312,6 +331,8 @@ function App() {
     () => data.events.filter((e) => e.familyId === family.id).sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`)),
     [data.events, family.id],
   )
+  const baselineEventIds = new Set(initialData.events.filter(event => event.familyId === family.id).map(event => event.id))
+  const newFamilyEvents = familyEvents.filter(event => !baselineEventIds.has(event.id))
   const myEvents = familyEvents.filter(relevant)
   const myTasks = data.tasks.filter((t) => t.familyId === family.id && t.ownerId === activePersonId)
   const familyTasks = data.tasks.filter((t) => t.familyId === family.id)
@@ -1716,6 +1737,7 @@ function App() {
               onEditProfile={() => openProfile(currentPerson)}
               familyCount={family.people.length}
               familyContent={!childMode ? <FamilyPreferencesPanel family={family} onPreferences={updateFamilyPreferences} onPerson={updatePersonPreferences} /> : <section className="section-card family-management-settings"><div className="section-heading"><div><span className="section-kicker">המשפחה שלי</span><h2>{family.name}</h2></div></div><p className="family-management-intro">ניהול המשפחה זמין למבוגרים במשפחה. במצב ילד ההרשאות נקבעות אוטומטית לפי הגיל.</p></section>}
+              dataContent={!childMode ? <section className="section-card preferences"><h2>אירועים שנוספו</h2><p>ניקוי האירועים מסיר רק אירועים שנוספו לאחר נתוני הבסיס. אירועים קבועים כמו בית ספר נשארים.</p><button className="secondary-button danger" disabled={!newFamilyEvents.length} onClick={() => { const count = newFamilyEvents.length; askConfirmation(`למחוק את ${count} האירועים שנוספו ל${family.name}? משימות ובקשות הסעה שתלויות בהם יימחקו גם הן.`, () => { setData(previous => newFamilyEvents.reduce((next, event) => removeEventAndDependents(next, event.id), previous)); setToast(`${count} אירועים חדשים נמחקו`) }) }}><Trash2 size={14}/> ניקוי אירועים חדשים{newFamilyEvents.length ? ` (${newFamilyEvents.length})` : ''}</button></section> : undefined}
             />
           ) : (
             <>
