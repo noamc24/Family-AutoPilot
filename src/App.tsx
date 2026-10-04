@@ -21,13 +21,16 @@ import {
 } from 'lucide-react'
 import {
   ageFromBirthDate,
+  APP_DATA_STORAGE_KEY,
   dateLabel,
   DEFAULT_FAMILY_ID,
   defaultPersonalSettings,
   detectScenario,
   initialData,
+  hasCompletedOnboarding,
   localDate,
   normalizePersonalSettings,
+  productionStorageKey,
   readData,
   removePersonAndTheirData,
   sanitizeAppData,
@@ -96,7 +99,7 @@ import {
   syncAcknowledgements,
 } from './workflow'
 import { LiaHomeSection } from './components/LiaHomeSection'
-import { applyTrafficFlowAction, initializeTrafficCoreFlow, triggerTrafficCoreFlow } from './liaCoreFlow'
+import { applyTrafficFlowAction, triggerTrafficCoreFlow } from './liaCoreFlow'
 import { SettingsPage } from './components/SettingsPage'
 import { ShowcaseControls } from './components/ShowcaseControls'
 import { applyShowcaseAction, resetSubmissionDemo, triggerShowcase, type ShowcaseKind } from './showcaseFlows'
@@ -177,7 +180,9 @@ function addedBy(person?: Person) {
   return person ? `${person.name} ${person.role === 'בת' || person.role === 'אם' ? 'הוסיפה' : 'הוסיף'}` : ''
 }
 
-const AUTOMATION_HISTORY_CLEANUP_KEY = 'family-autopilot-history-cleanup-v3'
+const AUTOMATION_HISTORY_CLEANUP_KEY = productionStorageKey('automation-history-cleanup-v3')
+const FAMILY_SELECTION_STORAGE_KEY = productionStorageKey('family-selection')
+const PERSON_SELECTION_STORAGE_KEY = productionStorageKey('person-selection')
 
 function clearAccumulatedAutomationHistory(data: AppData): AppData {
   if (localStorage.getItem(AUTOMATION_HISTORY_CLEANUP_KEY)) return data
@@ -204,12 +209,12 @@ function clearAccumulatedAutomationHistory(data: AppData): AppData {
 }
 
 function App() {
-  const [data, setData] = useState<AppData>(() => initializeTrafficCoreFlow(ensureRequests(clearAccumulatedAutomationHistory(readData()), 'Mor')))
+  const [data, setData] = useState<AppData>(() => clearAccumulatedAutomationHistory(readData()))
   const [familyId, setFamilyId] = useState(() => {
-    const saved = localStorage.getItem('family-autopilot-family')
-    return saved === 'cohen' ? DEFAULT_FAMILY_ID : saved || DEFAULT_FAMILY_ID
+    const saved = localStorage.getItem(FAMILY_SELECTION_STORAGE_KEY)
+    return saved || ''
   })
-  const [personId, setPersonId] = useState(() => localStorage.getItem('family-autopilot-person') || 'Orel')
+  const [personId, setPersonId] = useState(() => localStorage.getItem(PERSON_SELECTION_STORAGE_KEY) || '')
   const [view, setView] = useState<View>('home')
   const [dialog, setDialog] = useState<Dialog>(null)
   const [prompt, setPrompt] = useState('')
@@ -245,7 +250,8 @@ function App() {
     window.scrollTo({ top: 0, behavior: 'auto' })
   }, [view])
 
-  const family = data.families.find((f) => f.id === familyId) || data.families[0]
+  const needsOnboarding = !hasCompletedOnboarding(data)
+  const family: FamilyUnit = data.families.find((f) => f.id === familyId) || data.families[0] || { id: '', name: '', people: [] }
   const birthdayReminders = useMemo(() => upcomingBirthdays(family, today), [family, today])
   const currentPerson = family.people.find((p) => p.id === personId) || family.people[0]
   const activePersonId = currentPerson?.id || ''
@@ -285,10 +291,6 @@ function App() {
       window.removeEventListener('fampilot:showcase-reset', reset)
     }
   }, [activePersonId, family.id])
-  useEffect(() => {
-    const initialized = initializeTrafficCoreFlow(data)
-    if (initialized !== data) setData(initialized)
-  }, [data])
   const childMode = !!currentPerson && currentPerson.age < 18
   const liaConversation = conversationFor(data, family.id, activePersonId)
   const autonomy = family.preferences?.autonomy || 'autopilot'
@@ -363,11 +365,11 @@ function App() {
   useEffect(() => {
     const clean = syncAcknowledgements(materializeRoutineTasks(ensureRequests(sanitizeAppData(data), activePersonId)))
     if (JSON.stringify(clean) !== JSON.stringify(data)) setData(clean)
-    else localStorage.setItem('family-autopilot-he-v1', JSON.stringify(data))
+    else localStorage.setItem(APP_DATA_STORAGE_KEY, JSON.stringify(data))
   }, [data])
   useEffect(() => {
-    localStorage.setItem('family-autopilot-family', family.id)
-    localStorage.setItem('family-autopilot-person', activePersonId)
+    localStorage.setItem(FAMILY_SELECTION_STORAGE_KEY, family.id)
+    localStorage.setItem(PERSON_SELECTION_STORAGE_KEY, activePersonId)
   }, [family.id, activePersonId])
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -386,9 +388,9 @@ function App() {
     }
   }, [toast])
   useEffect(() => {
-    const unseen = birthdayReminders.filter(({ person, date }) => !localStorage.getItem(`family-autopilot-birthday-reminder-${family.id}-${person.id}-${date}`))
+    const unseen = birthdayReminders.filter(({ person, date }) => !localStorage.getItem(productionStorageKey(`birthday-reminder-${family.id}-${person.id}-${date}`)))
     if (!unseen.length) return
-    unseen.forEach(({ person, date }) => localStorage.setItem(`family-autopilot-birthday-reminder-${family.id}-${person.id}-${date}`, '1'))
+    unseen.forEach(({ person, date }) => localStorage.setItem(productionStorageKey(`birthday-reminder-${family.id}-${person.id}-${date}`), '1'))
     showOptionalNotification('routineUpdates',
       unseen.length === 1
         ? `יום ההולדת של ${unseen[0].person.name} ${unseen[0].daysUntil ? `בעוד ${unseen[0].daysUntil} ימים` : 'היום'} 🎂`
@@ -399,7 +401,7 @@ function App() {
     if (autonomy === 'conservative') return
     const actorId = family.people.find((person) => person.age >= 18)?.id || activePersonId
     if (!actorId) return
-    const storageKey = `family-autopilot-auto-${family.id}`
+    const storageKey = productionStorageKey(`automatic-${family.id}`)
     const randomInterval = () => 300_000 + Math.floor(Math.random() * 200_001)
     let timeoutId: number | undefined
     const scheduleNext = () => {
@@ -1305,6 +1307,8 @@ function App() {
       </div>
     </section>
   )
+
+  if (needsOnboarding) return <div className="app-shell" dir="rtl" data-onboarding-state="required" />
 
   return (
     <div className={`app-shell ${childMode ? 'child-mode' : ''}`} dir="rtl">

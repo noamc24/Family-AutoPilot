@@ -25,7 +25,10 @@ export type AppData = { families: FamilyUnit[]; events: FamilyEvent[]; tasks: Fa
 export const uid = () => Math.random().toString(36).slice(2, 10)
 export const ageFromBirthYear = (year: number) => new Date().getFullYear() - year
 export const DEFAULT_FAMILY_ID = 'Avrahami'
-export const personalSourceIds: IntegrationSource[] = ['calendar', 'whatsapp', 'email', 'waze', 'location', 'school', 'university', 'work', 'club', 'transit']
+export const PRODUCTION_STORAGE_NAMESPACE = 'fampilot-production-v1'
+export const APP_DATA_STORAGE_KEY = `${PRODUCTION_STORAGE_NAMESPACE}:data`
+export const productionStorageKey = (key: string) => `${PRODUCTION_STORAGE_NAMESPACE}:${key}`
+export const personalSourceIds: IntegrationSource[] = ['calendar', 'whatsapp', 'email', 'waze', 'weather', 'location', 'school', 'university', 'work', 'club', 'transit']
 export function defaultPersonalSettings(): PersonalSettings {
   return { notifications: { enabled: true, importantChanges: true, liaUpdates: true, routineUpdates: true }, lia: { proactiveSuggestions: true }, integrations: personalSourceIds.map(sourceId => ({ sourceId, connectionStatus: 'disconnected', liaAccess: 'notAllowed', mode: 'demo' })) }
 }
@@ -198,6 +201,14 @@ export const initialData: AppData = {
   liaConversations: [],
 }
 
+/** Empty production state used until the first family is created through onboarding. */
+export const emptyAppData = (): AppData => ({
+  families: [], events: [], tasks: [], activity: [], transportationRequests: [], integrationLogs: [], calendarMirrors: [],
+  acknowledgements: [], suppressedRoutineTaskIds: [], pendingActions: [], dismissedActionIds: [], trafficSignals: [], externalSignals: [], liaInterventions: [], liaConversations: [],
+})
+
+export const hasCompletedOnboarding = (data: Pick<AppData, 'families'>) => data.families.length > 0
+
 /** Keeps persisted records tied to a real member of their own family unit. */
 export function sanitizeAppData(data: AppData): AppData {
   data = pruneExpiredData(data)
@@ -286,7 +297,7 @@ export function migrateDefaultFamily(data: AppData): AppData {
 
 export function readData(): AppData {
   try {
-    const stored = JSON.parse(localStorage.getItem('family-autopilot-he-v1') || 'null') as AppData | null
+    const stored = JSON.parse(localStorage.getItem(APP_DATA_STORAGE_KEY) || 'null') as AppData | null
     const legacy = stored?.families?.find(family => family.id === 'cohen' && family.name === 'משפחת כהן' && family.people.length === 4 && [['Mor', 'מאיה'], ['Orel', 'אדם'], ['Itamar', 'יובל'], ['noa', 'נועה']].every(([id, name]) => family.people.some(person => person.id === id && person.name === name)))
     const seedFamily = initialData.families[0]
     const saved = stored && legacy ? { ...stored,
@@ -294,7 +305,7 @@ export function readData(): AppData {
       events: stored.events.map(event => event.familyId === 'cohen' && ['dentist', 'dance', 'football', 'pickup'].includes(event.id) ? { ...event, title: event.id === 'pickup' && event.title === 'איסוף יובל מכדורגל' ? 'איסוף איתמר מכדורגל' : event.title, details: event.details?.replace(/מאיה/g, 'מור').replace(/אדם/g, 'אוראל').replace(/נועה/g, 'עומר') || '' } : event),
       activity: stored.activity.map(entry => entry.familyId === 'cohen' && ['activity-1', 'activity-2'].includes(entry.id) ? { ...entry, text: entry.text.replace(/מאיה/g, 'מור').replace(/אדם/g, 'אוראל') } : entry),
     } : stored
-    if (saved && Array.isArray(saved.families) && Array.isArray(saved.events) && Array.isArray(saved.tasks) && Array.isArray(saved.activity) && saved.families.length) {
+    if (saved && Array.isArray(saved.families) && Array.isArray(saved.events) && Array.isArray(saved.tasks) && Array.isArray(saved.activity)) {
       return sanitizeAppData(migrateDefaultFamily({
         ...saved,
         families: saved.families.map(family => ({ ...family, name: family.id === 'cohen' && (family.name === 'המשפחה של אוראל ומור' || family.name === 'משפחת כהן') ? seedFamily.name : cleanStoredText(family.name), people: family.people.map(person => {
@@ -322,8 +333,8 @@ export function readData(): AppData {
         liaConversations: saved.liaConversations || [],
       }))
     }
-  } catch { /* use demo state */ }
-  return sanitizeAppData(initialData)
+  } catch { /* use a clean first-time state */ }
+  return emptyAppData()
 }
 
 export function removePersonAndTheirData(data: AppData, familyId: string, personId: string): AppData {
