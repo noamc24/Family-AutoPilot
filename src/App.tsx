@@ -63,6 +63,7 @@ import {
 } from './domain'
 import {
   alternativeForRequest,
+  acceptRideRequest,
   applyAlternativePlan,
   applyTransitAlternative,
   confirmDriver,
@@ -628,7 +629,7 @@ function App() {
   }
   function answerRide(id: string, answer: 'CAN_DO' | 'CANNOT_DO') {
     setData((previous) => {
-      const next = respondToRequest(previous, id, activePersonId, answer)
+      const next = answer === 'CAN_DO' ? acceptRideRequest(previous, id, activePersonId) : respondToRequest(previous, id, activePersonId, answer)
       if (next === previous) return previous
       const event = previous.events.find((item) => item.id === previous.transportationRequests.find((item) => item.id === id)?.eventId)
       return {
@@ -3710,7 +3711,7 @@ function RequestBoard({
               <div className="response-list">
                 {request.eligibleMemberIds.map((id) => (
                   <span key={id}>
-                    {names.get(id)}: {request.responses[id] === 'CAN_DO' ? 'יכול/ה' : request.responses[id] === 'CANNOT_DO' ? 'לא יכול/ה' : 'טרם השיב/ה'}
+                    {names.get(id)}: {request.responses[id] === 'CAN_DO' ? 'יכול/ה' : request.responses[id] === 'CANNOT_DO' ? 'לא יכול/ה' : request.responses[id] === 'CANCELLED' ? 'נסגר לאחר שיבוץ' : 'טרם השיב/ה'}
                   </span>
                 ))}
               </div>
