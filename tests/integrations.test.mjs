@@ -18,14 +18,15 @@ test('פקק מדומה משנה שעת יציאה אך לא את שעת האי�
   const original = data.events.find(event => event.id === 'football')
   const updated = first.data.events.find(event => event.id === 'football')
   assert.equal(updated.time, original.time)
-  assert.equal(updated.departureTime, '16:15')
+  assert.equal(updated.departureTime, '15:45')
   assert.equal(updated.routeMinutes, 35)
   assert.match(updated.sourceNote, /וויז/)
   assert.match(first.message, /זיהיתי בוויז/)
   assert.ok(first.data.integrationLogs.some(entry => entry.source === 'waze' && entry.eventId === 'football'))
-  const second = integrations.simulateIntegration(first.data, 'Avrahami', 'Orel', 'waze')
+  const withoutAnotherAssignedRide = { ...first.data, events: first.data.events.filter(event => event.id === 'football' || !event.requiresDriver) }
+  const second = integrations.simulateIntegration(withoutAnotherAssignedRide, 'Avrahami', 'Orel', 'waze')
   assert.equal(second.applied, false)
-  assert.equal(second.data.events.length, first.data.events.length)
+  assert.equal(second.data.events.length, withoutAnotherAssignedRide.events.length)
 })
 
 test('הודעת וואטסאפ יוצרת אירוע ביומן המדומה ונמחקת איתו', () => {
@@ -125,8 +126,12 @@ test('עדכונים אוטומטיים מופעלים אחד בכל פעם וא
   assert.equal(first.data.integrationLogs[0].trigger, 'automatic')
   const second = integrations.advanceAutomaticIntegrations(first.data, 'Avrahami', 'Orel')
   assert.equal(second.applied, true)
-  assert.equal(second.data.integrationLogs[0].source, 'school')
-  assert.equal(second.data.integrationLogs.filter(item => item.source === 'waze').length, 1)
+  assert.equal(second.data.integrationLogs[0].source, 'waze')
+  assert.notEqual(second.data.integrationLogs[0].eventId, second.data.integrationLogs[1].eventId)
+  assert.equal(second.data.integrationLogs.filter(item => item.source === 'waze').length, 2)
+  const third = integrations.advanceAutomaticIntegrations(second.data, 'Avrahami', 'Orel')
+  assert.equal(third.applied, true)
+  assert.equal(third.data.integrationLogs[0].source, 'school')
 })
 
 test('נתונים ישנים מקבלים הגדרות אישיות וחיבורי דמו ברירת מחדל בטוחה', () => {
