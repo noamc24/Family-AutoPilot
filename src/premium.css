@@ -428,7 +428,7 @@ p { color: var(--fp-body); }
 .concept-e-home .lia-decision-area { margin-top: 12px; }
 .concept-e-home .lia-actions { display:flex; flex-wrap:wrap; gap:7px; margin-top:0; }
 .concept-e-home .lia-actions button { min-height:34px; padding:6px 13px; border-radius:9px; font-size:12px; justify-content:center; }
-.concept-e-home .lia-transfer { position:relative; }
+.concept-e-home .lia-transfer { position:relative; min-width:0; }
 .concept-e-home .lia-transfer summary { list-style:none; cursor:pointer; }
 .concept-e-home .lia-transfer summary::-webkit-details-marker { display:none; }
 .concept-e-home .lia-transfer-button { display:inline-flex; align-items:center; gap:6px; }
@@ -543,6 +543,9 @@ p { color: var(--fp-body); }
   .concept-e-home .lia-priority { padding: 17px 15px 16px 19px; border-radius: 4px 13px 13px 13px; }
   .concept-e-home .lia-card { padding: 13px 1px 1px; }
   .concept-e-home .lia-card + .lia-card { padding: 13px 1px 1px; }
+  .concept-e-home .lia-actions { width:100%; gap:6px; }
+  .concept-e-home .lia-actions > button, .concept-e-home .lia-transfer-button { flex:1 1 auto; min-width:88px; }
+  .concept-e-home .lia-transfer { flex:1 1 auto; }
   .concept-e-agenda { padding: 16px 14px 12px; border-radius: 14px; }
   .concept-e-agenda .home-brief { padding-inline: 10px; }
   .concept-e-agenda .brief-row { grid-template-columns: 44px minmax(0,1fr) 12px; min-height:50px; }

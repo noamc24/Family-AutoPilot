@@ -15,7 +15,7 @@ export function LiaHomeSection({ data, family, actorId }: { data: AppData; famil
     if (item.type !== 'traffic' || !item.relatedEventId) return item
     const event = data.events.find(entry => entry.id === item.relatedEventId)
     const request = requestForEvent(data, item.relatedEventId)
-    if (item.status === 'decisionRequired' && event?.responsibleId === actorId) return { ...item, actions: [{ id: 'take', kind: 'takeOwnership', label: 'אישור', primary: true }, { id: 'dismiss', kind: 'dismiss', label: 'לא מתאים' }] }
+    if (item.status === 'decisionRequired' && event && (viewer?.age || 0) >= 18) return { ...item, actions: [{ id: 'approve', kind: 'approve', label: 'אישור', primary: true }, { id: 'dismiss', kind: 'dismiss', label: 'לא מתאים' }] }
     if (item.status === 'inProgress' && event?.responsibleId === actorId) return { ...item, actions: [{ id: 'complete', kind: 'complete', label: 'אישור וסיום', primary: true }] }
     if (item.status === 'waiting' && request?.responses[actorId] === 'PENDING' && request.eligibleMemberIds.includes(actorId)) return { ...item, statusDetail: 'מי יכול לקחת אחריות?', actions: [{ id: 'accept', kind: 'acceptHandoff', label: 'אישור', primary: true }, { id: 'decline', kind: 'declineHandoff', label: 'לא מתאים' }] }
     return { ...item, actions: [] }

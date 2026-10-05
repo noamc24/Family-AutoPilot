@@ -58,6 +58,11 @@ export function applyTrafficFlowAction(data: AppData, interventionId: string, ac
   const actor = family?.people.find(item => item.id === actorId)
   if (!intervention || !event || !family || !actor) return data
   const update = (changes: Partial<LiaIntervention>) => ({ ...data, liaInterventions: (data.liaInterventions || []).map(item => item.id === intervention.id ? { ...item, ...changes, updatedAt: new Date().toISOString() } : item) })
+  if (action === 'approve' && actor.age >= 18) {
+    const summary = `שעת היציאה ל${event.title} עודכנה ל־${event.departureTime || event.time}.`
+    const next = update({ status: 'completed', actions: [], statusDetail: 'אושר · שעת היציאה עודכנה', resolvedAt: new Date().toISOString(), resolvedBy: actorId, resolutionType: 'calendarUpdated', resolutionSummary: summary })
+    return addActivityOnce(next, `activity:${intervention.id}:approved`, summary, [actorId], family.id)
+  }
   if (action === 'dismiss') {
     const signal = (data.trafficSignals || []).find(item => item.id === intervention.id.replace('lia-traffic:', ''))
     const previousMinutes = signal?.previousTravelMinutes
