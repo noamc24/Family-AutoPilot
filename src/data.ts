@@ -66,10 +66,10 @@ export const localDate = (offset = 0) => {
   date.setDate(date.getDate() + offset)
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
-const nextFriday = () => {
+const nextWednesday = () => {
   const date = new Date()
   const currentDay = date.getDay()
-  const diff = (5 - currentDay + 7) % 7 || 7
+  const diff = (3 - currentDay + 7) % 7 || 7
   date.setDate(date.getDate() + diff)
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
@@ -154,8 +154,8 @@ const weeklyCare = (personId: string, label: string): WeeklyRoutine[] => [
 const defaultFamilyRoutines: Record<string, WeeklyRoutine[]> = {
   Itamar: [{ id: 'default-Itamar-soccer', kind: 'activity', label: 'חוג כדורגל', day: 2, days: [2], start: '18:00', end: '20:00' }],
   noa: [{ id: 'default-noa-swim', kind: 'activity', label: 'חוג שחייה', day: 3, days: [3], start: '18:00', end: '19:30' }],
-  Mor: [{ id: 'default-Mor-work', kind: 'work', label: 'עבודה', day: 0, days: [0, 1, 2, 3, 4], start: '09:00', end: '15:30' }],
-  Orel: [{ id: 'default-Orel-work', kind: 'work', label: 'עבודה', day: 0, days: [0, 1, 2, 3, 4], start: '07:00', end: '16:00' }],
+  Mor: [],
+  Orel: [],
 }
 
 export const initialData: AppData = {
@@ -167,14 +167,17 @@ export const initialData: AppData = {
     { id: 'yehonatan', name: 'יהונתן', role: 'בן', color: 'sage', birthDate: '2024-11-11', birthYear: 2024, age: ageFromBirthDate('2024-11-11'), hasLicense: false, hasCar: false, availableForPickup: false, routines: weeklyCare('yehonatan', 'מעון') },
   ] }],
   events: [
-    { id: 'dentist', familyId: DEFAULT_FAMILY_ID, title: 'תור לרופא שיניים', date: localDate(), time: '10:30', icon: '🦷', participantIds: ['Mor'], responsibleId: 'Mor', details: 'מור הולכת לתור', priority: 'critical' },
-    { id: 'dance', familyId: DEFAULT_FAMILY_ID, title: 'חוג ריקוד', date: localDate(), time: '16:00', icon: '💃', participantIds: ['noa', 'Mor'], responsibleId: 'Mor', details: 'מור מסיעה את עומר', requiresDriver: true },
-    { id: 'football', familyId: DEFAULT_FAMILY_ID, title: 'אימון כדורגל', date: localDate(), time: '17:00', icon: '⚽', participantIds: ['Itamar', 'Orel'], responsibleId: 'Orel', details: 'אוראל מסיע - יציאה ב־16:32', requiresDriver: true },
-    { id: 'traffic-pickup', familyId: DEFAULT_FAMILY_ID, title: 'איסוף איתמר מאימון', date: localDate(2), time: '17:00', icon: '🚗', participantIds: ['Itamar', 'Orel'], responsibleId: 'Orel', details: 'אוראל אחראי לאיסוף', requiresDriver: true },
-    { id: 'dinner', familyId: DEFAULT_FAMILY_ID, title: 'ארוחת ערב משפחתית', date: localDate(), time: '19:30', icon: '🍽️', participantIds: ['Mor', 'Orel', 'Itamar', 'noa', 'yehonatan'], responsibleId: '', details: 'כולם יחד' },
-    { id: 'grandma-babka', familyId: DEFAULT_FAMILY_ID, title: 'קובה אצל סבתא', date: nextFriday(), time: '12:00', endTime: '16:45', icon: '👵', participantIds: ['Mor', 'Orel', 'Itamar', 'noa', 'yehonatan'], responsibleId: '', details: 'קובה אצל סבתא' },
-    { id: 'pickup', familyId: DEFAULT_FAMILY_ID, title: 'איסוף איתמר מכדורגל', date: localDate(4), time: '18:30', icon: '🚗', participantIds: ['Itamar'], responsibleId: '', details: 'דרוש נהג/ת לאיסוף', needsAttention: true, requiresDriver: true },
-    { id: 'trip', familyId: DEFAULT_FAMILY_ID, title: 'טיול בית ספר', routineOverride: true, date: localDate(6), time: '08:00', icon: '🎒', participantIds: ['Itamar'], responsibleId: 'Mor', details: 'צפוי גשם - כדאי לקחת מעיל' },
+    { id: 'dentist', familyId: DEFAULT_FAMILY_ID, title: 'רופא שיניים לעומר', date: localDate(1), time: '10:30', endTime: '11:15', icon: '🦷', participantIds: ['noa', 'Mor'], responsibleId: 'Mor', details: 'מור מלווה את עומר לתור', priority: 'high' },
+    { id: 'dance', familyId: DEFAULT_FAMILY_ID, title: 'חוג שחייה לעומר', date: localDate(2), time: '17:00', endTime: '18:00', icon: '🏊', participantIds: ['noa', 'Mor'], responsibleId: 'Mor', details: 'מור מסיעה את עומר לחוג', requiresDriver: true },
+    { id: 'temporary-wednesday-lesson', familyId: DEFAULT_FAMILY_ID, title: 'שיעור זמני', date: nextWednesday(), time: '19:30', endTime: '19:40', icon: '📝', participantIds: ['Orel'], responsibleId: 'Orel', details: 'אירוע זמני — ניתן לשנות את השם בהמשך' },
+    { id: 'football', familyId: DEFAULT_FAMILY_ID, title: 'חוג כדורגל לאיתמר', date: localDate(3), time: '17:00', endTime: '18:15', icon: '⚽', participantIds: ['Itamar', 'Orel'], responsibleId: 'Orel', details: 'אוראל מסיע את איתמר לחוג', requiresDriver: true },
+    { id: 'supermarket', familyId: DEFAULT_FAMILY_ID, title: 'סופר', date: localDate(4), time: '18:00', endTime: '19:00', icon: '🛒', participantIds: ['Orel'], responsibleId: 'Orel', details: 'קניות שבועיות לבית' },
+    { id: 'parents-meeting', familyId: DEFAULT_FAMILY_ID, title: 'אסיפת הורים', date: localDate(5), time: '18:30', endTime: '19:30', icon: '🏫', participantIds: ['Mor', 'Orel', 'Itamar'], responsibleId: 'Mor', details: 'אסיפת הורים בבית הספר של איתמר' },
+    { id: 'dinner', familyId: DEFAULT_FAMILY_ID, title: 'ארוחת ערב משפחתית', date: localDate(6), time: '19:30', endTime: '20:30', icon: '🍽️', participantIds: ['Mor', 'Orel', 'Itamar', 'noa', 'yehonatan'], responsibleId: '', details: 'כולם יחד' },
+    { id: 'trip', familyId: DEFAULT_FAMILY_ID, title: 'טיול בית ספר', routineOverride: true, date: localDate(7), time: '08:00', endTime: '14:00', icon: '🎒', participantIds: ['Itamar'], responsibleId: 'Mor', details: 'להביא תיק, מים וכובע' },
+    { id: 'traffic-pickup', familyId: DEFAULT_FAMILY_ID, title: 'איסוף איתמר מאימון', date: localDate(8), time: '17:00', icon: '🚗', participantIds: ['Itamar', 'Orel'], responsibleId: 'Orel', details: 'אוראל אחראי לאיסוף', requiresDriver: true },
+    { id: 'pickup', familyId: DEFAULT_FAMILY_ID, title: 'איסוף איתמר מכדורגל', date: localDate(9), time: '18:30', icon: '🚗', participantIds: ['Itamar'], responsibleId: '', details: 'דרוש נהג/ת לאיסוף', needsAttention: true, requiresDriver: true },
+    { id: 'orel-haircut', familyId: DEFAULT_FAMILY_ID, title: 'תספורת לאוראל', date: localDate(10), time: '16:30', endTime: '17:15', icon: '✂️', participantIds: ['Orel'], responsibleId: 'Orel', details: 'תור במספרה' },
   ],
   tasks: [
     { id: 'groceries', familyId: DEFAULT_FAMILY_ID, title: 'קניות לבית', ownerId: 'Mor', due: localDate(), done: false, requiresAdult: true, priority: 'low', flexible: true },

@@ -1,7 +1,8 @@
 import { ensureRequests } from './coordination'
-import { localDate, uid, type AppData, type FamilyEvent, type IntegrationSource } from './data'
+import { initialData, localDate, uid, type AppData, type FamilyEvent, type IntegrationSource } from './data'
 import { saveEventAndDependents } from './domain'
 import { addLog } from './integrations'
+import { initializeTrafficCoreFlow } from './liaCoreFlow'
 import { memberAllowsSource } from './trafficSignals'
 
 // Presentation-only: repeatable, keyboard-triggered scenarios with no visible controls.
@@ -14,6 +15,15 @@ const shiftTime = (value: string, minutes: number) => {
 }
 
 const sourceFor: Record<PresentationShortcut, IntegrationSource> = { traffic: 'waze', wedding: 'whatsapp', rain: 'weather' }
+
+/** Presentation-only: restore the single canonical demo seed and clear only its legacy storage namespace. */
+export function resetPresentationDemo(): AppData {
+  for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+    const key = localStorage.key(index)
+    if (key?.startsWith('family-autopilot-')) localStorage.removeItem(key)
+  }
+  return initializeTrafficCoreFlow(ensureRequests(structuredClone(initialData), 'Mor'))
+}
 
 export function runPresentationShortcut(data: AppData, familyId: string, actorId: string, shortcut: PresentationShortcut) {
   const family = data.families.find(item => item.id === familyId)

@@ -105,7 +105,7 @@ import { LiaChatPreview } from './components/LiaChatPreview'
 import { CalendarView } from './components/CalendarView'
 import { TasksView } from './components/TasksView'
 import { FamilyView } from './components/FamilyView'
-import { runPresentationShortcut, type PresentationShortcut } from './presentationShortcuts'
+import { resetPresentationDemo, runPresentationShortcut, type PresentationShortcut } from './presentationShortcuts'
 import { clearLiaConversation, conversationFor, performLiaChatAction, sendLiaChatMessage } from './liaChat'
 import { notificationPreferenceAllows, proactiveSuggestionsEnabled, type OptionalNotificationCategory } from './personalSettings'
 import type { LiaMessage } from './liaChatTypes'
@@ -261,6 +261,22 @@ function App() {
   useEffect(() => {
     // Presentation-only: intentionally undiscoverable shortcuts with no visible UI.
     const handlePresentationShortcut = (event: KeyboardEvent) => {
+      if (event.ctrlKey && !event.shiftKey && !event.altKey && !event.metaKey && event.code === 'Digit9') {
+        event.preventDefault()
+        const reset = resetPresentationDemo()
+        dataRef.current = reset
+        setData(reset)
+        setFamilyId(DEFAULT_FAMILY_ID)
+        setPersonId('Orel')
+        setView('home')
+        setDialog(null)
+        setConfirmation(null)
+        setAttentionExpanded(false)
+        setCalendarNavigationTarget(null)
+        setPrompt('')
+        setToast('מצב המצגת אופס')
+        return
+      }
       if (!event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) return
       const shortcut: PresentationShortcut | undefined = event.code === 'Digit1' ? 'traffic' : event.code === 'Digit2' ? 'wedding' : event.code === 'Digit3' ? 'rain' : undefined
       if (!shortcut) return
