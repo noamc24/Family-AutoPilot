@@ -181,6 +181,39 @@ p { color: var(--fp-body); }
 }
 .form-field input:hover, .form-field select:hover, .form-field textarea:hover { border-color: #c6c6c0; }
 .form-field input:focus, .form-field select:focus, .form-field textarea:focus { border-color: var(--fp-indigo); box-shadow: 0 0 0 3px var(--focus); }
+.date-input-shell { width:100%; min-width:0; }
+.date-input-control { position:relative; direction:ltr; }
+.date-input-control > input { padding-inline-end:42px; text-align:left; letter-spacing:.04em; }
+.date-picker-trigger {
+  position:absolute; inset-block:5px; inset-inline-end:5px; width:33px; display:grid; place-items:center;
+  border:0; border-inline-start:1px solid var(--fp-line); border-radius:7px; background:#f8f7fc; color:var(--fp-indigo);
+}
+.date-picker-trigger:hover { background:var(--fp-indigo-soft); }
+.date-picker {
+  width:100%; min-width:250px; margin-top:8px; padding:11px; direction:rtl;
+  border:1px solid var(--fp-indigo-line); border-radius:13px; background:#fff; box-shadow:0 12px 30px rgba(46,44,99,.1);
+}
+.date-picker header { min-height:34px; display:grid; grid-template-columns:minmax(58px,auto) 1fr minmax(58px,auto); align-items:center; gap:6px; margin-bottom:8px; }
+.date-picker header strong { color:var(--fp-indigo-deep); font-size:13px; text-align:center; }
+.date-picker header button { min-height:34px; display:flex; align-items:center; justify-content:center; gap:3px; border:0; border-radius:8px; background:#f7f6fb; color:var(--fp-indigo-deep); font-size:11px; font-weight:750; }
+.date-picker-years,.date-picker-months { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
+.date-picker-years button,.date-picker-months button,.date-picker-days button {
+  min-height:38px; border:1px solid transparent; border-radius:8px; background:#faf9f7; color:var(--fp-body); font-size:12px;
+}
+.date-picker-years button:hover,.date-picker-months button:hover,.date-picker-days button:hover { border-color:var(--fp-indigo-line); background:var(--fp-indigo-soft); }
+.date-picker button.selected { border-color:var(--fp-indigo); background:var(--fp-indigo-soft); color:var(--fp-indigo-deep); font-weight:800; }
+.date-picker-weekdays,.date-picker-days { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:4px; }
+.date-picker-weekdays { margin-bottom:4px; }
+.date-picker-weekdays span { padding:4px 0; color:var(--fp-muted); font-size:10px; font-weight:800; text-align:center; }
+.date-picker-days button { min-height:34px; padding:0; }
+.date-picker button:disabled { background:#f5f4f1; color:#bbb9b2; }
+.onboarding-field .date-input-control > input { width:100%; }
+@media(max-width:480px){
+  .date-picker { min-width:0; padding:9px; }
+  .date-picker-years,.date-picker-months { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .date-picker-years button,.date-picker-months button { min-height:42px; }
+  .date-picker-days button { min-height:38px; }
+}
 .checks label, .rule-check { color: var(--fp-body); border-color: var(--fp-line); }
 .checks input, .rule-check input { accent-color: var(--fp-indigo); }
 .settings-tile, .settings-profile, .settings-panel { border-radius: 15px; box-shadow: none; }
@@ -453,6 +486,13 @@ p { color: var(--fp-body); }
 .concept-e-home .lia-member-picker .avatar { grid-row:1 / 3; width:25px; height:25px; font-size:10px; }
 .concept-e-home .lia-member-picker strong { font-size:12px; line-height:1.15; }
 .concept-e-home .lia-member-picker small { color:#89879b; font-size:10px; line-height:1.15; }
+/* Keep LIA's member choice attached to the action card instead of clipping it as a popover. */
+.concept-e-home .lia-transfer[open] { flex:1 0 100%; width:100%; }
+.concept-e-home .lia-transfer[open] > .lia-transfer-button { width:max-content; max-width:100%; }
+.concept-e-home .lia-transfer[open] > .lia-member-picker {
+  position:static; width:100%; max-width:none; margin-top:8px; box-sizing:border-box;
+  box-shadow:0 8px 20px rgba(46,44,99,.08);
+}
 .concept-e-home .lia-handled { padding: 12px 2px 0; border: 0; border-top: 1px solid rgba(75,111,82,.14); border-radius: 0; background: transparent; }
 
 .concept-e-agenda { margin-top: 0; padding: 18px 20px 14px; border: 1px solid #e8dfcf; border-radius: 15px; background: rgba(251,244,231,.74); box-shadow: var(--home-shadow); }
@@ -562,6 +602,10 @@ p { color: var(--fp-body); }
   .concept-e-home .lia-actions { width:100%; gap:6px; }
   .concept-e-home .lia-actions > button, .concept-e-home .lia-transfer-button { flex:1 1 auto; min-width:88px; }
   .concept-e-home .lia-transfer { flex:1 1 auto; }
+  .concept-e-home .lia-transfer[open] > .lia-transfer-button { width:100%; }
+  .concept-e-home .lia-transfer[open] > .lia-member-picker { display:grid; grid-template-columns:1fr; }
+  .concept-e-home .lia-transfer[open] > .lia-member-picker label,
+  .concept-e-home .lia-transfer[open] > .lia-member-picker button { width:100%; box-sizing:border-box; }
   .concept-e-agenda { padding: 16px 14px 12px; border-radius: 14px; }
   .concept-e-agenda .home-brief { padding-inline: 10px; }
   .concept-e-agenda .brief-row { grid-template-columns: 44px minmax(0,1fr) 12px; min-height:50px; }

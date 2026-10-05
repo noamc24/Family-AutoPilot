@@ -103,6 +103,7 @@ import {
   syncAcknowledgements,
 } from './workflow'
 import { LiaHomeSection } from './components/LiaHomeSection'
+import { DateInput } from './components/DateInput'
 import { applyTrafficFlowAction, triggerTrafficCoreFlow } from './liaCoreFlow'
 import { SettingsPage } from './components/SettingsPage'
 import { ShowcaseControls } from './components/ShowcaseControls'
@@ -2013,7 +2014,7 @@ function App() {
                     </select>
                   </Field>
                   <Field label="תאריך לידה">
-                    <input required type="date" max={localDate()} value={form.birthDate || ''} onChange={(event) => updateForm('birthDate', event.target.value)} />
+                    <DateInput required max={localDate()} value={form.birthDate || ''} onChange={value => updateForm('birthDate', value)} />
                   </Field>
                   <Field label="צבע הפרופיל">
                     <select value={form.color || dialog.item.color} onChange={(event) => updateForm('color', event.target.value)}>
@@ -2040,7 +2041,7 @@ function App() {
                     </select>
                   </Field>
                   <Field label="תאריך לידה מלא">
-                    <input required type="date" max={localDate()} value={form.birthDate || ''} onChange={(e) => updateForm('birthDate', e.target.value)} />
+                    <DateInput required max={localDate()} value={form.birthDate || ''} onChange={value => updateForm('birthDate', value)} />
                   </Field>
                   {dialog.item && !form.birthDate && <p className="birthdate-hint">שמורה רק שנת לידה או גיל. השלימו יום וחודש כדי לקבל תזכורת ליום ההולדת.</p>}
                   <Field label="צבע פרופיל">
