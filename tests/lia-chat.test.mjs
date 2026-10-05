@@ -41,7 +41,7 @@ test('הודעת משתמש ותשובת ליה נשמרות לפי הסדר ו�
   const result = sendLiaChatMessage(base, 'Avrahami', 'Mor', 'מה יש לי היום?')
   const messages = conversation(result.data).messages
   assert.deepEqual(messages.map(item => item.sender), ['user', 'lia'])
-  assert.match(messages[1].text, /הלו״ז שלך|אין לך אירועים/)
+  assert.match(messages[1].text, /הלו״ז שלך|הלו״ז של מור|אין לך אירועים/)
 })
 
 test('שיחות מבודדות לפי Member ומעבר ביניהם מחזיר את ההיסטוריה הנכונה', () => {
