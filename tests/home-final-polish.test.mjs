@@ -6,6 +6,7 @@ const app = fs.readFileSync('src/App.tsx', 'utf8')
 const home = fs.readFileSync('src/components/LiaHomeSection.tsx', 'utf8')
 const card = fs.readFileSync('src/components/LiaCard.tsx', 'utf8')
 const css = fs.readFileSync('src/redesign.css', 'utf8')
+const premium = fs.readFileSync('src/premium.css', 'utf8')
 
 test('Calm Home מציג אישור אחד ו-brief עתידי עם empty state', () => {
   assert.match(home, /הכול מכוסה כרגע/)
@@ -33,4 +34,16 @@ test('מקורות ולמה נשארים משניים ו-child restriction נש�
   assert.match(card, /למה LIA ממליצה על זה\?/)
   assert.match(css, /\.view-home \.lia-sources, \.view-home \.lia-why \{ opacity: \.72; \}/)
   assert.match(home, /viewer\?\.age.*>= 18/)
+})
+
+test('מרכז הפעולה שומר handlers אמיתיים ומציג פעולות נגישות ורספונסיביות', () => {
+  assert.match(app, /<span>מרכז הפעולה<\/span>/)
+  assert.doesNotMatch(app, /<span>מרכז פעולה<\/span>/)
+  assert.match(app, /onClick=\{\(\) => onFind\(risk\.eventId, risk\.id\)\}/)
+  assert.match(app, /onClick=\{\(\) => onReview\(action, true\)\}/)
+  assert.match(app, /onClick=\{\(\) => onAcknowledge\(item\.eventId, 'approved'\)\}/)
+  assert.match(premium, /\.concept-e-attention-zone \.dark-button,.concept-e-attention-zone \.secondary-button \{ min-height:36px/)
+  assert.match(premium, /flex-wrap:wrap/)
+  assert.match(premium, /flex:1 1 108px/)
+  assert.match(premium, /white-space:normal/)
 })

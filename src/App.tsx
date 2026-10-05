@@ -1537,7 +1537,7 @@ function App() {
                   <button className="concept-e-add" onClick={() => openEvent()}><Plus size={14}/> הוספת אירוע</button>
                 </section>
                 {operationalCount > 0 && <section className={`concept-e-attention-zone action-center ${attentionExpanded ? 'is-expanded' : ''}`}>
-                  <header className="action-center-header"><div><span>מרכז פעולה</span><h2>דורש ממך פעולה <b>{operationalCount}</b></h2></div><p>האירועים החשובים שמחכים להחלטה שלך.</p></header>
+                  <header className="action-center-header"><div><span>מרכז הפעולה</span><h2>דורש ממך פעולה <b>{operationalCount}</b></h2></div><p>האירועים החשובים שמחכים להחלטה שלך.</p></header>
                 <DecisionCenter
                   data={data}
                   family={family}
@@ -2567,7 +2567,7 @@ function WorkflowHub({
             </small>
             <span className="action-center-state">ממתין לאישור חריגה</span>
           </div>
-          <button className="secondary-button" onClick={() => onOverride(event.id)}>
+          <button className="secondary-button action-center-primary" onClick={() => onOverride(event.id)}>
             אישור חריגה חד־פעמית
           </button>
         </div>
@@ -2582,7 +2582,7 @@ function WorkflowHub({
             </small>
             <span className="action-center-state">חדש · ממתין לטיפול</span>
           </div>
-          <button className="secondary-button" onClick={() => onHandle(item.id)}>
+          <button className="secondary-button action-center-primary" onClick={() => onHandle(item.id)}>
             טופל
           </button>
         </div>
@@ -2987,7 +2987,7 @@ function DecisionCenter({
                     </>
                   )}
                   {recommendation && (
-                    <button className="secondary-button" onClick={() => onConfirm(request!.id, recommendation.person.id)}>
+                    <button className="secondary-button action-center-primary" onClick={() => onConfirm(request!.id, recommendation.person.id)}>
                       אשר שיבוץ
                     </button>
                   )}
@@ -3020,7 +3020,7 @@ function DecisionCenter({
                   <p>{risk.detail}</p>
                   {risk.sourceNote && <small>{risk.sourceNote}</small>}
                 </details>
-                <button className="secondary-button" onClick={() => onFind(risk.eventId, risk.id)}>
+                <button className="dark-button" onClick={() => onFind(risk.eventId, risk.id)}>
                   מצא פתרון מראש
                 </button>
               </div>

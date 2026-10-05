@@ -152,11 +152,16 @@ function responseFor(data: AppData, conversation: LiaConversation, member: Perso
   const resolved = resolveMember(family, input, member, conversation.contextState)
   const scope = temporalScope(input, conversation.contextState?.temporalScope)
   const context = { ...(conversation.contextState || {}), previousIntent: conversation.contextState?.lastIntent, lastIntent: intent, temporalScope: scope, lastMemberId: resolved.member?.id || conversation.contextState?.lastMemberId }
+  const conversationalContext = { ...context, previousIntent: conversation.contextState?.previousIntent, lastIntent: conversation.contextState?.lastIntent }
 
   if (childMode && resolved.explicit && resolved.member && resolved.member.id !== member.id) return { text: 'במצב ילד אני יכולה לעזור רק עם הלו״ז, המשימות והאיסופים שלך.', context: { ...context, lastMemberId: member.id } }
 
-  if (intent === 'GREETING') return { text: `היי ${member.name}. מה נבדוק?`, context }
-  if (intent === 'THANKS') return { text: 'בשמחה.', context }
+  if (intent === 'GREETING') return { text: `היי ${member.name}. מה נבדוק?`, context: conversationalContext }
+  if (intent === 'WELLBEING') return { text: 'מעולה, תודה. אני כאן — מה נבדוק?', context: conversationalContext }
+  if (intent === 'IDENTITY') return { text: 'אני LIA, העוזרת המשפחתית של FamPilot. אני עוזרת להבין מה קורה בתוכנית המשפחתית ולטפל במה שדורש תשומת לב.', context: conversationalContext }
+  if (intent === 'CAPABILITIES') return { text: 'אני יכולה לבדוק אירועים ומשימות, למצוא מי פנוי להסעה, לזהות התנגשויות ולהסביר או לטפל בדברים שמחכים להחלטה.', context: conversationalContext }
+  if (intent === 'THANKS') return { text: 'בשמחה.', context: conversationalContext }
+  if (intent === 'GOODBYE') return { text: 'בשמחה. אני כאן כשתרצה להמשיך.', context: conversationalContext }
   if (intent === 'MEMBER_OVERVIEW') {
     const named = resolved.member || family.people.find(person => person.id === conversation.contextState?.lastMemberId)
     if (!named) return { text: 'על מי במשפחה רצית לשאול? אפשר לכתוב את השם ואבדוק את הלו״ז, המשימות וההסעות.', context }
@@ -415,13 +420,13 @@ function responseFor(data: AppData, conversation: LiaConversation, member: Perso
     }
     return { text: 'אין לי כרגע המלצה קודמת שאפשר להסביר. אפשר לשאול מי פנוי להסעה.', context }
   }
-  if (intent === 'HELP') return { text: childMode ? 'אני יכולה לעזור עם הלו״ז שלך, החוגים ומי אוסף אותך.' : 'אני יכולה לעזור עם הלו״ז, אירועים קרובים, משימות, הסעות, זמינות, שינויים ומה שדורש טיפול במשפחה.', context }
+  if (intent === 'HELP') return { text: childMode ? 'אפשר לשאול אותי מה יש לך היום, מתי החוג הבא או מי אוסף אותך.' : 'אפשר לשאול למשל: “מה יש היום?”, “אילו משימות פתוחות?”, “מי פנוי להסעה?” או “מה דורש ממני פעולה?”.', context: conversationalContext }
   const unsupportedLive = /מזג.*אוויר|וואטסאפ|whatsapp/.test(normalize(input))
   if (unsupportedLive) return { text: 'אין לי גישה למידע חי או לתוכן פרטי שלא התקבל כמקור מחובר ומאושר. אני לא אנחש; אפשר לבדוק עדכונים שכבר נשמרו בתוכנית.', context }
   if (/אחותו|אחיו|אחותה|אח שלה|אח שלו/.test(normalize(input))) return { text: 'לא בטוחה לאיזה בן או בת משפחה התכוונת. אפשר לכתוב את השם כדי שאבדוק בלי לנחש.', context }
   if (/תעשי (את )?זה|תטפלי בזה/.test(normalize(input))) return { text: 'לא ברור לי איזו פעולה לבצע. אפשר לציין אם לשלוח בקשת הסעה, לפתוח את הלו״ז או לבדוק משימה.', context }
-  const named = family.people.find(person => normalize(input).includes(normalize(person.name)))
-  return { text: named ? `מה תרצה לבדוק לגבי ${named.name} — לו״ז, משימות או הסעות?` : 'לא הבנתי עד הסוף. לבדוק את הלו״ז, המשימות או ההסעות?', context: { ...context, lastMemberId: named?.id || context.lastMemberId } }
+  const named = family.people.find(person => normalize(input).includes(normalize(person.name))) || family.people.find(person => person.id === conversation.contextState?.lastMemberId)
+  return { text: named ? `לא בטוחה שהבנתי. לבדוק משהו לגבי ${named.name} — בלו״ז, במשימות או בהסעות?` : 'לא בטוחה שהבנתי. לבדוק משהו בלו״ז, במשימות או בהסעות?', context: { ...conversationalContext, lastMemberId: named?.id || conversationalContext.lastMemberId } }
 }
 
 export function performLiaChatAction(data: AppData, conversation: LiaConversation, memberId: string, pending = conversation.contextState?.pendingIntent): { data: AppData; conversation: LiaConversation; success: boolean } {
