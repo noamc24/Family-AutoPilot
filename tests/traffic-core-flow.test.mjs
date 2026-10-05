@@ -103,6 +103,15 @@ test('העברה ישירה משתמשת בכשירות הקיימת, מעדכנ
   assert.equal(intervention(data).resolutionType, 'responsibilityTransferred')
 })
 
+test('בן משפחה בוגר יכול לאשר את עדכון שעת היציאה ישירות', () => {
+  const data = initialized()
+  const departureTime = data.events.find(item => item.id === 'traffic-pickup').departureTime
+  const result = flow.applyTrafficFlowAction(data, intervention(data).id, 'approve', 'Mor')
+  assert.equal(result.events.find(item => item.id === 'traffic-pickup').departureTime, departureTime)
+  assert.equal(intervention(result).status, 'completed')
+  assert.equal(intervention(result).resolutionType, 'calendarUpdated')
+})
+
 test('העברה לנהג לא כשיר אינה משנה מצב', () => {
   const data = initialized()
   const result = flow.applyTrafficFlowAction(data, intervention(data).id, 'reassign', 'Orel', 'Itamar')

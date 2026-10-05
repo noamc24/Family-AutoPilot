@@ -157,3 +157,12 @@ test('LIA מציגה פעולות החלטה ובורר העברה רק למוע
   assert.match(html, />לא מתאים</)
   assert.doesNotMatch(html, />העברה</)
 })
+
+test('המלצת תנועה actionable מציגה פעולות inline גם לבן משפחה כשיר שאינו האחראי הנוכחי', async () => {
+  const data = await load('src/liaCoreFlow.ts').then(module => module.initializeTrafficCoreFlow(fresh()))
+  const sectionModule = await load('src/components/LiaHomeSection.tsx')
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const html = renderToStaticMarkup(sectionModule.LiaHomeSection({ data, family: data.families[0], actorId: 'Mor' }))
+  assert.match(html, />אישור</)
+  assert.match(html, />לא מתאים</)
+})
