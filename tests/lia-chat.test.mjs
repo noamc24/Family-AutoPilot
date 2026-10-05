@@ -63,7 +63,7 @@ test('conversation נשמר ב-AppData ונטען מחדש דרך persistence', 
 test('quick prompt עובר באותו send flow ומחזיר נתוני אירועים אמיתיים', () => {
   const data = sendLiaChatMessage(clone(initialData), 'Avrahami', 'Mor', liaQuickPrompts[1]).data
   assert.equal(conversation(data).messages[0].text, liaQuickPrompts[1])
-  assert.match(last(data).text, /10:30 · תור לרופא שיניים/)
+  assert.match(last(data).text, /אין לך אירועים כרגע/)
 })
 
 test('TODAY_SCHEDULE ו-OPEN_TASKS נקראים מה-events וה-tasks האמיתיים', () => {

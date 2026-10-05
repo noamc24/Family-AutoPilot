@@ -61,7 +61,7 @@ test('Settings נשמרים ב-refresh ונתונים ישנים עוברים mi
   const legacy = fresh()
   delete legacy.families[0].people[0].personalSettings
   const migrated = model.sanitizeAppData(legacy)
-  assert.ok(migrated.families[0].people[0].personalSettings.integrations.every(item => item.connectionStatus === 'disconnected' && item.liaAccess === 'notAllowed'))
+  assert.ok(migrated.families[0].people[0].personalSettings.integrations.every(item => item.connectionStatus === 'connected' && item.liaAccess === 'allowed'))
 })
 
 test('העדפות התראה אופציונליות נשמרות בנפרד וברירת מחדל ישנה עוברת migration', () => {

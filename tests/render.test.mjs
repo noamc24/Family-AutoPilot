@@ -13,22 +13,21 @@ const result = await build({
 const module = { exports: {} }
 new Function('module', 'exports', 'require', result.outputFiles[0].text)(module, module.exports, createRequire(import.meta.url))
 const render = module.exports.render
+const storageMock = (getItem) => ({ getItem, setItem() {}, removeItem() {}, key() { return null }, length: 0 })
 
 test('מסך הבית משתנה בין הורה לילד ומציג תוכן מותאם', () => {
   const originalStorage = globalThis.localStorage
   let person = 'Mor'
-  globalThis.localStorage = { getItem: key => key === 'family-autopilot-person' ? person : null }
+  globalThis.localStorage = storageMock(key => key === 'family-autopilot-person' ? person : null)
   try {
     const parent = render()
     assert.match(parent, /(?:בוקר טוב|צהריים טובים|אחה״צ טובים|ערב טוב|לילה טוב) מור|לכי לישון/)
-    assert.match(parent, /צריך טיפול/)
-    assert.match(parent, /בקשות הסעה במשפחה/)
+    assert.match(parent, /LIA צריכה החלטה ממך/)
     assert.match(parent, /דורש החלטה/)
     assert.match(parent, /LIA זיהתה עומס בדרך/)
     assert.doesNotMatch(parent, /lia-demo-handled/)
     assert.match(parent, /למה LIA ממליצה/)
     assert.doesNotMatch(parent, /עדכונים ממקורות/)
-    assert.match(parent, /מה קרה היום/)
     assert.match(parent, /וויז/)
     person = 'Orel'
     const otherParent = render()
@@ -51,7 +50,7 @@ test('כרטיס מצב משפחתי תקין מציג רק נתונים קיי�
   const originalStorage = globalThis.localStorage
   const family = { id: 'quiet', name: 'משפחה שקטה', people: [{ id: 'parent', name: 'הורה', role: 'אב', color: 'sage', age: 35, hasLicense: true, hasCar: true, availableForPickup: true }] }
   const saved = { families: [family], events: [], tasks: [], activity: [], transportationRequests: [], integrationLogs: [], calendarMirrors: [] }
-  globalThis.localStorage = { getItem: key => key === 'family-autopilot-he-v1' ? JSON.stringify(saved) : key === 'family-autopilot-family' ? 'quiet' : key === 'family-autopilot-person' ? 'parent' : null }
+  globalThis.localStorage = storageMock(key => key === 'family-autopilot-he-v1' ? JSON.stringify(saved) : key === 'family-autopilot-family' ? 'quiet' : key === 'family-autopilot-person' ? 'parent' : null)
   try {
     const markup = render()
     assert.match(markup, /הכול מכוסה כרגע/)

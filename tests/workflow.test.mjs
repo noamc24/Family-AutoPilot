@@ -11,6 +11,7 @@ const { initialData, localDate } = model
 
 test('שגרה מרובת ימים נחשבת כקבועה לכל אחד מהימים שנבחרו', () => {
   const data = structuredClone(initialData)
+  data.events.find(event => event.id === 'dentist').priority = 'critical'
   const day = new Date(`${localDate()}T12:00:00`).getDay()
   const nextDay = (day + 1) % 7
   const person = { ...data.families[0].people[0], routines: [{ id: 'multi-1', kind: 'study', label: 'בית ספר', days: [day, nextDay], start: '08:00', end: '16:00' }] }
@@ -132,6 +133,7 @@ test('הכול בשליטה תלוי בהסעות, משימות חשובות, א
 
 test('שינוי קריטי או ביטול דורשים אישור לפני פעולה אוטומטית', () => {
   const data = structuredClone(initialData)
+  data.events.find(event => event.id === 'dentist').priority = 'critical'
   const changed = structuredClone(data)
   changed.events.find(event => event.id === 'dentist').time = '11:30'
   assert.equal(workflow.sensitiveAutomaticChange(data, changed, 'Avrahami'), true)

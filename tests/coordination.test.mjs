@@ -10,7 +10,16 @@ async function load(entry) {
 const dataModule = await load('src/data.ts')
 const coordination = await load('src/coordination.ts')
 const domain = await load('src/domain.ts')
-const fresh = () => coordination.ensureRequests(structuredClone(dataModule.initialData), 'Mor')
+const fresh = () => {
+  const data = structuredClone(dataModule.initialData)
+  const dance = data.events.find(event => event.id === 'dance')
+  if (dance) Object.assign(dance, { date: dataModule.localDate(), time: '16:00', responsibleId: 'Mor' })
+  const dinner = data.events.find(event => event.id === 'dinner')
+  if (dinner) dinner.date = dataModule.localDate()
+  const groceries = data.tasks.find(task => task.id === 'groceries')
+  if (groceries) groceries.due = dataModule.localDate()
+  return coordination.ensureRequests(data, 'Mor')
+}
 
 test('בקשת הסעה נשלחת לנהגים כשירים בלבד והתשובות משותפות', () => {
   let data = fresh()

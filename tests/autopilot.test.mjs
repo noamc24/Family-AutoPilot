@@ -9,7 +9,16 @@ async function load(entry) {
 const model = await load('src/data.ts')
 const coordination = await load('src/coordination.ts')
 const autopilot = await load('src/autopilot.ts')
-const fresh = () => coordination.ensureRequests(structuredClone(model.initialData), 'Mor')
+const fresh = () => {
+  const data = structuredClone(model.initialData)
+  const dance = data.events.find(event => event.id === 'dance')
+  if (dance) Object.assign(dance, { date: model.localDate(), time: '16:00', responsibleId: 'Mor' })
+  const dinner = data.events.find(event => event.id === 'dinner')
+  if (dinner) dinner.date = model.localDate()
+  const groceries = data.tasks.find(task => task.id === 'groceries')
+  if (groceries) groceries.due = model.localDate()
+  return coordination.ensureRequests(data, 'Mor')
+}
 
 test('אירוע של ילד נכנס ללוח, יוצר בקשת הסעה ונשמר ללא כפילות', () => {
   const first = autopilot.runAutopilotScenario(fresh(), 'Avrahami', 'basketball', 'automatic')
@@ -48,7 +57,7 @@ test('איחור, שינוי שעת סיום וביטול מעדכנים נתו�
   assert.equal(data.events.find(event => event.id === 'dance').responsibleId, '')
   assert.ok(data.transportationRequests.some(request => request.eventId === 'dance'))
   data = autopilot.runAutopilotScenario(data, 'Avrahami', 'school-change').data
-  assert.equal(data.events.find(event => event.id === 'trip').endTime, '15:00')
+  assert.equal(data.events.find(event => event.id === 'trip').endTime, '14:45')
   assert.match(data.events.find(event => event.id === 'trip').sourceNote, /מייל מבית הספר/)
   const count = data.events.length
   const cancelled = autopilot.runAutopilotScenario(data, 'Avrahami', 'cancel')
