@@ -22,9 +22,9 @@ test('מסך הבית משתנה בין הורה לילד ומציג תוכן מ
   try {
     const parent = render()
     assert.match(parent, /(?:בוקר טוב|צהריים טובים|אחה״צ טובים|ערב טוב|לילה טוב) מור|לכי לישון/)
-    assert.match(parent, /הכול מכוסה כרגע/)
-    assert.match(parent, /LIA לא זיהתה כרגע אירוע שדורש ממך פעולה/)
-    assert.doesNotMatch(parent, /LIA צריכה החלטה ממך/)
+    assert.match(parent, /LIA צריכה החלטה ממך/)
+    assert.match(parent, /יש בקשה שממתינה לתשובה שלך/)
+    assert.doesNotMatch(parent, /הכול מכוסה כרגע/)
     assert.doesNotMatch(parent, /LIA זיהתה עומס בדרך/)
     assert.doesNotMatch(parent, /lia-demo-handled/)
     assert.doesNotMatch(parent, /עדכונים ממקורות/)

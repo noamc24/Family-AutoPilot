@@ -166,3 +166,18 @@ test('המלצת תנועה actionable מציגה פעולות inline גם לב�
   assert.match(html, />אישור</)
   assert.match(html, />לא מתאים</)
 })
+
+test('בקשה שממתינה לצופה מבטלת מצב הכול מכוסה ומציגה פעולות inline', async () => {
+  const data = fresh()
+  const event = data.events.find(item => item.requiresDriver) || data.events[0]
+  data.families[0].people.push({ id: 'backup', name: 'גיבוי', role: 'אב', color: 'sage', age: 40, hasLicense: true, hasCar: true, availableForPickup: true, availability: 'available', routines: [] })
+  data.transportationRequests.push({ id: 'pending-for-mor', familyId: data.families[0].id, eventId: event.id, passengerId: event.participantIds[0], eligibleMemberIds: ['Mor', 'backup'], responses: { Mor: 'PENDING', backup: 'PENDING' }, selectedDriverId: '', status: 'OPEN', createdById: 'Mor', origin: 'בית', destination: event.title, requiredAt: `${event.date}T${event.time}` })
+  const sectionModule = await load('src/components/LiaHomeSection.tsx')
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const html = renderToStaticMarkup(sectionModule.LiaHomeSection({ data, family: data.families[0], actorId: 'Mor' }))
+  assert.match(html, /LIA צריכה החלטה ממך/)
+  assert.match(html, />יכול\/ה</)
+  assert.match(html, />לא יכול\/ה</)
+  assert.match(html, /לבקש ממישהו אחר/)
+  assert.doesNotMatch(html, /הכול מכוסה כרגע/)
+})

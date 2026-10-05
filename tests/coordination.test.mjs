@@ -53,6 +53,17 @@ test('סירוב של כולם יוצר מצב ללא פתרון וחלופה ד
   assert.equal(next.transportationRequests.find(item => item.id === id).responses.Orel, 'PENDING')
 })
 
+test('העברת בקשת הסעה שולחת אותה לכל הנמענים הכשירים שנבחרו', () => {
+  let data = fresh()
+  const request = coordination.requestForEvent(data, 'pickup')
+  data = coordination.forwardRequest(data, request.id, 'Mor', ['Orel', 'Itamar'])
+  const forwarded = coordination.requestForEvent(data, 'pickup')
+  assert.equal(forwarded.responses.Mor, 'CANNOT_DO')
+  assert.equal(forwarded.responses.Orel, 'PENDING')
+  assert.equal(forwarded.responses.Itamar, undefined)
+  assert.notEqual(forwarded.status, 'COVERED')
+})
+
 test('תפקיד בן בוגר אינו חוסם נהיגה, וזמינות מבטלת שיבוץ', () => {
   let data = fresh()
   const adultSon = { id: 'grown-son', name: 'עידו', role: 'בן', age: 22, hasLicense: true, hasCar: true, availableForPickup: true, color: 'sage' }

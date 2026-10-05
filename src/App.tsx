@@ -67,6 +67,7 @@ import {
   applyTransitAlternative,
   confirmDriver,
   ensureRequests,
+  forwardRequest,
   rankedDrivers,
   reconcileTransportation,
   recommendDriver,
@@ -641,6 +642,10 @@ function App() {
         ],
       }
     })
+  }
+  function forwardRide(id: string, memberIds: string[]) {
+    setData((previous) => forwardRequest(previous, id, activePersonId, memberIds))
+    setToast(memberIds.length === 1 ? `הבקשה הועברה ל${personName(memberIds[0])}` : `הבקשה נשלחה ל־${memberIds.length} בני משפחה`)
   }
   function approveRide(id: string, driverId: string) {
     setData((previous) => {
@@ -1530,7 +1535,7 @@ function App() {
                     ))}
                   </div>
                 </header>
-                <LiaHomeSection data={data} family={family} actorId={activePersonId} />
+                <LiaHomeSection data={data} family={family} actorId={activePersonId} onRideResponse={answerRide} onForwardRide={forwardRide} onAcknowledge={updateAcknowledgement} onReviewPending={(actionId, approved) => { const action = (data.pendingActions || []).find(item => item.id === actionId); if (action) reviewPendingAction(action, approved) }} />
                 <section className="concept-e-agenda">
                   <div className="concept-e-section-heading"><div><span>התוכנית שלך</span><h2>המשך היום</h2></div><button onClick={() => setView('events')}>ליומן המלא <ArrowLeft size={14}/></button></div>
                   <HomeBrief events={familyEvents} tasks={familyTasks} family={family} memberId={activePersonId}/>

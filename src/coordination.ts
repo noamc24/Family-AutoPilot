@@ -56,6 +56,19 @@ export function respondToRequest(data: AppData, requestId: string, personId: str
   return reconcileTransportation({ ...data, transportationRequests: data.transportationRequests.map(item => item.id === requestId ? { ...next, status: requestStatus(next) } : item) })
 }
 
+export function forwardRequest(data: AppData, requestId: string, actorId: string, targetIds: string[]): AppData {
+  const request = data.transportationRequests.find(item => item.id === requestId)
+  const event = request && data.events.find(item => item.id === request.eventId)
+  const family = request && data.families.find(item => item.id === request.familyId)
+  if (!request || !event || !family) return data
+  const validTargets = [...new Set(targetIds)].filter(id => id !== actorId && request.eligibleMemberIds.includes(id) && family.people.some(person => person.id === id && !pickupIneligibility(person, event, data)))
+  if (!validTargets.length) return data
+  const responses = { ...request.responses, [actorId]: 'CANNOT_DO' as const }
+  validTargets.forEach(id => { responses[id] = 'PENDING' })
+  const updated = { ...request, responses, selectedDriverId: '' }
+  return reconcileTransportation({ ...data, transportationRequests: data.transportationRequests.map(item => item.id === requestId ? { ...updated, status: requestStatus(updated) } : item) })
+}
+
 export function confirmDriver(data: AppData, requestId: string, personId: string): AppData {
   const request = data.transportationRequests.find(item => item.id === requestId)
   if (!request || request.responses[personId] !== 'CAN_DO' || !request.eligibleMemberIds.includes(personId)) return data
