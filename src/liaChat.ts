@@ -3,7 +3,7 @@ import { dateLabel, localDate, uid, type AppData, type FamilyEvent, type Person 
 import { buildLiaInterventions } from './liaInterventions'
 import type { LiaChatAction, LiaConversation, LiaMessage, LiaPendingIntent } from './liaChatTypes'
 
-export type LiaChatIntent = 'WHAT_NEEDS_ATTENTION' | 'TODAY_SCHEDULE' | 'UPCOMING_EVENTS' | 'NEXT_EVENT' | 'EVENT_DETAILS' | 'WHO_CAN_DRIVE' | 'MEMBER_AVAILABILITY' | 'OPEN_TASKS' | 'RECENT_CHANGES' | 'SOURCE_DETAILS' | 'COMBINED_SUMMARY' | 'ALREADY_HANDLED' | 'SEND_RIDE_REQUEST' | 'EXPLAIN' | 'RIDE_STATUS' | 'HELP' | 'UNSUPPORTED'
+export type LiaChatIntent = 'GREETING' | 'THANKS' | 'MEMBER_OVERVIEW' | 'WHAT_NEEDS_ATTENTION' | 'TODAY_SCHEDULE' | 'UPCOMING_EVENTS' | 'NEXT_EVENT' | 'EVENT_DETAILS' | 'WHO_CAN_DRIVE' | 'MEMBER_AVAILABILITY' | 'OPEN_TASKS' | 'RECENT_CHANGES' | 'SOURCE_DETAILS' | 'COMBINED_SUMMARY' | 'ALREADY_HANDLED' | 'SEND_RIDE_REQUEST' | 'EXPLAIN' | 'RIDE_STATUS' | 'HELP' | 'UNSUPPORTED'
 
 const normalize = (value: string) => value.trim().toLowerCase().normalize('NFKD').replace(/[\u0591-\u05c7]/g, '').replace(/[?!.,:;׳״'\"()-]/g, ' ').replace(/\s+/g, ' ').trim()
 const has = (text: string, expressions: RegExp[]) => expressions.some(expression => expression.test(text))
@@ -14,14 +14,16 @@ export function detectLiaIntent(input: string, pending?: LiaPendingIntent): LiaC
   const text = normalize(input)
   if (pending && has(text, affirmative)) return 'SEND_RIDE_REQUEST'
   if (pending && has(text, negative)) return 'SEND_RIDE_REQUEST'
+  if (has(text, [/^(היי|הי|שלום|בוקר טוב|צהריים טובים|ערב טוב|מה נשמע)( lia| ליה)?$/, /^אהלן/])) return 'GREETING'
+  if (has(text, [/^(תודה|תודה רבה|מעולה תודה|סבבה תודה|אלופה|עזרת לי)/])) return 'THANKS'
   if (has(text, [/^(למה|איך את יודעת)/, /^למה (הוא|היא|זה)/])) return 'EXPLAIN'
   if (has(text, [/מה קרה עם .*הסע/, /מה מצב .*הסע/, /הסעה.*אושר/, /מי (לוקח|אוסף|מסיע)/, /^(שלחת|שלחתת)/, /למי שלחת/, /מה הסטטוס/])) return 'RIDE_STATUS'
   if (has(text, [/אירועים.*הסעות.*משימות.*החלטות/, /סיכום.*(הכל|הכול)/])) return 'COMBINED_SUMMARY'
   if (has(text, [/מה דורש טיפול/, /מה פתוח/, /צריך .*לטפל/, /יש אירוע חשוב/, /צריך לעשות/, /דורש תשומת לב/, /מה דחוף/])) return 'WHAT_NEEDS_ATTENTION'
   if (has(text, [/מה יש לי היום/, /מה קורה היום/, /מה נשאר להיום/, /הלוז שלי/, /לוז שלי/, /לוח שלי היום/, /מה יש היום/, /לוח.*היום/, /אירועים היום/, /מה יש ל.*היום/])) return 'TODAY_SCHEDULE'
-  if (has(text, [/מה יש .*מחר+/, /מה יש בהמשך/, /אירועים קרובים/, /מה צפוי/, /השבוע/])) return 'UPCOMING_EVENTS'
-  if (has(text, [/מה האירוע הבא/, /מה הדבר הבא/, /מה הבא בלו/])) return 'NEXT_EVENT'
-  if (has(text, [/מתי .*?(אימון|חוג|אירוע|תור)/, /מתי האימון/])) return 'EVENT_DETAILS'
+  if (has(text, [/מה יש .*מחר+/, /ומה מחר/, /מחר מה/, /מה יש בהמשך/, /אירועים קרובים/, /מה צפוי/, /השבוע/, /סוף השבוע/, /סופש/])) return 'UPCOMING_EVENTS'
+  if (has(text, [/מה האירוע הבא/, /מה הדבר הבא/, /מה הבא בלו/, /ומה אחר כך/, /מה אחרי זה/])) return 'NEXT_EVENT'
+  if (has(text, [/^מתי זה/, /^איפה זה/, /פרטים על/, /מתי .*?(אימון|חוג|אירוע|תור|קורס|פגישה)/, /מתי האימון/])) return 'EVENT_DETAILS'
   if (has(text, [/מי יכול.*(לקחת|להסיע|לאסוף)/, /מי פנוי.*(לקחת|להסיע|לאסוף)/, /מישהו.*(לקחת|להסיע)/, /מי יכול במקום/, /אז מי כן/])) return 'WHO_CAN_DRIVE'
   if (has(text, [/^ומה עם /, /^מה עם /, /מי פנוי/, /פנוי(?:ה)?(?: ב| )?\d/, /האם .* פנוי/, /.* פנוי(?:ה)?$/])) return 'MEMBER_AVAILABILITY'
   if (has(text, [/משימות.*(פתוחות|יש|נשאר)/, /יש משימות/, /מה נשאר לעשות/, /איזה משימות/, /עד יום/, /מה דחוף/])) return 'OPEN_TASKS'
@@ -29,6 +31,7 @@ export function detectLiaIntent(input: string, pending?: LiaPendingIntent): LiaC
   if (has(text, [/מאיזה מקור/, /מה המקור/, /מאיפה (זה|המידע)/])) return 'SOURCE_DETAILS'
   if (has(text, [/מה כבר טופל/, /מה (ליה|lia) .*טיפלה/, /מה כבר טיפלת/, /מה סגרת/])) return 'ALREADY_HANDLED'
   if (has(text, [/מה את יכולה/, /עזרה/, /אפשר לשאול/, /יכולות/])) return 'HELP'
+  if (has(text, [/מה קורה עם /, /מה יש ל/, /ספרי לי על /, /תני לי תמונה על /, /ומה איתו/, /ומה איתה/])) return 'MEMBER_OVERVIEW'
   return 'UNSUPPORTED'
 }
 
@@ -101,6 +104,20 @@ function responseFor(data: AppData, conversation: LiaConversation, member: Perso
   const family = data.families.find(item => item.id === conversation.familyId)!
   const context = { ...(conversation.contextState || {}), lastIntent: intent }
 
+  if (intent === 'GREETING') return { text: `היי ${member.name} 😊 אני כאן. אפשר לדבר איתי חופשי על הלו״ז, המשימות, ההסעות או כל דבר שצריך לסדר במשפחה.`, context }
+  if (intent === 'THANKS') return { text: 'בשמחה. אני כאן אם תרצה לבדוק עוד משהו או לחשוב יחד על התוכנית.', context }
+  if (intent === 'MEMBER_OVERVIEW') {
+    const text = normalize(input)
+    const named = family.people.find(person => text.includes(normalize(person.name))) || family.people.find(person => person.id === conversation.contextState?.lastMemberId)
+    if (!named) return { text: 'על מי במשפחה רצית לשאול? אפשר לכתוב את השם ואבדוק את הלו״ז, המשימות וההסעות.', context }
+    const events = data.events.filter(event => event.familyId === family.id && event.date >= localDate() && (event.participantIds.includes(named.id) || event.responsibleId === named.id)).sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`)).slice(0, 3)
+    const tasks = data.tasks.filter(task => task.familyId === family.id && task.ownerId === named.id && !task.done).sort((a, b) => a.due.localeCompare(b.due)).slice(0, 3)
+    const ride = events.find(event => event.requiresDriver)
+    const request = ride && requestForEvent(data, ride.id)
+    const lines = [events[0] ? `האירוע הבא: ${events[0].title}, ${dateLabel(events[0].date)} ב־${events[0].time}` : 'אין אירוע קרוב', tasks.length ? `${tasks.length} ${tasks.length === 1 ? 'משימה פתוחה' : 'משימות פתוחות'}; הקרובה היא ${tasks[0].title}` : 'אין משימות פתוחות', ride ? `${ride.title}: ${ride.responsibleId || request?.selectedDriverId ? 'ההסעה מכוסה' : 'עדיין צריך לסגור הסעה'}` : undefined].filter(Boolean) as string[]
+    return { text: `בטח—זו התמונה של ${named.name} כרגע:\n${shortList(lines)}`, type: 'entitySummary', entities: [named.id, ...events.map(event => event.id), ...tasks.map(task => task.id)], context: { ...context, lastMemberId: named.id, lastEventId: events[0]?.id } }
+  }
+
   if (intent === 'SEND_RIDE_REQUEST') {
     if (!context.pendingIntent) return { text: 'על מה תרצה שאעזור?', context }
     if (has(normalize(input), negative)) return { text: 'בסדר, לא שלחתי בקשה.', type: 'actionResult', context: { ...context, pendingIntent: undefined } }
@@ -129,17 +146,27 @@ function responseFor(data: AppData, conversation: LiaConversation, member: Perso
   }
   if (intent === 'NEXT_EVENT') {
     const now = new Date()
-    const event = data.events.filter(item => item.familyId === family.id && new Date(`${item.date}T${item.endTime || item.time}:00`) >= now).sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`))[0]
+    const ordered = data.events.filter(item => item.familyId === family.id && new Date(`${item.date}T${item.endTime || item.time}:00`) >= now).sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`))
+    const previousIndex = /אחר כך|אחרי זה/.test(normalize(input)) ? ordered.findIndex(item => item.id === conversation.contextState?.lastEventId) : -1
+    const event = ordered[previousIndex >= 0 ? previousIndex + 1 : 0]
     return event ? { text: `האירוע הבא הוא ${event.title}, ${dateLabel(event.date)} ב־${event.time}.`, entities: [event.id], context: { ...context, lastEventId: event.id } } : { text: 'אין כרגע אירוע נוסף בתוכנית.', context }
   }
   if (intent === 'EVENT_DETAILS') {
     const words = normalize(input).split(' ').filter(word => word.length > 2)
-    const event = data.events.filter(item => item.familyId === family.id && item.date >= localDate()).sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`)).find(item => words.some(word => normalize(item.title).includes(word)))
-    return event ? { text: `${event.title} ${dateLabel(event.date)} ב־${event.time}.`, context: { ...context, lastEventId: event.id }, entities: [event.id] } : { text: 'לא מצאתי את האירוע הזה. אפשר לכתוב את שמו או לשאול מה יש היום.', context }
+    const upcoming = data.events.filter(item => item.familyId === family.id && item.date >= localDate()).sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`))
+    const event = (/^מתי זה|^איפה זה/.test(normalize(input)) ? upcoming.find(item => item.id === conversation.contextState?.lastEventId) : undefined) || upcoming.find(item => words.some(word => normalize(item.title).includes(word)))
+    if (!event) return { text: 'לא מצאתי את האירוע הזה. אפשר לכתוב את שמו או לשאול מה יש היום.', context }
+    const responsible = family.people.find(person => person.id === event.responsibleId)
+    const participants = event.participantIds.map(id => family.people.find(person => person.id === id)?.name).filter(Boolean)
+    const detail = [event.endTime ? `${event.time}–${event.endTime}` : event.time, participants.length ? `משתתפים: ${participants.join(', ')}` : '', responsible ? `אחריות: ${responsible.name}` : '', event.details].filter(Boolean).join(' · ')
+    return { text: `${event.title} מתקיים ב־${dateLabel(event.date)}. ${detail}`, context: { ...context, lastEventId: event.id }, entities: [event.id] }
   }
   if (intent === 'OPEN_TASKS') {
-    const tasks = data.tasks.filter(task => task.familyId === family.id && !task.done && (childMode || /לי|שלי/.test(normalize(input)) ? task.ownerId === member.id : true)).sort((a, b) => a.due.localeCompare(b.due)).slice(0, 5)
-    return { text: tasks.length ? `אלה המשימות שעוד פתוחות:\n${shortList(tasks.map(task => `${task.title} · ${dateLabel(task.due)}`))}` : 'אין לך משימות פתוחות כרגע.', type: 'entitySummary', entities: tasks.map(task => task.id), context }
+    const named = family.people.find(person => normalize(input).includes(normalize(person.name)))
+    const ownerId = named?.id || (childMode || /לי|שלי/.test(normalize(input)) ? member.id : undefined)
+    const tasks = data.tasks.filter(task => task.familyId === family.id && !task.done && (!ownerId || task.ownerId === ownerId)).sort((a, b) => a.due.localeCompare(b.due)).slice(0, 5)
+    const heading = named ? `אלה המשימות הפתוחות של ${named.name}` : ownerId ? 'אלה המשימות שעוד פתוחות לך' : 'אלה המשימות שעוד פתוחות'
+    return { text: tasks.length ? `${heading}:\n${shortList(tasks.map(task => `${task.title} · ${dateLabel(task.due)}`))}` : named ? `אין ל${named.name} משימות פתוחות כרגע.` : 'אין לך משימות פתוחות כרגע.', type: 'entitySummary', entities: tasks.map(task => task.id), context: { ...context, lastMemberId: named?.id || context.lastMemberId } }
   }
   if (intent === 'WHAT_NEEDS_ATTENTION') {
     if (childMode) return { text: 'במצב ילד אני יכולה לעזור עם הלו״ז שלך, החוגים ומי אוסף אותך.', context }

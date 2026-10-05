@@ -259,3 +259,31 @@ test('פקודה עמומה, קרבת משפחה ומידע חי מקבלים ה
     assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, expected)
   }
 })
+
+test('LIA מנהלת שיחה טבעית עם ברכה, תודה ותמונת מצב על בן משפחה', () => {
+  let data = sendLiaChatMessage(simpleData(), 'f', 'm', 'היי').data
+  assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /היי מור.*לדבר איתי חופשי/)
+  data = sendLiaChatMessage(data, 'f', 'm', 'ספרי לי על איתמר').data
+  const overview = conversationFor(data, 'f', 'm').messages.at(-1).text
+  assert.match(overview, /התמונה של איתמר/)
+  assert.match(overview, /חוג של איתמר/)
+  data = sendLiaChatMessage(data, 'f', 'm', 'תודה רבה').data
+  assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /בשמחה/)
+})
+
+test('שאלות המשך טבעיות משתמשות באירוע האחרון', () => {
+  let data = sendLiaChatMessage(simpleData(), 'f', 'm', 'מה האירוע הבא?').data
+  data = sendLiaChatMessage(data, 'f', 'm', 'מתי זה?').data
+  assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /משתתפים:|אחריות:/)
+  data = sendLiaChatMessage(data, 'f', 'm', 'ומה אחר כך?').data
+  assert.doesNotMatch(conversationFor(data, 'f', 'm').messages.at(-1).text, /לא בטוחה למה התכוונת/)
+})
+
+test('משימות בניסוח טבעי מסוננות לפי בן המשפחה שנשאל', () => {
+  const data = simpleData()
+  data.tasks.push({ id: 'orel-task', familyId: 'f', title: 'משימה של אוראל', ownerId: 'a', due: localDate(2), done: false })
+  const next = sendLiaChatMessage(data, 'f', 'm', 'איזה משימות יש לאוראל?').data
+  const answer = conversationFor(next, 'f', 'm').messages.at(-1).text
+  assert.match(answer, /משימה של אוראל/)
+  assert.doesNotMatch(answer, /אישור הורים/)
+})
