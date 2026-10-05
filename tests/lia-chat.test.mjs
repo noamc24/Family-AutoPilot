@@ -230,6 +230,18 @@ test('מחר והשבוע מכבדים ניסוח טבעי וסינון לפי M
   assert.doesNotMatch(answer, /פגישה של מור/)
 })
 
+test('המשך זמן קצר שומר את נושא הלו״ז ואת בן המשפחה', () => {
+  const base = simpleData()
+  base.events.push({ ...base.events[0], id: 'tomorrow-club', title: 'חוג מדעים של איתמר', date: localDate(1), requiresDriver: false })
+  base.events.push({ ...base.events[0], id: 'tomorrow-mor', title: 'פגישה של מור', date: localDate(1), participantIds: ['m'], requiresDriver: false })
+  let data = sendLiaChatMessage(base, 'f', 'm', 'מה איתמר עושה היום?').data
+  data = sendLiaChatMessage(data, 'f', 'm', 'ומה מחר?').data
+  const answer = conversationFor(data, 'f', 'm').messages.at(-1).text
+  assert.match(answer, /חוג מדעים של איתמר/)
+  assert.doesNotMatch(answer, /פגישה של מור/)
+  assert.doesNotMatch(answer, /לא בטוחה למה התכוונת/)
+})
+
 test('שאלות סטטוס טבעיות שומרות את הקשר בקשת ההסעה ואינן מכפילות אותה', () => {
   let data = sendLiaChatMessage(simpleData(), 'f', 'm', 'מי יכול להסיע את איתמר?').data
   data = sendLiaChatMessage(data, 'f', 'm', 'אז תשלחי לו').data

@@ -13,7 +13,7 @@ const includesAny = (text: string, phrases: string[]) => phrases.some(phrase => 
 const hasWord = (set: Set<string>, variants: string[]) => variants.some(word => set.has(word))
 const priorIntent = (intent?: string): LiaIntent | undefined => intent === 'TODAY_SCHEDULE' || intent === 'UPCOMING_EVENTS' ? 'SCHEDULE' : intent === 'OPEN_TASKS' ? 'TASKS' : intent === 'MEMBER_AVAILABILITY' ? 'AVAILABILITY' : intent as LiaIntent | undefined
 const conversationalQuestion = (tokens: Set<string>) => hasWord(tokens, ['מה', 'איך'])
-const temporalOnly = (text: string) => /^(ו?)(היום|מחר|השבוע|שבוע הבא|בבוקר|בצהריים|בערב|בלילה|הלילה|מחר בערב|מחר בבוקר)$/.test(text)
+const temporalOnly = (text: string) => /^(?:ו?מה |ו?)(היום|מחר|השבוע|שבוע הבא|בבוקר|בצהריים|בערב|בלילה|הלילה|מחר בערב|מחר בבוקר)$/.test(text)
 const hasCapabilityWord = (tokens: Set<string>) => [...tokens].some(token => ['יכולות', 'יכולת', 'יודעת', 'עוזרת', 'לעזור'].some(word => token === word || token.endsWith(word)))
 
 export function resolveMember(family: FamilyUnit, input: string, currentMember: Person, context?: LiaConversationContext): { member?: Person; explicit: boolean; correction: boolean } {

@@ -224,7 +224,7 @@ function responseFor(data: AppData, conversation: LiaConversation, member: Perso
   }
   if (intent === 'TODAY_SCHEDULE') {
     const personal = /(^| )(אני|לי|שלי)( |$)/.test(normalize(input)) || childMode
-    const named = resolved.member || (personal ? member : undefined)
+    const named = resolved.member || (personal ? member : ['TODAY_SCHEDULE', 'UPCOMING_EVENTS'].includes(priorContext?.lastIntent || '') ? family.people.find(person => person.id === priorContext?.lastMemberId) : undefined)
     const subjectId = named?.id
     const todayScope = { ...scope, kind: 'today' as const }
     const events = scheduleEvents(data, family.id, subjectId, todayScope)
@@ -238,7 +238,7 @@ function responseFor(data: AppData, conversation: LiaConversation, member: Perso
   }
   if (intent === 'UPCOMING_EVENTS') {
     const personal = /(^| )(אני|לי|שלי)( |$)/.test(normalize(input)) || childMode
-    const named = resolved.member || (personal ? member : undefined)
+    const named = resolved.member || (personal ? member : ['TODAY_SCHEDULE', 'UPCOMING_EVENTS'].includes(priorContext?.lastIntent || '') ? family.people.find(person => person.id === priorContext?.lastMemberId) : undefined)
     let events = scheduleEvents(data, family.id, named?.id, scope)
     const relativeAfter = normalize(input).includes('אחרי העבודה') ? 'work' : normalize(input).includes('אחרי בית ספר') ? 'study' : undefined
     if (named && relativeAfter) {
