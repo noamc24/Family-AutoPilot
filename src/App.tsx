@@ -70,6 +70,7 @@ import {
   applyTransitAlternative,
   confirmDriver,
   ensureRequests,
+  forwardRequest,
   rankedDrivers,
   reconcileTransportation,
   recommendDriver,
@@ -608,6 +609,10 @@ function App() {
         ],
       }
     })
+  }
+  function forwardRide(id: string, memberIds: string[]) {
+    setData((previous) => forwardRequest(previous, id, activePersonId, memberIds))
+    setToast(memberIds.length === 1 ? `הבקשה הועברה ל${personName(memberIds[0])}` : `הבקשה נשלחה ל־${memberIds.length} בני משפחה`)
   }
   function approveRide(id: string, driverId: string) {
     setData((previous) => {
@@ -1500,7 +1505,7 @@ function App() {
                     ))}
                   </div>
                 </header>
-                <LiaHomeSection data={data} family={family} actorId={activePersonId} />
+                <LiaHomeSection data={data} family={family} actorId={activePersonId} onRideResponse={answerRide} onForwardRide={forwardRide} onAcknowledge={updateAcknowledgement} onReviewPending={(actionId, approved) => { const action = (data.pendingActions || []).find(item => item.id === actionId); if (action) reviewPendingAction(action, approved) }} />
                 {homeIsEmpty ? <section className="first-empty-state home-empty-state">
                   <span className="first-empty-mark"><CalendarDays size={23}/></span>
                   <div><span className="first-empty-kicker">הכול מוכן להתחלה</span><h2>התוכנית המשפחתית עדיין פנויה</h2><p>אין אירועים, משימות או החלטות שמחכים לכם. אפשר להתחיל בפריט הראשון.</p></div>
