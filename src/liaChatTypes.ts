@@ -52,6 +52,23 @@ export type LiaConversationContext = {
     dayPart?: 'morning' | 'afternoon' | 'evening' | 'night'
   }
   referenceKind?: 'member' | 'event' | 'task' | 'ride' | 'intervention' | 'activity'
+  previousTopic?: {
+    memberId?: string
+    eventId?: string
+    taskId?: string
+    rideId?: string
+    interventionId?: string
+    intent?: string
+    resultIds?: string[]
+    referenceKind?: 'member' | 'event' | 'task' | 'ride' | 'intervention' | 'activity'
+    temporalScope?: LiaConversationContext['temporalScope']
+  }
+  pendingClarification?: {
+    kind: 'event'
+    candidateIds: string[]
+    requestedField: 'time' | 'location' | 'details'
+  }
+  lastRelevantMessageCount?: number
 }
 
 export type LiaConversation = {
