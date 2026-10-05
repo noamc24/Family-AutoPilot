@@ -1,3 +1,5 @@
+import { formatDateTime } from './dateTime'
+
 export type Priority = 'low' | 'normal' | 'high' | 'critical'
 export type RoutineKind = 'work' | 'study' | 'activity'
 export type WeeklyRoutine = { id: string; kind: RoutineKind; label: string; day?: number; days?: number[]; start: string; end: string; location?: string; prepTitle?: string; prepOwnerId?: string }
@@ -100,9 +102,7 @@ export function mergeRoutineEntries(routines: WeeklyRoutine[] = []): WeeklyRouti
   return [...grouped.values()]
 }
 export const dateLabel = (value: string) => {
-  if (value === localDate()) return 'היום'
-  if (value === localDate(1)) return 'מחר'
-  return new Intl.DateTimeFormat('he-IL', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(`${value}T12:00:00`))
+  return formatDateTime(value)
 }
 export const cleanStoredText = (value: string | null | undefined) => (value || '').normalize('NFC')
   .replace(/\u00e2\u20ac[\u0098\u0099\u02dc\u2122]/g, "'")

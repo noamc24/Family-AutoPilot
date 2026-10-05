@@ -1,6 +1,8 @@
 import { useState, type CSSProperties, type ReactNode } from 'react'
 import { ArrowLeft, CalendarDays, Check, ChevronRight, Plus, ShieldCheck, Sparkles, Trash2, Users } from 'lucide-react'
 import { ageFromBirthDate, defaultPersonalSettings, localDate, uid, validBirthDate, type FamilyUnit, type Person } from '../data'
+import { formatDate } from '../dateTime'
+import { DateInput } from './DateInput'
 
 type FirstTimeView = 'landing' | 'onboarding'
 type Role = Person['role']
@@ -50,7 +52,7 @@ export function FirstTimeExperience({ onComplete }: Props) {
         <div className="onboarding-form-grid">
           <OnboardingField label="שם"><input autoFocus value={current.name} onChange={event => setCurrentField('name', event.target.value)} placeholder="איך קוראים לך?"/></OnboardingField>
           <OnboardingField label="תפקיד במשפחה"><select value={current.role} onChange={event => setCurrentField('role', event.target.value as Role)}>{roles.map(role => <option key={role}>{role}</option>)}</select></OnboardingField>
-          <OnboardingField label="תאריך לידה"><input type="date" max={localDate()} value={current.birthDate} onChange={event => setCurrentField('birthDate', event.target.value)}/></OnboardingField>
+          <OnboardingField label="תאריך לידה"><DateInput required max={localDate()} value={current.birthDate} onChange={value => setCurrentField('birthDate', value)}/></OnboardingField>
         </div><div className="onboarding-actions"><button className="first-time-cta" type="button" disabled={!validMember(current)} onClick={() => setStep(2)}>המשך <ArrowLeft size={16}/></button></div>
       </>}
 
@@ -61,11 +63,11 @@ export function FirstTimeExperience({ onComplete }: Props) {
           <div className="onboarding-member-fields">
             <OnboardingField label="שם"><input value={additional.name} onChange={event => setAdditionalField('name', event.target.value)} placeholder="שם"/></OnboardingField>
             <OnboardingField label="תפקיד"><select value={additional.role} onChange={event => setAdditionalField('role', event.target.value as Role)}>{roles.map(role => <option key={role}>{role}</option>)}</select></OnboardingField>
-            <OnboardingField label="תאריך לידה"><input type="date" max={localDate()} value={additional.birthDate} onChange={event => setAdditionalField('birthDate', event.target.value)}/></OnboardingField>
+            <OnboardingField label="תאריך לידה"><DateInput required max={localDate()} value={additional.birthDate} onChange={value => setAdditionalField('birthDate', value)}/></OnboardingField>
             <button type="button" className="onboarding-add-button" disabled={!validMember(additional)} onClick={addMember}><Plus size={14}/> הוספה</button>
           </div>
         </details>
-        {!!members.length && <div className="onboarding-member-list">{members.map((member, index) => <div key={member.id}><span className={`avatar ${colors[(index + 1) % colors.length]}`}>{member.name[0]}</span><span><strong>{member.name}</strong><small>{member.role} · {new Intl.DateTimeFormat('he-IL', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(`${member.birthDate}T12:00:00`))}</small></span><button type="button" onClick={() => setMembers(previous => previous.filter(item => item.id !== member.id))} aria-label={`הסרת ${member.name}`}><Trash2 size={14}/></button></div>)}</div>}
+        {!!members.length && <div className="onboarding-member-list">{members.map((member, index) => <div key={member.id}><span className={`avatar ${colors[(index + 1) % colors.length]}`}>{member.name[0]}</span><span><strong>{member.name}</strong><small>{member.role} · {formatDate(member.birthDate)}</small></span><button type="button" onClick={() => setMembers(previous => previous.filter(item => item.id !== member.id))} aria-label={`הסרת ${member.name}`}><Trash2 size={14}/></button></div>)}</div>}
         <div className="onboarding-actions"><button className="first-time-cta" type="button" disabled={!familyName.trim()} onClick={() => setStep(3)}>לסיכום <ArrowLeft size={16}/></button></div>
       </>}
 

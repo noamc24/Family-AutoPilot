@@ -50,6 +50,7 @@ import {
   type WeeklyRoutine,
   type TransportationRequest,
 } from './data'
+import { formatDate, isTime, parseDisplayDate } from './dateTime'
 import {
   applyBirthdayPlan,
   applyLatePlan,
@@ -1383,7 +1384,7 @@ function App() {
             <span className="mobile-logo">
               <Sparkles size={17} /> אוטופיילוט משפחתי
             </span>
-            <span className="desktop-date">{new Intl.DateTimeFormat('he-IL', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())}</span>
+            <span className="desktop-date">{formatDate(localDate())}</span>
           </div>
           <div className="topbar-actions">
             <span className="demo-pill">
@@ -1488,7 +1489,7 @@ function App() {
                   <div>
                     <div className="eyebrow">היום במשפחה</div>
                     <h1>{currentPerson ? homeGreeting(currentPerson) : 'המשפחה שלך'}</h1>
-                    <p>{family.name} · {new Intl.DateTimeFormat('he-IL', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())}</p>
+                    <p>{family.name} · {formatDate(localDate())}</p>
                   </div>
                   <div className="concept-e-family" aria-label={`${family.people.length} בני משפחה בתיאום`}>
                     {family.people.map((p) => (
@@ -2401,12 +2402,14 @@ function LocalizedDateTimeInput({ element }: { element: React.ReactElement<any> 
   if (inputType === 'time')
     return cloneElement(element, { type: 'text', lang: 'he-IL', dir: 'ltr', inputMode: 'numeric', pattern: '[0-2][0-9]:[0-5][0-9]', placeholder: '00:00', step: 60 })
   const commit = () => {
-    const match = display.match(inputType === 'date' ? /^(\d{2})\/(\d{2})\/(\d{4})$/ : /^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}:\d{2})$/)
-    if (!match) {
+    const dateText = inputType === 'date' ? display : display.slice(0, 10)
+    const date = parseDisplayDate(dateText)
+    const time = inputType === 'datetime-local' ? display.slice(11) : ''
+    if (!date || (inputType === 'datetime-local' && !isTime(time))) {
       setDisplay(displayValue)
       return
     }
-    const value = inputType === 'date' ? `${match[3]}-${match[2]}-${match[1]}` : `${match[3]}-${match[2]}-${match[1]}T${match[4]}`
+    const value = inputType === 'date' ? date : `${date}T${time}`
     element.props.onChange?.({ target: { value } })
   }
   return cloneElement(element, {

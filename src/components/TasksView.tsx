@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Check, ClipboardList, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { dateLabel, localDate, type FamilyTask, type FamilyUnit } from '../data'
+import { taskDueDate, taskDueTime } from '../dateTime'
 
 type Filter = 'today' | 'week' | 'all'
 type Props = { family: FamilyUnit; tasks: FamilyTask[]; actorId: string; childMode: boolean; onCreate: () => void; onEdit: (task: FamilyTask) => void; onDelete: (task: FamilyTask) => void; onToggle: (task: FamilyTask) => void }
@@ -10,8 +11,8 @@ export function filterTasksForView(tasks: FamilyTask[], familyId: string, actorI
   const week = `${weekDate.getFullYear()}-${String(weekDate.getMonth() + 1).padStart(2, '0')}-${String(weekDate.getDate()).padStart(2, '0')}`
   return tasks.filter(task => task.familyId === familyId && (!childMode || task.ownerId === actorId)).filter(task => {
     if (filter === 'all') return true
-    if (filter === 'today') return task.due === today
-    return task.due >= today && task.due <= week
+    if (filter === 'today') return taskDueDate(task.due) === today
+    return taskDueDate(task.due) >= today && taskDueDate(task.due) <= week
   })
 }
 

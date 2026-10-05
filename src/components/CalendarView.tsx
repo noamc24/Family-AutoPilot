@@ -4,6 +4,7 @@ import { dateLabel, localDate, type FamilyEvent, type FamilyTask, type FamilyUni
 import { calendarDatesForRange, calendarRendererFor, deriveRoutineOccurrences, timeMinutes, visibleMonthItems, type RoutineOccurrence } from '../calendarModel'
 import { calendarDays, defaultCalendarView, eventsForMembers, localIsoDate, startOfWeek, visibleMemberIds, type CalendarDisplay, type CalendarGrouping, type CalendarRange } from '../uiModel'
 import { formatTimeRange } from '../uiFormatting'
+import { taskDueDate, taskDueTime } from '../dateTime'
 
 type Props = { family: FamilyUnit; events: FamilyEvent[]; tasks: FamilyTask[]; actorId: string; childMode: boolean; navigationTarget?: { eventId: string; date: string; key: number } | null; onCreate: (date?: string) => void; onOpenEvent: (event: FamilyEvent) => void; onDeleteEvent?: (event: FamilyEvent) => void; onOpenTask: (task: FamilyTask) => void }
 type Detail = { kind: 'event'; event: FamilyEvent } | { kind: 'routine'; routine: RoutineOccurrence }
@@ -12,7 +13,7 @@ type CalendarItem = FamilyEvent | RoutineOccurrence
 const rangeLabels: Record<CalendarRange, string> = { day: 'יומי', week: 'שבועי', month: 'חודשי', year: 'שנתי' }
 const weekday = new Intl.DateTimeFormat('he-IL', { weekday: 'short' })
 const monthTitle = new Intl.DateTimeFormat('he-IL', { month: 'long', year: 'numeric' })
-const rowDateLabel = (value: string) => new Intl.DateTimeFormat('he-IL', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(`${value}T12:00:00`))
+const rowDateLabel = dateLabel
 const isRoutine = (item: CalendarItem): item is RoutineOccurrence => 'kind' in item && item.kind === 'routine'
 const itemTime = (item: CalendarItem) => isRoutine(item) ? item.start : item.time
 const itemEnd = (item: CalendarItem) => isRoutine(item) ? item.end : item.endTime || `${String(Math.min(23, Number(item.time.slice(0, 2)) + 1)).padStart(2, '0')}:${item.time.slice(3, 5)}`
