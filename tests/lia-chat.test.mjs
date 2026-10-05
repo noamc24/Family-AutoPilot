@@ -104,7 +104,7 @@ test('כן עם context וכפתור הפעולה מפעילים אותה פונ
 test('כן ללא pending אינו מבצע פעולה ולא מבקש הסעה', () => {
   const data = sendLiaChatMessage(simpleData(), 'f', 'm', 'כן').data
   assert.equal(data.transportationRequests.length, 0)
-  assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /לא הבנתי עד הסוף|על מה/)
+  assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /לא בטוחה שהבנתי|על מה/)
 })
 
 test('לא מבטל pending suggestion בלי ליצור בקשה', () => {
@@ -164,7 +164,7 @@ test('child mode מוגבל למידע אישי ואינו מקבל פעולת �
 
 test('fallback קצר ו-clear chat מנקה רק את השיחה', () => {
   let data = sendLiaChatMessage(simpleData(), 'f', 'm', 'תזמיני לי פיצה').data
-  assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /לא הבנתי עד הסוף/)
+  assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /לא בטוחה שהבנתי/)
   const before = { events: data.events.length, tasks: data.tasks.length, activity: data.activity.length }
   data = clearLiaConversation(data, 'f', 'm')
   assert.equal(conversationFor(data, 'f', 'm').messages.length, 0)
@@ -435,4 +435,44 @@ test('ביטול שיחתי ואישור פעולה מקבלים acknowledgement
   data = sendLiaChatMessage(simpleData(), 'f', 'm', 'מי יכול לקחת את איתמר?').data
   data = sendLiaChatMessage(data, 'f', 'm', 'כן').data
   assert.equal(conversationFor(data, 'f', 'm').messages.at(-1).text, 'סגור, שלחתי לאוראל. הבקשה ממתינה לתגובה.')
+})
+
+test('כוונות שיחה כלליות מכסות wellbeing, זהות, יכולות, עזרה וסיום', () => {
+  const prompts = [
+    ['מה שלומך?', /מעולה.*מה נבדוק/],
+    ['מי את?', /העוזרת המשפחתית של FamPilot/],
+    ['מה את יודעת לעשות?', /אירועים ומשימות.*הסעה.*התנגשויות/],
+    ['איך משתמשים בך?', /מה יש היום.*משימות פתוחות.*מי פנוי להסעה/],
+    ['יאללה ביי', /אני כאן כשתרצה להמשיך/],
+  ]
+  for (const [prompt, expected] of prompts) {
+    const data = sendLiaChatMessage(simpleData(), 'f', 'm', prompt).data
+    assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, expected)
+  }
+  for (const greeting of ['היי', 'היי LIA', 'שלום', 'בוקר טוב', 'מה קורה?', 'מה נשמע?']) {
+    assert.equal(detectLiaIntent(greeting), 'GREETING')
+  }
+})
+
+test('שיחת חולין באמצע רצף אינה מאבדת אדם, אירוע או כוונה קודמת', () => {
+  let data = sendLiaChatMessage(simpleData(), 'f', 'm', 'מה איתמר עושה היום?').data
+  const before = conversationFor(data, 'f', 'm').contextState
+  data = sendLiaChatMessage(data, 'f', 'm', 'סבבה תודה').data
+  assert.equal(conversationFor(data, 'f', 'm').messages.at(-1).text, 'בשמחה.')
+  const afterThanks = conversationFor(data, 'f', 'm').contextState
+  assert.equal(afterThanks.lastMemberId, before.lastMemberId)
+  assert.equal(afterThanks.lastEventId, before.lastEventId)
+  assert.equal(afterThanks.lastIntent, before.lastIntent)
+  data = sendLiaChatMessage(data, 'f', 'm', 'ומי מחזיר אותו?').data
+  assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /עדיין לא נקבע/)
+  data = sendLiaChatMessage(data, 'f', 'm', 'אלופה').data
+  assert.equal(conversationFor(data, 'f', 'm').messages.at(-1).text, 'בשמחה.')
+})
+
+test('fallback שיחתי משתמש בנושא האחרון בלי להמציא עובדות', () => {
+  let data = sendLiaChatMessage(simpleData(), 'f', 'm', 'מה איתמר עושה היום?').data
+  data = sendLiaChatMessage(data, 'f', 'm', 'תעשי קסם קטן').data
+  const answer = conversationFor(data, 'f', 'm').messages.at(-1).text
+  assert.match(answer, /לא בטוחה שהבנתי.*לגבי איתמר.*בלו״ז.*במשימות.*בהסעות/)
+  assert.doesNotMatch(answer, /מצאתי|קבעתי|עדכנתי/)
 })

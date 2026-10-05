@@ -1,7 +1,7 @@
 import type { FamilyUnit, Person } from './data'
 import type { LiaConversationContext, LiaPendingIntent } from './liaChatTypes'
 
-export type LiaIntent = 'GREETING' | 'THANKS' | 'MEMBER_OVERVIEW' | 'WHAT_NEEDS_ATTENTION' | 'SCHEDULE' | 'NEXT_EVENT' | 'PREVIOUS_EVENT' | 'EVENT_DETAILS' | 'WHO_CAN_DRIVE' | 'RIDE_STATUS' | 'RESPONSIBILITY' | 'AVAILABILITY' | 'TASKS' | 'RECENT_CHANGES' | 'SOURCE_DETAILS' | 'COMBINED_SUMMARY' | 'ALREADY_HANDLED' | 'SEND_RIDE_REQUEST' | 'EXPLAIN' | 'MORE' | 'WHAT_IF' | 'ACTION_REQUEST' | 'HELP' | 'UNSUPPORTED'
+export type LiaIntent = 'GREETING' | 'WELLBEING' | 'IDENTITY' | 'CAPABILITIES' | 'THANKS' | 'GOODBYE' | 'MEMBER_OVERVIEW' | 'WHAT_NEEDS_ATTENTION' | 'SCHEDULE' | 'NEXT_EVENT' | 'PREVIOUS_EVENT' | 'EVENT_DETAILS' | 'WHO_CAN_DRIVE' | 'RIDE_STATUS' | 'RESPONSIBILITY' | 'AVAILABILITY' | 'TASKS' | 'RECENT_CHANGES' | 'SOURCE_DETAILS' | 'COMBINED_SUMMARY' | 'ALREADY_HANDLED' | 'SEND_RIDE_REQUEST' | 'EXPLAIN' | 'MORE' | 'WHAT_IF' | 'ACTION_REQUEST' | 'HELP' | 'UNSUPPORTED'
 export type TemporalScope = NonNullable<LiaConversationContext['temporalScope']>
 
 export const normalizeHebrew = (value: string) => value.trim().toLowerCase().normalize('NFKD')
@@ -34,7 +34,11 @@ export function classifyLiaIntent(input: string, pending?: LiaPendingIntent, pre
   const tokenSet = words(text)
   if (pending && includesAny(text, ['כן', 'יאללה', 'שלחי', 'תשלחי', 'קדימה', 'סבבה'])) return 'SEND_RIDE_REQUEST'
   if (pending && includesAny(text, ['לא', 'עזבי', 'בטלי', 'ביטול'])) return 'SEND_RIDE_REQUEST'
-  if (/^(היי|הי|שלום|אהלן|בוקר טוב|צהריים טובים|ערב טוב|מה נשמע)( lia| ליה)?$/.test(text)) return 'GREETING'
+  if (/^(היי|הי|שלום|אהלן|בוקר טוב|צהריים טובים|ערב טוב|מה נשמע|מה קורה)( lia| ליה)?$/.test(text)) return 'GREETING'
+  if (includesAny(text, ['מה שלומך', 'מה איתך', 'איך הולך', 'הכל טוב', 'הכול טוב'])) return 'WELLBEING'
+  if (includesAny(text, ['מי את', 'מה זה lia', 'מה זה ליה', 'מה התפקיד שלך'])) return 'IDENTITY'
+  if (includesAny(text, ['מה את יודעת לעשות', 'במה את יכולה לעזור', 'מה אפשר לשאול אותך', 'מה את עושה'])) return 'CAPABILITIES'
+  if (includesAny(text, ['יאללה ביי', 'להתראות', 'נדבר אחר כך', 'תודה זה הכל', 'תודה זה הכול'])) return 'GOODBYE'
   if (/^(תודה|תודה רבה|מעולה תודה|סבבה תודה|אלופה|עזרת לי)/.test(text)) return 'THANKS'
   if (includesAny(text, ['אם ', 'מה יקרה אם', 'מה קורה אם', 'זה מסתדר אם'])) return 'WHAT_IF'
   if (/התכוונתי|^לא .+ אלא|^בעצם/.test(text) && previousIntent) return previousIntent as LiaIntent
@@ -60,7 +64,7 @@ export function classifyLiaIntent(input: string, pending?: LiaPendingIntent, pre
   if (includesAny(text, ['ספרי לי על', 'מה קורה עם', 'מה המצב של', 'תמונה על'])) return 'MEMBER_OVERVIEW'
   const scheduleWords = hasWord(tokenSet, ['עושה', 'עסוק', 'עסוקה', 'תוכניות', 'תכנית', 'תוכנית', 'לוז', 'אירועים']) || includesAny(text, ['מה יש ל', 'מה יש לי', 'מה יש היום', 'מה יש מחר', 'מה יש השבוע', 'מה נשאר להיום', 'משהו בערב', 'אחרי העבודה', 'אחרי בית ספר', 'לפני החוג']) || hasWord(tokenSet, ['איפה']) && hasWord(tokenSet, ['צריך', 'צריכה']) && hasWord(tokenSet, ['להיות'])
   if (scheduleWords) return 'SCHEDULE'
-  if (includesAny(text, ['מה את יכולה', 'עזרה', 'אפשר לשאול', 'יכולות'])) return 'HELP'
+  if (includesAny(text, ['עזרה', 'מה אפשר לעשות פה', 'איך משתמשים בך'])) return 'HELP'
   return 'UNSUPPORTED'
 }
 
