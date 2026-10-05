@@ -136,7 +136,7 @@ test('נתונים ישנים מקבלים הגדרות אישיות וחיבו�
   globalThis.localStorage = { getItem: () => JSON.stringify(legacy) }
   try {
     const person = model.readData().families[0].people[0]
-    assert.equal(person.personalSettings.integrations.length, 10)
+    assert.equal(person.personalSettings.integrations.length, model.personalSourceIds.length)
     assert.ok(person.personalSettings.integrations.every(item => item.mode === 'demo'))
     assert.ok(person.personalSettings.integrations.every(item => item.connectionStatus === 'disconnected' && item.liaAccess === 'notAllowed'))
   } finally { globalThis.localStorage = originalStorage }

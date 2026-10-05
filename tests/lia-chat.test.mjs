@@ -5,14 +5,14 @@ import { build } from 'esbuild'
 
 const result = await build({
   stdin: {
-    contents: `export { conversationFor, clearLiaConversation, detectLiaIntent, performLiaChatAction, sendLiaChatMessage } from './src/liaChat.ts'; export { liaQuickPrompts } from './src/components/LiaChatPreview.tsx'; export { initialData, localDate, readData, sanitizeAppData } from './src/data.ts'; export { respondToRequest, confirmDriver, requestForEvent } from './src/coordination.ts';`,
+    contents: `export { conversationFor, clearLiaConversation, detectLiaIntent, performLiaChatAction, sendLiaChatMessage } from './src/liaChat.ts'; export { liaQuickPrompts } from './src/components/LiaChatPreview.tsx'; export { APP_DATA_STORAGE_KEY, initialData, localDate, readData, sanitizeAppData } from './src/data.ts'; export { respondToRequest, confirmDriver, requestForEvent } from './src/coordination.ts';`,
     resolveDir: process.cwd(), sourcefile: 'lia-chat-test-entry.ts', loader: 'ts',
   },
   bundle: true, write: false, format: 'cjs', platform: 'node',
 })
 const module = { exports: {} }
 new Function('module', 'exports', 'require', result.outputFiles[0].text)(module, module.exports, createRequire(import.meta.url))
-const { conversationFor, clearLiaConversation, detectLiaIntent, performLiaChatAction, sendLiaChatMessage, liaQuickPrompts, initialData, localDate, readData, sanitizeAppData, respondToRequest, confirmDriver, requestForEvent } = module.exports
+const { APP_DATA_STORAGE_KEY, conversationFor, clearLiaConversation, detectLiaIntent, performLiaChatAction, sendLiaChatMessage, liaQuickPrompts, initialData, localDate, readData, sanitizeAppData, respondToRequest, confirmDriver, requestForEvent } = module.exports
 
 const clone = value => structuredClone(value)
 const conversation = (data, memberId = 'Mor') => conversationFor(data, 'Avrahami', memberId)
@@ -55,7 +55,7 @@ test('שיחות מבודדות לפי Member ומעבר ביניהם מחזיר
 test('conversation נשמר ב-AppData ונטען מחדש דרך persistence', () => {
   const originalStorage = globalThis.localStorage
   const data = sendLiaChatMessage(clone(initialData), 'Avrahami', 'Mor', 'מה יש לי היום?').data
-  globalThis.localStorage = { getItem: key => key === 'family-autopilot-he-v1' ? JSON.stringify(data) : null }
+  globalThis.localStorage = { getItem: key => key === APP_DATA_STORAGE_KEY ? JSON.stringify(data) : null }
   try { assert.equal(conversation(readData()).messages.length, 2) }
   finally { globalThis.localStorage = originalStorage }
 })

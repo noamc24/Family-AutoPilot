@@ -40,7 +40,7 @@ function command(method, params = {}) {
 }
 async function evaluate(expression) {
   const result = await command('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true })
-  if (result.exceptionDetails) throw new Error(result.exceptionDetails.text)
+  if (result.exceptionDetails) throw new Error(result.exceptionDetails.exception?.description || result.exceptionDetails.text)
   return result.result.value
 }
 async function waitFor(expression, label) {
@@ -60,7 +60,6 @@ try {
   await command('Page.enable')
   await command('Runtime.enable')
   await waitFor('document.readyState === "complete"', 'initial page')
-  await evaluate('localStorage.clear(); location.reload()')
   await waitFor('document.body.innerText.includes("המשפחה שלך")', 'landing')
 
   assert.equal(await click('התחלה'), true)
@@ -100,15 +99,19 @@ try {
   assert.equal(await bodyHas('ארוחת ערב משפחתית'), true)
   assert.equal(await bodyHas('עדיין אין אירועים'), false)
 
-  assert.equal(await click('בית'), true)
-  assert.equal(await click('הוספת משימה'), true)
+  assert.equal(await click('משימות'), true)
+  await waitFor('document.querySelector(".tasks-v2") !== null', 'Tasks empty state')
+  assert.equal(await click('הוספת משימה ראשונה'), true)
   await waitFor('document.body.innerText.includes("משימה חדשה")', 'task dialog')
   assert.equal(await setInput('input[placeholder="מה צריך לעשות?"]', 'לקנות חלב'), true)
   assert.equal(await click('שמירה'), true)
-  await waitFor('document.body.innerText.includes("לקנות חלב")', 'task on Home')
+  await waitFor('document.body.innerText.includes("לקנות חלב")', 'task in Tasks')
   data = await stored()
   assert.equal(data.tasks.length, 1)
 
+  assert.equal(await click('בית'), true)
+  await waitFor('document.querySelector(".view-home") !== null', 'Home with task')
+  assert.equal(await bodyHas('לקנות חלב'), true)
   assert.equal(await click('משימות'), true)
   await waitFor('document.querySelector(".tasks-v2") !== null', 'Tasks')
   assert.equal(await bodyHas('לקנות חלב'), true)
