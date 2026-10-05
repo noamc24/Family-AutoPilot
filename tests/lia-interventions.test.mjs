@@ -30,6 +30,7 @@ test('מודל LIA מספק רק התערבויות אמיתיות עם state ב
 
 test('שינוי אירוע ממתין משחזר פעולות, ואישור או דחייה פועלים ונשמרים', () => {
   const base = fresh()
+  base.events.forEach(event => { event.date = dataModule.localDate(1) })
   const signal = showcase.createDemoShowcaseSignal(base, 'Avrahami', 'Mor', 'whatsapp-calendar')
   const received = showcase.receiveShowcaseSignal(base, signal)
   const originalEvent = received.events.find(event => event.id === signal.eventCandidate.targetEventId)
