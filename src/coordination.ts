@@ -52,7 +52,13 @@ export function ensureRequests(data: AppData, actorId: string): AppData {
 export function respondToRequest(data: AppData, requestId: string, personId: string, response: 'CAN_DO' | 'CANNOT_DO'): AppData {
   const request = data.transportationRequests.find(item => item.id === requestId)
   if (!request || !request.eligibleMemberIds.includes(personId) || request.status === 'CANCELLED' || request.status === 'COVERED' && request.selectedDriverId !== personId) return data
-  const next = { ...request, responses: { ...request.responses, [personId]: response }, selectedDriverId: request.selectedDriverId === personId && response === 'CANNOT_DO' ? '' : request.selectedDriverId }
+  const withdrawing = request.selectedDriverId === personId && response === 'CANNOT_DO'
+  const responses = Object.fromEntries(request.eligibleMemberIds.map(id => [id,
+    id === personId ? response
+        : withdrawing && request.responses[id] === 'CANCELLED' ? 'PENDING'
+          : request.responses[id] || 'PENDING',
+  ])) as TransportationRequest['responses']
+  const next = { ...request, responses, selectedDriverId: withdrawing ? '' : request.selectedDriverId }
   return reconcileTransportation({ ...data, transportationRequests: data.transportationRequests.map(item => item.id === requestId ? { ...next, status: requestStatus(next) } : item) })
 }
 
@@ -60,7 +66,7 @@ export function forwardRequest(data: AppData, requestId: string, actorId: string
   const request = data.transportationRequests.find(item => item.id === requestId)
   const event = request && data.events.find(item => item.id === request.eventId)
   const family = request && data.families.find(item => item.id === request.familyId)
-  if (!request || !event || !family) return data
+  if (!request || !event || !family || request.status === 'COVERED' || request.status === 'CANCELLED') return data
   const validTargets = [...new Set(targetIds)].filter(id => id !== actorId && request.eligibleMemberIds.includes(id) && family.people.some(person => person.id === id && !pickupIneligibility(person, event, data)))
   if (!validTargets.length) return data
   const responses = { ...request.responses, [actorId]: 'CANNOT_DO' as const }
@@ -71,8 +77,14 @@ export function forwardRequest(data: AppData, requestId: string, actorId: string
 
 export function confirmDriver(data: AppData, requestId: string, personId: string): AppData {
   const request = data.transportationRequests.find(item => item.id === requestId)
-  if (!request || request.responses[personId] !== 'CAN_DO' || !request.eligibleMemberIds.includes(personId)) return data
-  return reconcileTransportation({ ...data, transportationRequests: data.transportationRequests.map(item => item.id === requestId ? { ...item, selectedDriverId: personId, status: 'COVERED' } : item) })
+  if (!request || request.status === 'CANCELLED' || request.selectedDriverId && request.selectedDriverId !== personId || request.responses[personId] !== 'CAN_DO' || !request.eligibleMemberIds.includes(personId)) return data
+  const responses = Object.fromEntries(request.eligibleMemberIds.map(id => [id, id === personId ? 'CAN_DO' : request.responses[id] === 'PENDING' ? 'CANCELLED' : request.responses[id]])) as TransportationRequest['responses']
+  return reconcileTransportation({ ...data, transportationRequests: data.transportationRequests.map(item => item.id === requestId ? { ...item, responses, selectedDriverId: personId, status: 'COVERED' } : item) })
+}
+
+export function acceptRideRequest(data: AppData, requestId: string, personId: string): AppData {
+  const answered = respondToRequest(data, requestId, personId, 'CAN_DO')
+  return confirmDriver(answered, requestId, personId)
 }
 
 export type DriverOption = { person: Person; reason: string; score: number }
