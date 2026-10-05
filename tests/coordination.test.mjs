@@ -81,13 +81,18 @@ test('תפקיד בן בוגר אינו חוסם נהיגה, וזמינות מב
 
 test('מחיקת אירוע או אדם מנקה את הבקשות התלויות', () => {
   const data = fresh()
-  assert.equal(domain.removeEventAndDependents(data, 'pickup').transportationRequests.length, 0)
-  assert.equal(dataModule.removePersonAndTheirData(data, 'Avrahami', 'Itamar').transportationRequests.length, 0)
+  const withoutEvent = domain.removeEventAndDependents(data, 'pickup')
+  assert.equal(withoutEvent.transportationRequests.some(request => request.eventId === 'pickup'), false)
+  const withoutMember = dataModule.removePersonAndTheirData(data, 'Avrahami', 'Itamar')
+  assert.equal(withoutMember.transportationRequests.some(request => request.passengerId === 'Itamar' || request.createdById === 'Itamar' || request.eligibleMemberIds.includes('Itamar')), false)
+  assert.ok(withoutMember.transportationRequests.every(request => withoutMember.events.some(event => event.id === request.eventId)))
 })
 
 test('תרחיש איחור משנה זמינות, דוחה קניות ופותח בקשה חדשה', () => {
   const data = fresh()
   const family = data.families[0]
+  Object.assign(data.events.find(event => event.id === 'dance'), { date: dataModule.localDate(), responsibleId: 'Mor' })
+  Object.assign(data.tasks.find(task => task.id === 'groceries'), { due: dataModule.localDate(), ownerId: 'Mor' })
   const impact = domain.getLateImpact(data, family, 'Mor')
   assert.equal(impact.pickup.id, 'dance')
   const next = coordination.ensureRequests(domain.applyLatePlan(data, family, 'Mor', impact), 'Mor')
