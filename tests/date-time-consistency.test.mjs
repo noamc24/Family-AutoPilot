@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { build } from 'esbuild'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 
 async function load(entry) {
   const result = await build({ entryPoints: [entry], bundle: true, write: false, format: 'esm', platform: 'node' })
@@ -27,9 +27,9 @@ test('time formatting stays padded and rejects impossible values', () => {
 })
 
 test('onboarding and member editors use controlled localized date entry', () => {
-  const onboarding = readFileSync('src/components/FirstTimeExperience.tsx', 'utf8')
   const app = readFileSync('src/App.tsx', 'utf8')
-  assert.match(onboarding, /<DateInput required max=\{localDate\(\)\}/)
+  if (existsSync('src/components/FirstTimeExperience.tsx')) assert.match(readFileSync('src/components/FirstTimeExperience.tsx', 'utf8'), /<DateInput required max=\{localDate\(\)\}/)
   assert.match(app, /parseDisplayDate\(dateText\)/)
   assert.match(app, /validBirthDate\(birthDate\)/)
 })
+

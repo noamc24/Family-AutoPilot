@@ -120,7 +120,7 @@ function PeopleTable({ anchor, days, people, events, routines, onItem }: { ancho
 
 function RowsView({ grouping, days, people, events, routines, tasks, personal, onItem, onTask }: { grouping: CalendarGrouping; days: Date[]; people: FamilyUnit['people']; events: FamilyEvent[]; routines: RoutineOccurrence[]; tasks: FamilyTask[]; personal: boolean; onItem: (item: CalendarItem) => void; onTask: (task: FamilyTask) => void }) {
   const dates = new Set(days.map(localIsoDate))
-  const populatedDays = days.filter(day => { const iso = localIsoDate(day); return events.some(event => event.date === iso) || routines.some(item => item.date === iso) || tasks.some(task => task.due === iso) })
+  const populatedDays = days.filter(day => { const iso = localIsoDate(day); return events.some(event => event.date === iso) || routines.some(item => item.date === iso) || tasks.some(task => taskDueDate(task.due) === iso) })
   const subtitle = (item: CalendarItem) => {
     const date = grouping === 'family' ? rowDateLabel(item.date) : dateLabel(item.date)
     return !isRoutine(item) && item.sourceSignalId ? `✦ ${item.sourceNote || 'LIA עדכנה'} · ${date}` : date

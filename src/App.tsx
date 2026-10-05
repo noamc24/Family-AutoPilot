@@ -744,14 +744,15 @@ function App() {
       item
         ? {
             title: item.title,
-            due: item.due,
+            due: item.due.slice(0, 10),
+            dueTime: item.due.includes('T') ? item.due.split('T')[1]?.slice(0, 5) || '' : '',
             ownerId: item.ownerId,
             requiresAdult: item.requiresAdult ? 'true' : 'false',
             priority: item.priority || 'normal',
             flexible: String(item.flexible !== false),
             repeatDays: (item.repeatDays || []).join(','),
           }
-        : { title: '', due: localDate(), ownerId: activePersonId, requiresAdult: 'false', priority: 'normal', flexible: 'true', repeatDays: '' },
+        : { title: '', due: localDate(), dueTime: '', ownerId: activePersonId, requiresAdult: 'false', priority: 'normal', flexible: 'true', repeatDays: '' },
     )
     setDialog({ type: 'task', item })
   }
@@ -940,7 +941,7 @@ function App() {
         familyId: family.id,
         title: form.title.trim(),
         ownerId: form.ownerId || '',
-        due: form.due,
+        due: `${form.due}${form.dueTime ? `T${form.dueTime}` : ''}`,
         done: dialog.item?.done || false,
         eventId: dialog.item?.eventId,
         sourceSignalId: dialog.item?.sourceSignalId,
@@ -1933,6 +1934,9 @@ function App() {
                   </Field>
                   <Field label="עד מתי">
                     <input type="date" value={form.due || ''} onChange={(e) => updateForm('due', e.target.value)} />
+                  </Field>
+                  <Field label="שעה (לא חובה)">
+                    <input type="time" value={form.dueTime || ''} onChange={(e) => updateForm('dueTime', e.target.value)} />
                   </Field>
                   <Field label="אחראי/ת">
                     <select value={form.ownerId || ''} onChange={(e) => updateForm('ownerId', e.target.value)}>
