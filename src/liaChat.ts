@@ -73,6 +73,27 @@ function driverOptions(data: AppData, event: FamilyEvent) {
 }
 
 function shortList(items: string[]) { return items.length ? items.map(item => `• ${item}`).join('\n') : '' }
+function isFeminine(person: Person) { return person.role === 'אם' || person.role === 'בת' }
+function pronoun(person: Person) { return isFeminine(person) ? 'לה' : 'לו' }
+function possessive(person: Person) { return isFeminine(person) ? 'שלה' : 'שלו' }
+function naturalConstraint(person: Person, reason: string) {
+  const feminine = isFeminine(person)
+  if (reason.startsWith('בלו״ז קבוע: ')) return `${person.name} ${feminine ? 'לא פנויה' : 'לא פנוי'} — יש ${pronoun(person)} ${reason.replace('בלו״ז קבוע: ', '')} באותה שעה`
+  if (reason === 'אירוע אחר באותה שעה') return `${person.name} ${feminine ? 'לא פנויה' : 'לא פנוי'} — יש ${pronoun(person)} אירוע אחר באותה שעה`
+  if (reason === 'בעבודה בזמן האירוע' || reason === 'בעבודה') return `${person.name} בעבודה באותה שעה`
+  if (reason === 'בנסיעה בזמן האירוע' || reason === 'בנסיעה') return `${person.name} בנסיעה באותה שעה`
+  if (reason === 'ללא רישיון נהיגה') return `אין ל${person.name} רישיון נהיגה`
+  if (reason === 'ללא גישה לרכב') return `אין ל${person.name} רכב זמין`
+  if (reason === 'מתחת לגיל 18') return `${person.name} עדיין לא בגיל נהיגה`
+  if (reason === 'לא זמין/ה לאיסוף') return `${person.name} ${feminine ? 'לא זמינה' : 'לא זמין'} לאיסוף`
+  if (reason.includes('לא זמין/ה')) return `${person.name} ${feminine ? 'לא זמינה' : 'לא זמין'} בשעה הזו`
+  return `${person.name} ${feminine ? 'לא מתאימה' : 'לא מתאים'} כרגע: ${reason}`
+}
+function scheduleLead(person: Person, established: boolean) { return established ? `יש ${pronoun(person)}` : `ל${person.name} יש` }
+function correctionLead(corrected: boolean) { return corrected ? 'כן — ' : '' }
+function titleForPerson(title: string, person: Person) {
+  return title.replace(new RegExp(`\\s+(?:של\\s+|ל)${person.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`), '')
+}
 const sourceLabels: Record<string, string> = { family: 'התוכנית המשפחתית', waze: 'Waze', calendar: 'Google Calendar', whatsapp: 'WhatsApp', school: 'בית הספר', email: 'אימייל', university: 'האוניברסיטה', weather: 'מזג האוויר' }
 const clockMinutes = (value: string) => { const [hour, minute] = value.split(':').map(Number); return hour * 60 + minute }
 const overlaps = (start: string, end: string, from: string, to: string) => clockMinutes(start) < clockMinutes(to) && clockMinutes(from) < clockMinutes(end)
@@ -134,8 +155,8 @@ function responseFor(data: AppData, conversation: LiaConversation, member: Perso
 
   if (childMode && resolved.explicit && resolved.member && resolved.member.id !== member.id) return { text: 'במצב ילד אני יכולה לעזור רק עם הלו״ז, המשימות והאיסופים שלך.', context: { ...context, lastMemberId: member.id } }
 
-  if (intent === 'GREETING') return { text: `היי ${member.name} 😊 אני כאן. אפשר לדבר איתי חופשי על הלו״ז, המשימות, ההסעות או כל דבר שצריך לסדר במשפחה.`, context }
-  if (intent === 'THANKS') return { text: 'בשמחה. אני כאן אם תרצה לבדוק עוד משהו או לחשוב יחד על התוכנית.', context }
+  if (intent === 'GREETING') return { text: `היי ${member.name}. מה נבדוק?`, context }
+  if (intent === 'THANKS') return { text: 'בשמחה.', context }
   if (intent === 'MEMBER_OVERVIEW') {
     const named = resolved.member || family.people.find(person => person.id === conversation.contextState?.lastMemberId)
     if (!named) return { text: 'על מי במשפחה רצית לשאול? אפשר לכתוב את השם ואבדוק את הלו״ז, המשימות וההסעות.', context }
@@ -147,12 +168,12 @@ function responseFor(data: AppData, conversation: LiaConversation, member: Perso
     const driverId = ride && (ride.responsibleId || request?.selectedDriverId)
     const driver = family.people.find(person => person.id === driverId)
     const lines = [events[0] ? `הדבר הבא: ${naturalEvent(events[0])}` : routines[0] ? `היום יש ${routines[0].label} עד ${routines[0].end}` : 'אין אירוע קרוב', tasks.length ? `${tasks.length === 1 ? 'משימה אחת פתוחה' : `${tasks.length} משימות פתוחות`}; הקרובה היא ${tasks[0].title}` : undefined, ride ? driver ? `${driver.name} אחראי/ת להסעה ל${ride.title}` : `עדיין צריך לסגור הסעה ל${ride.title}` : undefined].filter(Boolean) as string[]
-    return { text: `זו התמונה של ${named.name} כרגע:\n${shortList(lines)}`, type: 'entitySummary', entities: [named.id, ...events.map(event => event.id), ...tasks.map(task => task.id)], context: { ...context, lastMemberId: named.id, lastEventId: events[0]?.id, lastTaskId: tasks[0]?.id, lastRideId: request?.id, lastResultIds: [...events.map(event => event.id), ...tasks.map(task => task.id)], referenceKind: 'member' } }
+    return { text: `אצל ${named.name} כרגע:\n${shortList(lines)}`, type: 'entitySummary', entities: [named.id, ...events.map(event => event.id), ...tasks.map(task => task.id)], context: { ...context, lastMemberId: named.id, lastEventId: events[0]?.id, lastTaskId: tasks[0]?.id, lastRideId: request?.id, lastResultIds: [...events.map(event => event.id), ...tasks.map(task => task.id)], referenceKind: 'member' } }
   }
 
   if (intent === 'SEND_RIDE_REQUEST') {
     if (!context.pendingIntent) return { text: 'על מה תרצה שאעזור?', context }
-    if (has(normalize(input), negative)) return { text: context.pendingIntent.type === 'sendRideRequest' ? 'בסדר, לא שלחתי בקשה.' : 'בסדר, לא ביצעתי את הפעולה.', type: 'actionResult', context: { ...context, pendingIntent: undefined } }
+    if (has(normalize(input), negative)) return { text: /עזבי|לא משנה/.test(normalize(input)) ? 'בסדר, עזבתי את זה.' : context.pendingIntent.type === 'sendRideRequest' ? 'בסדר, לא שלחתי בקשה.' : 'בסדר, לא ביצעתי את הפעולה.', type: 'actionResult', context: { ...context, pendingIntent: undefined } }
     return { text: '', context }
   }
   if (intent === 'TODAY_SCHEDULE') {
@@ -165,7 +186,8 @@ function responseFor(data: AppData, conversation: LiaConversation, member: Perso
     const heading = named ? `זה הלו״ז של ${named.name} להיום` : personal ? 'זה הלו״ז שלך להיום' : 'זה הלו״ז המשפחתי להיום'
     const items = [...routines.map(routine => ({ time: routine.start, text: `${routine.start}–${routine.end} · ${routine.label}` })), ...events.map(event => ({ time: event.time, text: `${event.time}${event.endTime ? `–${event.endTime}` : ''} · ${event.title}` }))].sort((a, b) => a.time.localeCompare(b.time))
     const empty = personal ? 'אין לך משהו מתוכנן כרגע—הזמן הזה פנוי.' : named ? `אין ל${named.name} משהו מתוכנן${scope.dayPart ? ' בזמן הזה' : ' להיום'}.` : 'אין אירועים משפחתיים מתוכננים להיום.'
-    const responseText = events.length ? items.length === 1 ? `${heading}: ${items[0].text}.` : `${heading}:\n${shortList(items.slice(0, 6).map(item => item.text))}` : routines.length ? `${personal ? 'אין לך אירועים כרגע' : named ? `אין ל${named.name} אירועים כרגע` : 'אין אירועים כרגע'}. בלו״ז הקבוע: ${routines.map(routine => `${routine.label} ${routine.start}–${routine.end}`).join(', ')}.` : empty
+    const established = !!named && conversation.contextState?.lastMemberId === named.id
+    const responseText = events.length ? items.length === 1 && named ? `${correctionLead(resolved.correction)}${scheduleLead(named, established)} ${titleForPerson(events[0].title, named)} ב־${events[0].time}${events[0].endTime ? `–${events[0].endTime}` : ''}.` : items.length === 1 ? `${heading}: ${items[0].text}.` : `${correctionLead(resolved.correction)}${heading}:\n${shortList(items.slice(0, 6).map(item => item.text))}` : routines.length ? `${personal ? 'אין לך אירועים כרגע' : named ? `אין ל${named.name} אירועים כרגע` : 'אין אירועים כרגע'}. בלו״ז הקבוע: ${routines.map(routine => `${routine.label} ${routine.start}–${routine.end}`).join(', ')}.` : empty
     return { text: responseText, type: 'entitySummary', entities: events.map(event => event.id), context: { ...context, temporalScope: todayScope, lastMemberId: named?.id || context.lastMemberId, lastEventId: events[0]?.id, lastResultIds: events.map(event => event.id), referenceKind: events.length ? 'event' : 'member' } }
   }
   if (intent === 'UPCOMING_EVENTS') {
@@ -184,7 +206,8 @@ function responseFor(data: AppData, conversation: LiaConversation, member: Perso
     events = events.slice(0, 6)
     const label = scope.kind === 'tomorrow' ? 'מחר' : scope.kind === 'nextWeek' ? 'בשבוע הבא' : scope.kind === 'week' ? 'השבוע' : 'בקרוב'
     const empty = named ? `אין ל${named.name} אירועים מתוכננים ${label}.` : `אין כרגע אירועים מתוכננים ${label}.`
-    return { text: events.length ? events.length === 1 ? `${named ? `ל${named.name} יש` : 'יש'} ${naturalEvent(events[0])}.` : `${named ? `אלה התוכניות של ${named.name}` : 'אלה התוכניות'} ${label}:\n${shortList(events.map(naturalEvent))}` : empty, type: 'entitySummary', entities: events.map(event => event.id), context: { ...context, lastMemberId: named?.id || context.lastMemberId, lastEventId: events[0]?.id, lastResultIds: events.map(event => event.id), referenceKind: events.length ? 'event' : 'member' } }
+    const established = !!named && conversation.contextState?.lastMemberId === named.id
+    return { text: events.length ? events.length === 1 ? `${correctionLead(resolved.correction)}${named ? scheduleLead(named, established) : 'יש'} ${naturalEvent(events[0])}.` : `${correctionLead(resolved.correction)}${named ? `אלה התוכניות של ${named.name}` : 'אלה התוכניות'} ${label}:\n${shortList(events.map(naturalEvent))}` : empty, type: 'entitySummary', entities: events.map(event => event.id), context: { ...context, lastMemberId: named?.id || context.lastMemberId, lastEventId: events[0]?.id, lastResultIds: events.map(event => event.id), referenceKind: events.length ? 'event' : 'member' } }
   }
   if (intent === 'NEXT_EVENT' || intent === 'PREVIOUS_EVENT') {
     const now = new Date()
@@ -193,16 +216,18 @@ function responseFor(data: AppData, conversation: LiaConversation, member: Perso
     const anchor = ordered.findIndex(item => item.id === conversation.contextState?.lastEventId)
     const index = intent === 'PREVIOUS_EVENT' ? anchor - 1 : anchor >= 0 ? anchor + 1 : 0
     const event = ordered[index]
-    return event ? { text: `${intent === 'PREVIOUS_EVENT' ? 'לפני זה יש' : anchor < 0 ? 'האירוע הבא הוא' : 'אחר כך יש'} ${naturalEvent(event)}.`, entities: [event.id], context: { ...context, lastEventId: event.id, lastMemberId: subjectId, lastResultIds: [event.id], referenceKind: 'event' } } : { text: intent === 'PREVIOUS_EVENT' ? 'לא מצאתי אירוע מוקדם יותר בהקשר הזה.' : `אין ${resolved.member ? `ל${resolved.member.name}` : ''} משהו נוסף מתוכנן אחר כך.`, context }
+    const subject = family.people.find(person => person.id === subjectId)
+    return event ? { text: `${intent === 'PREVIOUS_EVENT' ? 'לפני זה יש' : anchor < 0 ? 'האירוע הבא הוא' : 'אחר כך יש'} ${naturalEvent(event)}.`, entities: [event.id], context: { ...context, lastEventId: event.id, lastMemberId: subjectId, lastResultIds: [event.id], referenceKind: 'event' } } : { text: intent === 'PREVIOUS_EVENT' ? 'אין אירוע מוקדם יותר בהקשר הזה.' : subject ? `אין לי כרגע אירוע נוסף ${possessive(subject)} אחר כך.` : 'אין כרגע אירוע נוסף אחר כך.', context }
   }
   if (intent === 'EVENT_DETAILS') {
     if (/^(מתי|איפה) (זה|הוא|היא)/.test(normalize(input)) && (context.lastResultIds?.length || 0) > 1) {
       const choices = context.lastResultIds!.map(id => data.events.find(event => event.id === id)).filter((event): event is FamilyEvent => !!event).slice(0, 2)
-      if (choices.length > 1) return { text: `למה התכוונת—ל${choices[0].title} או ל${choices[1].title}?`, context }
+      if (choices.length > 1) return { text: `הכוונה ל${choices[0].title} או ל${choices[1].title}?`, context }
     }
     const event = eventReference(data, conversation, input)
     if (!event) return { text: 'לא מצאתי את האירוע הזה. אפשר לכתוב את שמו או לשאול מה יש היום.', context }
-    if (/איפה/.test(normalize(input)) && !event.details) return { text: `אין לי כרגע מיקום שמור עבור ${event.title}.`, context: { ...context, lastEventId: event.id, referenceKind: 'event' } }
+    if (/איפה/.test(normalize(input))) return { text: 'אין לי מיקום שמור לאירוע הזה.', context: { ...context, lastEventId: event.id, referenceKind: 'event' } }
+    if (/מתי/.test(normalize(input))) return { text: `${dateLabel(event.date)}, ${event.time}${event.endTime ? `–${event.endTime}` : ''}.`, context: { ...context, lastEventId: event.id, referenceKind: 'event' }, entities: [event.id] }
     const responsible = family.people.find(person => person.id === event.responsibleId)
     const participants = event.participantIds.map(id => family.people.find(person => person.id === id)?.name).filter(Boolean)
     const detail = [event.endTime ? `${event.time}–${event.endTime}` : event.time, participants.length ? `משתתפים: ${participants.join(', ')}` : '', responsible ? `אחריות: ${responsible.name}` : '', event.details].filter(Boolean).join(' · ')
@@ -210,12 +235,12 @@ function responseFor(data: AppData, conversation: LiaConversation, member: Perso
   }
   if (intent === 'RESPONSIBILITY') {
     const event = (resolved.member ? data.events.filter(item => item.familyId === family.id && item.date >= localDate() && item.requiresDriver && item.participantIds.includes(resolved.member!.id)).sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`))[0] : undefined) || eventReference(data, conversation, input)
-    if (!event) return { text: 'לא ברור לי לאיזה אירוע או הסעה התכוונת. אפשר לציין את שם האירוע.', context }
+    if (!event) return { text: 'על איזו הסעה מדובר?', context }
     const request = requestForEvent(data, event.id)
     const driver = family.people.find(person => person.id === (request?.selectedDriverId || event.responsibleId))
     const returning = /מחזיר/.test(normalize(input))
     const wording = returning ? 'להחזיר' : /אוסף/.test(normalize(input)) ? 'לאסוף' : 'לקחת אחריות'
-    return driver ? { text: `${driver.name} אמור/ה ${wording} עבור ${event.title}.`, context: { ...context, lastEventId: event.id, lastMemberId: driver.id, lastRideId: request?.id, referenceKind: 'ride' }, entities: [event.id, driver.id] } : { text: `עדיין לא נקבע מי אמור/ה ${wording} עבור ${event.title}.`, context: { ...context, lastEventId: event.id, lastRideId: request?.id, referenceKind: 'ride' } }
+    return driver ? { text: `${driver.name} ${isFeminine(driver) ? 'אמורה' : 'אמור'} ${wording} ב${event.title}.`, context: { ...context, lastEventId: event.id, lastMemberId: driver.id, lastRideId: request?.id, referenceKind: 'ride' }, entities: [event.id, driver.id] } : { text: `עדיין לא נקבע מי ${returning ? 'מחזיר' : /אוסף/.test(normalize(input)) ? 'אוסף' : 'אחראי'} ב${event.title}.`, context: { ...context, lastEventId: event.id, lastRideId: request?.id, referenceKind: 'ride' } }
   }
   if (intent === 'OPEN_TASKS') {
     const named = resolved.member || (childMode || /(^| )(אני|לי|שלי)( |$)/.test(normalize(input)) ? member : undefined)
@@ -225,7 +250,8 @@ function responseFor(data: AppData, conversation: LiaConversation, member: Perso
     const responsibilities = /צריך|צריכה/.test(normalize(input)) && ownerId ? data.events.filter(event => event.familyId === family.id && event.date >= from && event.date <= to && event.responsibleId === ownerId).sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`)).slice(0, 3) : []
     const heading = named ? `אלה הדברים של ${named.name}` : ownerId ? 'אלה הדברים שעוד פתוחים לך' : 'אלה המשימות שעוד פתוחות'
     const lines = [...tasks.map(task => `${task.title} · עד ${dateLabel(task.due)}`), ...responsibilities.map(event => `${event.title} · אחריות ב־${event.time}`)]
-    return { text: lines.length ? lines.length === 1 ? `${named ? `ל${named.name} נשאר` : 'נשאר'}: ${lines[0]}.` : `${heading}:\n${shortList(lines)}` : named ? `אין ל${named.name} משימות או אחריות פתוחה בטווח הזה.` : 'אין משימות פתוחות כרגע.', type: 'entitySummary', entities: [...tasks.map(task => task.id), ...responsibilities.map(event => event.id)], context: { ...context, lastMemberId: named?.id || context.lastMemberId, lastTaskId: tasks[0]?.id, lastEventId: responsibilities[0]?.id || context.lastEventId, lastResultIds: [...tasks.map(task => task.id), ...responsibilities.map(event => event.id)], referenceKind: tasks.length ? 'task' : responsibilities.length ? 'event' : 'task' } }
+    const established = !!named && conversation.contextState?.lastMemberId === named.id
+    return { text: lines.length ? lines.length === 1 ? `${named ? established ? `נשאר ${pronoun(named)}` : `ל${named.name} נשאר` : 'נשאר'} ${lines[0]}.` : `${heading}:\n${shortList(lines)}` : named ? `אין ל${named.name} משימות או אחריות פתוחה בטווח הזה.` : 'אין משימות פתוחות כרגע.', type: 'entitySummary', entities: [...tasks.map(task => task.id), ...responsibilities.map(event => event.id)], context: { ...context, lastMemberId: named?.id || context.lastMemberId, lastTaskId: tasks[0]?.id, lastEventId: responsibilities[0]?.id || context.lastEventId, lastResultIds: [...tasks.map(task => task.id), ...responsibilities.map(event => event.id)], referenceKind: tasks.length ? 'task' : responsibilities.length ? 'event' : 'task' } }
   }
   if (intent === 'WHAT_NEEDS_ATTENTION') {
     if (childMode) return { text: 'במצב ילד אני יכולה לעזור עם הלו״ז שלך, החוגים ומי אוסף אותך.', context }
@@ -244,9 +270,9 @@ function responseFor(data: AppData, conversation: LiaConversation, member: Perso
     if (/מי עוד/.test(normalize(input)) && event) {
       const excluded = new Set([...(context.excludedMemberIds || []), context.lastMemberId || ''])
       const options = driverOptions(data, event).filter(option => !excluded.has(option.person.id))
-      if (!options.length) return { text: 'לא מצאתי כרגע אפשרות כשירה נוספת לפי הלו״ז ותנאי הנהיגה.', context }
+      if (!options.length) return { text: 'אין כרגע אפשרות נוספת שמתאימה.', context }
       const next = options[0]
-      return { text: `${next.person.name} הוא/היא האפשרות הנוספת המתאימה כרגע. ${next.reason.replace(`${next.person.name} נבחר/ה כי: `, '')}`, context: { ...context, lastMemberId: next.person.id, candidateMemberIds: options.map(option => option.person.id), excludedMemberIds: [...excluded], referenceKind: 'ride' }, entities: [event.id, next.person.id] }
+      return { text: `${next.person.name} ${isFeminine(next.person) ? 'יכולה להתאים' : 'יכול להתאים'} גם. ${isFeminine(next.person) ? 'היא פנויה' : 'הוא פנוי'} ואין התנגשות בשעה הזו.`, context: { ...context, lastMemberId: next.person.id, candidateMemberIds: options.map(option => option.person.id), excludedMemberIds: [...excluded], referenceKind: 'ride' }, entities: [event.id, next.person.id] }
     }
     const ids = new Set(context.lastResultIds || [])
     if (context.referenceKind === 'event') {
@@ -264,12 +290,12 @@ function responseFor(data: AppData, conversation: LiaConversation, member: Perso
     const candidate = resolved.member
     if (event && candidate && /(יכול|יכולה|נעביר|במקום|פנוי|פנויה)/.test(normalize(input))) {
       const reason = memberRideReason(data, event, candidate)
-      return { text: reason ? `לא כרגע. ${candidate.name} ${reason}, ולכן ההעברה לא תסתדר בלי שינוי נוסף.` : `כן. לפי המידע הקיים ${candidate.name} עומד/ת בתנאי הנהיגה ואין התנגשות שמונעת את ההסעה ל${event.title}. זו בדיקה בלבד—לא שיניתי דבר.`, context: { ...context, lastEventId: event.id, lastMemberId: candidate.id, referenceKind: 'ride' }, entities: [event.id, candidate.id] }
+      return { text: reason ? `לא כרגע — ${naturalConstraint(candidate, reason)}.` : `כן, זה מסתדר. ${candidate.name} ${isFeminine(candidate) ? 'פנויה' : 'פנוי'} ואין ${pronoun(candidate)} התנגשות בשעה הזו. זו רק בדיקה; לא שיניתי דבר.`, context: { ...context, lastEventId: event.id, lastMemberId: candidate.id, referenceKind: 'ride' }, entities: [event.id, candidate.id] }
     }
     const time = input.match(/(?:ל|בשעה)\s*(\d{1,2}:\d{2})/)?.[1]
     if (event && time) {
       const simulated = { ...event, time }
-      const conflicts = family.people.filter(person => event.participantIds.includes(person.id) || person.id === event.responsibleId).flatMap(person => { const reason = pickupIneligibility(person, simulated, data); return reason ? [`${person.name}: ${reason}`] : [] })
+      const conflicts = family.people.filter(person => event.participantIds.includes(person.id) || person.id === event.responsibleId).flatMap(person => { const reason = pickupIneligibility(person, simulated, data); return reason ? [naturalConstraint(person, reason)] : [] })
       return { text: conflicts.length ? `אם מזיזים ל־${time}, יש בעיה: ${conflicts.join('; ')}. לא שיניתי את האירוע.` : `לפי הלו״ז הקיים, מעבר ל־${time} לא יוצר התנגשות לאנשים המעורבים. לא שיניתי את האירוע.`, context: { ...context, lastEventId: event.id, referenceKind: 'event' } }
     }
     return { text: 'כדי לבדוק תרחיש בלי לשנות דבר, צריך לציין אירוע ומי אמור/ה לקחת אחריות או שעה חלופית.', context }
@@ -322,7 +348,7 @@ function responseFor(data: AppData, conversation: LiaConversation, member: Perso
     const target = resolved.member
     if (!event || !target) return { text: !event ? 'לא ברור לי איזו הסעה להעביר. אפשר לציין את שם האירוע.' : 'למי להעביר? אפשר לכתוב את שם בן או בת המשפחה.', context }
     const reason = memberRideReason(data, event, target)
-    if (reason) return { text: `לא אציע להעביר ל${target.name}, כי ${reason}. לא שיניתי דבר.`, context: { ...context, lastEventId: event.id, lastMemberId: target.id, referenceKind: 'ride' } }
+    if (reason) return { text: `לא כדאי להעביר ל${target.name} — ${naturalConstraint(target, reason)}. לא שיניתי דבר.`, context: { ...context, lastEventId: event.id, lastMemberId: target.id, referenceKind: 'ride' } }
     const pendingIntent: LiaPendingIntent = { type: 'sendRideRequest', relatedEventId: event.id, suggestedMemberId: target.id, proposedAction: 'sendRideRequest' }
     return { text: `אפשר לשלוח ל${target.name} בקשה לקחת אחריות על ${event.title}. לשלוח?`, type: 'actionRequest', action: { kind: 'sendRideRequest', label: 'שליחת בקשה', eventId: event.id, memberId: target.id }, entities: [event.id, target.id], context: { ...context, pendingIntent, lastEventId: event.id, lastMemberId: target.id, candidateMemberIds: [target.id], referenceKind: 'ride' } }
   }
@@ -344,13 +370,13 @@ function responseFor(data: AppData, conversation: LiaConversation, member: Perso
       const pendingIntent: LiaPendingIntent = { type: 'sendRideRequest', relatedEventId: event.id, suggestedMemberId: named.id, proposedAction: 'sendRideRequest' }
       return { text: `${named.name} ${feminine ? 'פנויה' : 'פנוי'} בזמן הזה, ולא מצאתי התנגשות שמונעת את ההסעה. אפשר לשלוח ${feminine ? 'לה' : 'לו'} בקשה.`, type: 'actionRequest', action: { kind: 'sendRideRequest', label: 'שליחת בקשה', eventId: event.id, memberId: named.id }, entities: [event.id, named.id], context: { ...context, pendingIntent, lastMemberId: named.id, lastEventId: event.id } }
     }
-    return { text: available ? `${named.name} ${feminine ? 'פנויה' : 'פנוי'} לפי הזמינות והלו״ז הקיימים.` : `${named.name} ${feminine ? 'לא פנויה' : 'לא פנוי'}${event ? ` ל${event.title}` : ''}: ${reason}.`, context: { ...context, pendingIntent: undefined, lastMemberId: named.id, lastEventId: event?.id || context.lastEventId, referenceKind: event ? 'ride' : 'member' } }
+    return { text: available ? `${named.name} ${feminine ? 'פנויה' : 'פנוי'} בשעה הזו.` : `${naturalConstraint(named, reason!)}.`, context: { ...context, pendingIntent: undefined, lastMemberId: named.id, lastEventId: event?.id || context.lastEventId, referenceKind: event ? 'ride' : 'member' } }
   }
   if (intent === 'RECENT_CHANGES') {
     const visibleSources = new Set(member.personalSettings?.integrations.filter(item => item.connectionStatus === 'connected' && item.liaAccess === 'allowed').map(item => item.sourceId) || [])
     const todayOnly = /היום/.test(normalize(input))
     const activity = data.activity.filter(item => item.familyId === family.id && (!todayOnly || !item.createdAt || item.createdAt.slice(0, 10) === localDate()) && (!childMode || item.personIds.includes(member.id)) && (!item.source || item.source === 'family' || visibleSources.has(item.source))).slice(0, 4)
-    return { text: activity.length ? `אלה השינויים האחרונים שמצאתי:\n${shortList(activity.map(item => item.text))}` : 'לא מצאתי שינויים חדשים שרלוונטיים לך.', type: 'entitySummary', context: { ...context, lastActivityId: activity[0]?.id, lastSourceId: activity[0]?.source } }
+    return { text: activity.length ? `אלה העדכונים האחרונים:\n${shortList(activity.map(item => item.text))}` : 'אין כרגע עדכון חדש שרלוונטי לך.', type: 'entitySummary', context: { ...context, lastActivityId: activity[0]?.id, lastSourceId: activity[0]?.source } }
   }
   if (intent === 'SOURCE_DETAILS') {
     return context.lastSourceId ? { text: `העדכון האחרון הגיע מ־${sourceLabels[context.lastSourceId] || context.lastSourceId}. אני מציגה רק את העדכון המשפחתי שנשמר, לא תוכן פרטי גולמי.`, context } : { text: 'אין לי כרגע עדכון קודם עם מקור שאפשר לזהות. אפשר לשאול “מה השתנה היום?”.', context }
@@ -371,8 +397,8 @@ function responseFor(data: AppData, conversation: LiaConversation, member: Perso
     const event = data.events.find(item => item.id === context.lastEventId) || matchingEvent(data, family.id, input, conversation)
     const request = event && requestForEvent(data, event.id)
     const driver = family.people.find(person => person.id === (request?.selectedDriverId || event?.responsibleId))
-    if (driver && event) return { text: `מעולה, ${driver.name} לקח/ה אחריות על ${event.title}. האיסוף מכוסה.`, context: { ...context, pendingIntent: undefined, lastEventId: event.id } }
-    if (request && context.lastMemberId && request.responses[context.lastMemberId] === 'PENDING') return { text: `שלחתי ל־${family.people.find(person => person.id === context.lastMemberId)?.name || 'בן המשפחה'}. אני עדיין ממתינה לתגובה.`, context }
+    if (driver && event) return { text: `ההסעה ל${event.title} מכוסה — ${driver.name} ${isFeminine(driver) ? 'אחראית' : 'אחראי'}.`, context: { ...context, pendingIntent: undefined, lastEventId: event.id } }
+    if (request && context.lastMemberId && request.responses[context.lastMemberId] === 'PENDING') return { text: `הבקשה ל${family.people.find(person => person.id === context.lastMemberId)?.name || 'בן המשפחה'} עדיין ממתינה לתגובה.`, context }
     return { text: request ? 'בקשת ההסעה עדיין פתוחה וממתינה לתשובות.' : 'לא מצאתי בקשת הסעה פתוחה בהקשר הנוכחי.', context }
   }
   if (intent === 'EXPLAIN') {
@@ -384,9 +410,8 @@ function responseFor(data: AppData, conversation: LiaConversation, member: Perso
     const person = resolved.member || family.people.find(item => item.id === context.lastMemberId)
     if (event && person) {
       const reason = memberRideReason(data, event, person)
-      if (reason) return { text: `${person.name} לא מתאימ/ה כרגע כי ${reason}.`, context: { ...context, lastMemberId: person.id, referenceKind: 'ride' } }
-      const ranked = driverOptions(data, event).find(option => option.person.id === person.id)
-      return { text: ranked?.reason || `${person.name} עומד/ת בתנאי הנהיגה, זמין/ה ולא נמצאה התנגשות בלו״ז בזמן ${event.title}.`, context: { ...context, lastMemberId: person.id, referenceKind: 'ride' } }
+      if (reason) return { text: `${naturalConstraint(person, reason)}.`, context: { ...context, lastMemberId: person.id, referenceKind: 'ride' } }
+      return { text: `${person.name} ${isFeminine(person) ? 'פנויה ויכולה' : 'פנוי ויכול'} לנהוג, ואין ${pronoun(person)} התנגשות בשעה הזו.`, context: { ...context, lastMemberId: person.id, referenceKind: 'ride' } }
     }
     return { text: 'אין לי כרגע המלצה קודמת שאפשר להסביר. אפשר לשאול מי פנוי להסעה.', context }
   }
@@ -396,7 +421,7 @@ function responseFor(data: AppData, conversation: LiaConversation, member: Perso
   if (/אחותו|אחיו|אחותה|אח שלה|אח שלו/.test(normalize(input))) return { text: 'לא בטוחה לאיזה בן או בת משפחה התכוונת. אפשר לכתוב את השם כדי שאבדוק בלי לנחש.', context }
   if (/תעשי (את )?זה|תטפלי בזה/.test(normalize(input))) return { text: 'לא ברור לי איזו פעולה לבצע. אפשר לציין אם לשלוח בקשת הסעה, לפתוח את הלו״ז או לבדוק משימה.', context }
   const named = family.people.find(person => normalize(input).includes(normalize(person.name)))
-  return { text: named ? `לא בטוחה מה רצית לבדוק לגבי ${named.name}. רוצה שאבדוק את הלו״ז, המשימות או ההסעות שלו/ה?` : 'לא בטוחה למה התכוונת. רוצה שאבדוק את הלו״ז של היום, משימות פתוחות או הסעות?', context: { ...context, lastMemberId: named?.id || context.lastMemberId } }
+  return { text: named ? `מה תרצה לבדוק לגבי ${named.name} — לו״ז, משימות או הסעות?` : 'לא הבנתי עד הסוף. לבדוק את הלו״ז, המשימות או ההסעות?', context: { ...context, lastMemberId: named?.id || context.lastMemberId } }
 }
 
 export function performLiaChatAction(data: AppData, conversation: LiaConversation, memberId: string, pending = conversation.contextState?.pendingIntent): { data: AppData; conversation: LiaConversation; success: boolean } {
@@ -407,7 +432,7 @@ export function performLiaChatAction(data: AppData, conversation: LiaConversatio
     if (nextData === data) nextData = applyTrafficFlowAction(data, pending.interventionId, action, memberId, pending.targetMemberId)
     const success = nextData !== data
     const intervention = (nextData.liaInterventions || []).find(item => item.id === pending.interventionId)
-    const text = success ? intervention?.resolutionSummary || (action === 'dismiss' ? 'ההמלצה נדחתה ולא בוצע שינוי.' : 'בוצע. עדכנתי את המידע הרלוונטי ב־FamPilot.') : 'לא הצלחתי לבצע את הפעולה. ייתכן שההמלצה כבר טופלה או שהפעולה אינה מורשית.'
+    const text = success ? action === 'dismiss' ? 'ביטלתי את ההמלצה. לא בוצע שינוי.' : intervention?.resolutionSummary ? `${action === 'reassign' ? 'סגור, ' : 'אישרתי. '}${intervention.resolutionSummary}` : 'אישרתי ועדכנתי את המידע הרלוונטי.' : 'לא הצלחתי לבצע את הפעולה. ייתכן שהיא כבר טופלה או שאינה מורשית.'
     const result = message('lia', text, 'actionResult', undefined, [pending.interventionId])
     const next = { ...conversation, messages: [...conversation.messages.map(item => item.action?.kind === 'liaDecision' ? { ...item, status: (success ? 'completed' : 'failed') as 'completed' | 'failed' } : item), result], updatedAt: result.createdAt, contextState: { ...conversation.contextState, pendingIntent: undefined, lastInterventionId: pending.interventionId } }
     return { data: saveConversation(nextData, next), conversation: next, success }
@@ -431,7 +456,7 @@ export function performLiaChatAction(data: AppData, conversation: LiaConversatio
     const next = { ...conversation, messages: [...conversation.messages, result], updatedAt: result.createdAt, contextState: { ...conversation.contextState, pendingIntent: undefined } }
     return { data: saveConversation(data, next), conversation: next, success: false }
   }
-  const result = message('lia', `סגור, שלחתי ל־${target.name} בקשה. אני ממתינה לתגובה ${target.role === 'אם' || target.role === 'בת' ? 'שלה' : 'שלו'}.`, 'actionResult', undefined, [request.id, event.id, target.id])
+  const result = message('lia', `סגור, שלחתי ל${target.name}. הבקשה ממתינה לתגובה.`, 'actionResult', undefined, [request.id, event.id, target.id])
   const next = { ...conversation, messages: [...conversation.messages.map(item => item.action?.kind === 'sendRideRequest' ? { ...item, status: 'completed' as const } : item), result], updatedAt: result.createdAt, contextState: { ...conversation.contextState, pendingIntent: undefined, lastEventId: event.id, lastMemberId: target.id } }
   return { data: saveConversation(nextData, next), conversation: next, success: true }
 }
