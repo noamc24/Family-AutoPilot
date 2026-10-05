@@ -213,7 +213,7 @@ test('למה משתמש בהקשר האחרון ו-fallback עם Member מציע
   data = sendLiaChatMessage(data, 'f', 'm', 'למה?').data
   assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /אוראל.*פנוי.*יכול.*לנהוג/)
   data = sendLiaChatMessage(data, 'f', 'm', 'תעשי אירוע עם מור').data
-  assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /לגבי מור.*לו״ז.*משימות.*הסעות/)
+  assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /לגבי מור.*הסעה.*זמינות/)
 })
 
 test('מחר והשבוע מכבדים ניסוח טבעי וסינון לפי Member', () => {
@@ -242,7 +242,9 @@ test('שאלות סטטוס טבעיות שומרות את הקשר בקשת ה�
 })
 
 test('שאלות מקור, next, שעות וסיכום משולב מחזירות נתונים ולא fallback', () => {
-  let data = sendLiaChatMessage(simpleData(), 'f', 'm', 'מה שינית היום?').data
+  const base = simpleData()
+  base.events[0].date = localDate(1)
+  let data = sendLiaChatMessage(base, 'f', 'm', 'מה שינית היום?').data
   data = sendLiaChatMessage(data, 'f', 'm', 'מאיזה מקור זה הגיע?').data
   assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /התוכנית המשפחתית/)
   data = sendLiaChatMessage(data, 'f', 'm', 'מה האירוע הבא?').data
@@ -272,7 +274,9 @@ test('LIA מנהלת שיחה טבעית עם ברכה, תודה ותמונת מ
 })
 
 test('שאלות המשך טבעיות משתמשות באירוע האחרון', () => {
-  let data = sendLiaChatMessage(simpleData(), 'f', 'm', 'מה האירוע הבא?').data
+  const base = simpleData()
+  base.events[0].date = localDate(1)
+  let data = sendLiaChatMessage(base, 'f', 'm', 'מה האירוע הבא?').data
   data = sendLiaChatMessage(data, 'f', 'm', 'מתי זה?').data
   assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /^\d{2}\/\d{2}\/\d{4}, \d{2}:\d{2}/)
   data = sendLiaChatMessage(data, 'f', 'm', 'ומה אחר כך?').data
@@ -450,7 +454,16 @@ test('כוונות שיחה כלליות מכסות wellbeing, זהות, יכו�
     assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, expected)
   }
   for (const greeting of ['היי', 'היי LIA', 'שלום', 'בוקר טוב', 'מה קורה?', 'מה נשמע?']) {
-    assert.equal(detectLiaIntent(greeting), 'GREETING')
+    assert.match(detectLiaIntent(greeting), /GREETING|WELLBEING/)
+  }
+})
+
+test('וריאציות שיחה ויכולת מסווגות סמנטית ולא לפי משפט יחיד', () => {
+  for (const prompt of ['מה הולך', 'מה איתך', 'מה נשמע', 'מה שלומך', 'איך את', 'הכול טוב?']) {
+    assert.equal(detectLiaIntent(prompt), 'WELLBEING')
+  }
+  for (const prompt of ['מה היכולות שלך', 'מה את יכולה לעשות', 'במה את עוזרת', 'איך את יכולה לעזור לי', 'מה אפשר לעשות איתך']) {
+    assert.equal(detectLiaIntent(prompt), 'CAPABILITIES')
   }
 })
 
@@ -466,13 +479,96 @@ test('שיחת חולין באמצע רצף אינה מאבדת אדם, אירו
   data = sendLiaChatMessage(data, 'f', 'm', 'ומי מחזיר אותו?').data
   assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /עדיין לא נקבע/)
   data = sendLiaChatMessage(data, 'f', 'm', 'אלופה').data
-  assert.equal(conversationFor(data, 'f', 'm').messages.at(-1).text, 'בשמחה.')
+  assert.equal(conversationFor(data, 'f', 'm').messages.at(-1).text, 'תמיד 🙂')
 })
 
 test('fallback שיחתי משתמש בנושא האחרון בלי להמציא עובדות', () => {
   let data = sendLiaChatMessage(simpleData(), 'f', 'm', 'מה איתמר עושה היום?').data
   data = sendLiaChatMessage(data, 'f', 'm', 'תעשי קסם קטן').data
   const answer = conversationFor(data, 'f', 'm').messages.at(-1).text
-  assert.match(answer, /לא בטוחה שהבנתי.*לגבי איתמר.*בלו״ז.*במשימות.*בהסעות/)
+  assert.match(answer, /לא בטוחה למה התכוונת לגבי איתמר.*לאירוע.*להסעה/)
   assert.doesNotMatch(answer, /מצאתי|קבעתי|עדכנתי/)
+})
+
+function richDialogueData() {
+  const data = simpleData()
+  const weekday = new Date(`${localDate()}T12:00:00`).getDay()
+  data.families[0].people[1].routines = [{ id: 'mor-course', kind: 'study', label: 'קורס', days: [weekday], start: '16:00', end: '20:00' }]
+  data.families[0].people.push({ id: 'o', name: 'עומר', role: 'בן', color: 'gold', age: 6, hasLicense: false, hasCar: false, availableForPickup: false })
+  data.events.push(
+    { ...data.events[0], id: 'omer-evening', title: 'מסיבת גן', date: localDate(1), time: '18:30', participantIds: ['o'], requiresDriver: false },
+    { ...data.events[0], id: 'itamar-tomorrow', title: 'אימון כדורסל', date: localDate(1), time: '19:00', participantIds: ['c'], requiresDriver: false },
+  )
+  return data
+}
+
+const runDialogue = (base, prompts) => {
+  let data = base
+  const answers = []
+  for (const prompt of prompts) {
+    data = sendLiaChatMessage(data, 'f', 'm', prompt).data
+    answers.push(conversationFor(data, 'f', 'm').messages.at(-1).text)
+  }
+  return { data, answers, context: conversationFor(data, 'f', 'm').contextState }
+}
+
+test('stress A: סלנג, יכולות, שאלה משפחתית ופעולת הסעה נשארים שיחה אחת', () => {
+  const prompts = ['אהלן', 'מה הולך?', 'מה היכולות שלך?', 'סבבה', 'מה איתמר עושה היום?', 'ומי מחזיר אותו?', 'תודה אלופה', 'ומור יכולה במקום?', 'למה לא?', 'מי כן?', 'עזבי, אוראל טוב']
+  const { data, answers, context } = runDialogue(richDialogueData(), prompts)
+  assert.match(answers[1], /מעולה|אני כאן/)
+  assert.match(answers[2], /אירועים ומשימות/)
+  assert.match(answers[4], /איתמר.*חוג|יש לו.*חוג/)
+  assert.match(answers[7], /מור.*קורס|מור.*לא פנויה/)
+  assert.match(answers[8], /מור.*קורס/)
+  assert.ok(requestForEvent(data, 'club'))
+  assert.equal(context.pendingIntent, undefined)
+})
+
+test('stress B: תיקוני זמן ואדם, ellipsis והבהרת פרטי אירוע', () => {
+  const prompts = ['מה יש לעומר מחר?', 'בערב התכוונתי', 'מי איתו?', 'לא עומר, איתמר', 'אוקיי', 'ואחר כך?', 'מתי?', 'איפה?', 'זה הכל?', 'תודה']
+  const { answers, context } = runDialogue(richDialogueData(), prompts)
+  assert.match(answers[0], /מסיבת גן/)
+  assert.match(answers[1], /מסיבת גן/)
+  assert.match(answers[2], /עומר|משתתפים/)
+  assert.match(answers[3], /איתמר|אימון כדורסל/)
+  assert.doesNotMatch(answers.join('\n'), /לא זוהתה כוונה|undefined|\[object Object\]/)
+  assert.equal(context.lastMemberId, 'c')
+})
+
+test('stress C: pending action שורד הסבר וחלופות ומתבטל רק מבקשה מפורשת', () => {
+  const prompts = ['מי יכול לקחת את איתמר?', 'למה אוראל?', 'ומי עוד?', 'אם אוראל לא יכול?', 'אז מור?', 'רגע היא בקורס לא?', 'נכון, עזבי', 'מה קרה עם ההסעה?', 'סבבה', 'ביי']
+  const { data, answers, context } = runDialogue(richDialogueData(), prompts)
+  assert.ok(answers.slice(1, 6).every(answer => !/לא בטוחה שהבנתי/.test(answer)))
+  assert.match(answers[5], /מור.*קורס|מור.*לא פנויה/)
+  assert.match(answers[6], /עזבתי|לא שלחתי|לא ביצעתי/)
+  assert.equal(data.transportationRequests.length, 0)
+  assert.equal(context.pendingIntent, undefined)
+})
+
+test('stress D: מעבר בין בני משפחה וחזרה לנושא קודם משחזרים הקשר מובנה', () => {
+  const prompts = ['מה איתמר עושה היום?', 'ומה עם מור?', 'איזה משימות יש לה?', 'מה איתך?', 'חחח', 'רגע נחזור לאיתמר', 'מתי?', 'ומי מחזיר אותו?', 'איפה היינו?', 'תודה']
+  const { answers, context } = runDialogue(richDialogueData(), prompts)
+  assert.match(answers[0], /איתמר/)
+  assert.match(answers[2], /אישור הורים/)
+  assert.match(answers[5], /חזרנו לאיתמר/)
+  assert.match(answers[6], /\d{2}\/\d{2}\/\d{4}.*17:00/)
+  assert.match(answers[7], /עדיין לא נקבע/)
+  assert.equal(context.lastMemberId, 'm')
+})
+
+test('stress E: clarification מסודר ו-context ישן אינו מנחש אירוע', () => {
+  const base = richDialogueData()
+  base.events.push({ ...base.events[0], id: 'friends', title: 'מפגש חברים', time: '19:30', requiresDriver: false })
+  let data = base
+  for (const prompt of ['מה איתמר עושה היום?', 'מתי?', 'השני']) data = sendLiaChatMessage(data, 'f', 'm', prompt).data
+  let chat = conversationFor(data, 'f', 'm')
+  const liaAnswers = chat.messages.filter(message => message.sender === 'lia')
+  assert.match(liaAnswers.at(-3).text, /חוג.*מפגש חברים/s)
+  assert.match(liaAnswers.at(-2).text, /הכוונה.*או/)
+  assert.match(liaAnswers.at(-1).text, /מפגש חברים.*19:30/)
+  for (let index = 0; index < 13; index += 1) data = sendLiaChatMessage(data, 'f', 'm', index % 2 ? 'סבבה' : 'חחח').data
+  data = sendLiaChatMessage(data, 'f', 'm', 'איפה?').data
+  chat = conversationFor(data, 'f', 'm')
+  assert.match(chat.messages.at(-1).text, /לא מצאתי את האירוע|אפשר לכתוב את שמו/)
+  assert.doesNotMatch(chat.messages.at(-1).text, /מפגש חברים|חוג של איתמר/)
 })
