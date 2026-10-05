@@ -16,11 +16,11 @@ const person = id => ({ id, name: id, role: 'אב', color: 'sage', age: 35, hasL
 const fixture = () => ({
   families: [{ id: 'f1', name: 'ראשונה', people: [person('p1'), person('p2')] }, { id: 'f2', name: 'שנייה', people: [person('p3')] }],
   events: [
-    { id: 'e1', familyId: 'f1', title: 'של p1', date: '2026-10-05', time: '10:00', icon: '•', participantIds: ['p1'], responsibleId: 'p1', createdById: 'p1', details: '' },
-    { id: 'e2', familyId: 'f1', title: 'של p2', date: '2026-10-05', time: '12:00', icon: '•', participantIds: ['p2'], responsibleId: 'p2', details: '' },
-    { id: 'e3', familyId: 'f2', title: 'משפחה שנייה', date: '2026-10-05', time: '14:00', icon: '•', participantIds: ['p3'], responsibleId: 'p3', details: '' },
+    { id: 'e1', familyId: 'f1', title: 'של p1', date: model.localDate(1), time: '10:00', icon: '•', participantIds: ['p1'], responsibleId: 'p1', createdById: 'p1', details: '' },
+    { id: 'e2', familyId: 'f1', title: 'של p2', date: model.localDate(1), time: '12:00', icon: '•', participantIds: ['p2'], responsibleId: 'p2', details: '' },
+    { id: 'e3', familyId: 'f2', title: 'משפחה שנייה', date: model.localDate(1), time: '14:00', icon: '•', participantIds: ['p3'], responsibleId: 'p3', details: '' },
   ],
-  tasks: [{ id: 't1', familyId: 'f1', title: 'של p1', ownerId: 'p1', due: '2026-10-05', done: false }, { id: 't2', familyId: 'f1', title: 'של p2', ownerId: 'p2', due: '2026-10-05', done: false }, { id: 't3', familyId: 'f2', title: 'של p3', ownerId: 'p3', due: '2026-10-05', done: false }],
+  tasks: [{ id: 't1', familyId: 'f1', title: 'של p1', ownerId: 'p1', due: model.localDate(1), done: false }, { id: 't2', familyId: 'f1', title: 'של p2', ownerId: 'p2', due: model.localDate(1), done: false }, { id: 't3', familyId: 'f2', title: 'של p3', ownerId: 'p3', due: model.localDate(1), done: false }],
   activity: [{ id: 'a1', familyId: 'f1', text: '', personIds: ['p1'] }, { id: 'a2', familyId: 'f2', text: '', personIds: ['p3'] }],
   transportationRequests: [
     { id: 'r1', familyId: 'f1', eventId: 'e1', passengerId: 'p1', eligibleMemberIds: ['p1', 'p2'], responses: { p1: 'PENDING', p2: 'PENDING' }, selectedDriverId: 'p1', status: 'OPEN', createdById: 'p1', origin: '', destination: '', requiredAt: '' },

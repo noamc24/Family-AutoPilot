@@ -30,8 +30,12 @@ test('אירוע של ילד נכנס ללוח, יוצר בקשת הסעה ונ�
   assert.match(first.message, /עומר הוסיף אירוע חדש/)
   assert.ok(autopilot.scheduleConflicts(first.data, event).some(item => item.id === 'dance'))
   assert.equal(autopilot.runAutopilotScenario(first.data, 'Avrahami', 'basketball').applied, false)
+  const persisted = structuredClone(first.data)
+  persisted.events.find(item => item.id === event.id).date = model.localDate(1)
+  const persistedRequest = persisted.transportationRequests.find(request => request.eventId === event.id)
+  if (persistedRequest) persistedRequest.requiredAt = `${model.localDate(1)}T${event.time}`
   const originalStorage = globalThis.localStorage
-  globalThis.localStorage = { getItem: () => JSON.stringify(first.data) }
+  globalThis.localStorage = { getItem: () => JSON.stringify(persisted) }
   try { assert.ok(model.readData().events.some(item => item.id === event.id)) } finally { globalThis.localStorage = originalStorage }
 })
 

@@ -15,6 +15,10 @@ const fresh = () => structuredClone(model.initialData)
 
 test('תרחיש ההחלטה מדרג שני נהגים לפי עומס ומרחק ומציג את הסיבות האמיתיות', () => {
   const data = fresh()
+  data.events = []
+  data.tasks = []
+  data.transportationRequests = []
+  data.integrationLogs = []
   for (const person of data.families[0].people.filter(item => item.age >= 18)) person.routines = []
   data.families[0].people.find(person => person.id === 'Mor').travelMinutes = 13
   data.families[0].people.find(person => person.id === 'Mor').availableForPickup = true

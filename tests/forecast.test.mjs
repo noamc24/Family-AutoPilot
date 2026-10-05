@@ -18,6 +18,8 @@ test('יומן וניווט יוצרים יחד בעיית הסעה עתידית
   const date = model.localDate(1)
   data.events = [makeEvent('אימון', date, '17:00', ['Itamar', 'Orel'], 'Orel', true)]
   data.tasks = []
+  data.integrationLogs = []
+  data.families[0].people.find(person => person.id === 'Orel').routines = []
   data = coordination.ensureRequests(data, 'Orel')
   const calendar = integrations.runExternalScenario(data, 'Avrahami', 'Orel', 'calendar-meeting')
   assert.equal(calendar.applied, true)

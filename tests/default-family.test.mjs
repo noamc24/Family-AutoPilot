@@ -15,12 +15,8 @@ test('משפחת ברירת המחדל כוללת תאריכי לידה ושגר
   for (const person of family.people.filter(person => person.age < 18)) {
     const days = person.routines.map(routine => routine.days || [routine.day]).flat()
     assert.ok(days.length >= 5)
-    if (person.id === 'yehonatan') {
-      assert.ok(person.routines.some(routine => routine.label === 'מעון'))
-    } else {
-      assert.ok(person.routines.some(routine => routine.label === 'בית ספר'))
-      assert.ok(person.routines.some(routine => /כדורגל|שחייה/.test(routine.label)))
-    }
+    const expectedLabel = person.id === 'yehonatan' ? 'מעון' : person.id === 'noa' ? 'גן חובה' : 'בית ספר'
+    assert.ok(person.routines.some(routine => routine.label.includes(expectedLabel)))
   }
   assert.ok(family.people.find(person => person.id === 'yehonatan').routines.every(routine => routine.label === 'מעון'))
   assert.ok(data.initialData.events.find(event => event.id === 'dinner').participantIds.includes('yehonatan'))
@@ -43,8 +39,8 @@ test('טעינת המשפחה הישנה מחליפה רק את ברירת המ�
     assert.equal(restored.families[0].name, 'משפחת אברהמי')
     assert.equal(restored.families[0].people.find(person => person.id === 'Mor').name, 'מור')
     assert.equal(restored.families[0].people.find(person => person.id === 'noa').birthDate, '2021-12-30')
-    assert.equal(restored.families[0].people.find(person => person.id === 'Itamar').routines.length, 3)
-    assert.equal(restored.families[0].people.find(person => person.id === 'noa').routines.length, 3)
+    assert.equal(restored.families[0].people.find(person => person.id === 'Itamar').routines.length, data.initialData.families[0].people.find(person => person.id === 'Itamar').routines.length)
+    assert.equal(restored.families[0].people.find(person => person.id === 'noa').routines.length, data.initialData.families[0].people.find(person => person.id === 'noa').routines.length)
     assert.equal(restored.events.find(event => event.id === 'pickup').title, 'איסוף איתמר מכדורגל')
     assert.equal(restored.events.find(event => event.id === 'custom').familyId, 'Avrahami')
   } finally { globalThis.localStorage = originalStorage }

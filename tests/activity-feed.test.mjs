@@ -11,7 +11,11 @@ const coordination = await load('src/coordination.ts')
 const feed = await load('src/activityFeed.ts')
 
 test('פתיחת בקשה נרשמת פעם אחת ונשמרת אחרי טעינה מחדש', () => {
-  const first = coordination.ensureRequests(structuredClone(model.initialData), 'Orel')
+  const seed = structuredClone(model.initialData)
+  seed.activity = []
+  seed.transportationRequests = []
+  seed.events = seed.events.filter(event => event.id === 'pickup')
+  const first = coordination.ensureRequests(seed, 'Orel')
   const second = coordination.ensureRequests(first, 'Orel')
   assert.equal(second.activity.filter(item => item.text.includes('נפתחה בקשת הסעה')).length, 1)
   const originalStorage = globalThis.localStorage

@@ -108,6 +108,7 @@ test('שינוי באירוע דורש אישור חדש ואישור קיים �
 
 test('הכול בשליטה תלוי בהסעות, משימות חשובות, אישורים ועדכונים חיצוניים', () => {
   const data = structuredClone(initialData)
+  data.families.forEach(family => family.people.forEach(person => { person.routines = [] }))
   data.events = []
   data.tasks = []
   data.transportationRequests = []
