@@ -16,10 +16,11 @@ function ActionCard({ message, onAction }: { message: LiaMessage; onAction: () =
   if (!message.action) return null
   const name = message.text.match(/מצאתי את ([^\s,.]+)/)?.[1] || message.text.match(/^([^\s,.]+)/)?.[1] || 'בן משפחה'
   const state = message.status || 'sent'
-  const stateCopy = state === 'completed' ? 'הבקשה נשלחה' : state === 'failed' ? 'הבקשה לא נשלחה' : state === 'dismissed' ? 'לא נשלחה בקשה' : 'מוכן לשליחה'
+  const decision = message.action.kind === 'liaDecision'
+  const stateCopy = state === 'completed' ? decision ? 'הפעולה בוצעה' : 'הבקשה נשלחה' : state === 'failed' ? decision ? 'הפעולה לא בוצעה' : 'הבקשה לא נשלחה' : state === 'dismissed' ? decision ? 'הפעולה בוטלה' : 'לא נשלחה בקשה' : decision ? 'ממתין לאישור שלך' : 'מוכן לשליחה'
   const StateIcon = state === 'completed' ? Check : state === 'failed' || state === 'dismissed' ? X : Clock3
   return <div className={`lia-chat-action-card state-${state}`}>
-    <div className="lia-action-person"><span>{name.slice(0, 1)}</span><div><strong>{name}</strong><small>{message.action.kind === 'sendRideRequest' ? 'פנוי/ה ומתאים/ה להסעה' : 'פעולה ביומן'}</small></div></div>
+    <div className="lia-action-person"><span>{decision ? '✓' : name.slice(0, 1)}</span><div><strong>{decision ? 'המלצת LIA' : name}</strong><small>{message.action.kind === 'sendRideRequest' ? 'פנוי/ה ומתאים/ה להסעה' : decision ? 'פעולה אמיתית ב־FamPilot' : 'פעולה ביומן'}</small></div></div>
     <div className="lia-action-meta"><span>לפי הזמינות</span><span>לפי הלו״ז המשפחתי</span></div>
     {state === 'sent' ? <button onClick={onAction}>{message.action.label}</button> : <div className="lia-action-state"><StateIcon size={14}/>{stateCopy}</div>}
   </div>

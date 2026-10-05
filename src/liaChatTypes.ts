@@ -2,10 +2,12 @@ export type LiaMessageType = 'text' | 'suggestion' | 'entitySummary' | 'actionRe
 export type LiaMessageStatus = 'sent' | 'completed' | 'dismissed' | 'failed'
 
 export type LiaChatAction = {
-  kind: 'sendRideRequest' | 'openCalendar'
+  kind: 'sendRideRequest' | 'openCalendar' | 'liaDecision'
   label: string
   eventId?: string
   memberId?: string
+  interventionId?: string
+  decision?: 'approve' | 'addToCalendar' | 'createTask' | 'dismiss' | 'reassign'
 }
 
 export type LiaMessage = {
@@ -24,6 +26,11 @@ export type LiaPendingIntent = {
   relatedEventId: string
   suggestedMemberId: string
   proposedAction: 'sendRideRequest'
+} | {
+  type: 'liaInterventionAction'
+  interventionId: string
+  proposedAction: 'approve' | 'addToCalendar' | 'createTask' | 'dismiss' | 'reassign'
+  targetMemberId?: string
 }
 
 export type LiaConversationContext = {
@@ -34,6 +41,17 @@ export type LiaConversationContext = {
   lastActivityId?: string
   lastSourceId?: string
   lastIntent?: string
+  previousIntent?: string
+  lastTaskId?: string
+  lastRideId?: string
+  lastResultIds?: string[]
+  candidateMemberIds?: string[]
+  excludedMemberIds?: string[]
+  temporalScope?: {
+    kind: 'today' | 'tomorrow' | 'week' | 'nextWeek' | 'upcoming'
+    dayPart?: 'morning' | 'afternoon' | 'evening' | 'night'
+  }
+  referenceKind?: 'member' | 'event' | 'task' | 'ride' | 'intervention' | 'activity'
 }
 
 export type LiaConversation = {

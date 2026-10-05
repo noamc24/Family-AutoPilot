@@ -245,14 +245,28 @@ export function sanitizeAppData(data: AppData): AppData {
   const liaConversations = (data.liaConversations || []).filter(item => membersByFamily.get(item.familyId)?.has(item.memberId)).map(item => {
     const members = membersByFamily.get(item.familyId)!
     const familyEventIds = new Set(events.filter(event => event.familyId === item.familyId).map(event => event.id))
+    const familyTaskIds = new Set(tasks.filter(task => task.familyId === item.familyId).map(task => task.id))
+    const familyRideIds = new Set(transportationRequests.filter(request => request.familyId === item.familyId).map(request => request.id))
+    const familyActivityIds = new Set(activity.filter(entry => entry.familyId === item.familyId).map(entry => entry.id))
+    const validEntityIds = new Set([...familyEventIds, ...familyTaskIds, ...familyRideIds, ...members])
     const pending = item.contextState?.pendingIntent
-    const validPending = pending && familyEventIds.has(pending.relatedEventId) && members.has(pending.suggestedMemberId) ? pending : undefined
+    const validPending = pending?.type === 'sendRideRequest'
+      ? familyEventIds.has(pending.relatedEventId) && members.has(pending.suggestedMemberId) ? pending : undefined
+      : pending?.type === 'liaInterventionAction'
+        ? interventionIds.has(pending.interventionId) && (!pending.targetMemberId || members.has(pending.targetMemberId)) ? pending : undefined
+        : undefined
     const contextState = item.contextState ? {
       ...item.contextState,
       pendingIntent: validPending,
       lastEventId: item.contextState.lastEventId && familyEventIds.has(item.contextState.lastEventId) ? item.contextState.lastEventId : undefined,
       lastMemberId: item.contextState.lastMemberId && members.has(item.contextState.lastMemberId) ? item.contextState.lastMemberId : undefined,
       lastInterventionId: item.contextState.lastInterventionId && interventionIds.has(item.contextState.lastInterventionId) ? item.contextState.lastInterventionId : undefined,
+      lastTaskId: item.contextState.lastTaskId && familyTaskIds.has(item.contextState.lastTaskId) ? item.contextState.lastTaskId : undefined,
+      lastRideId: item.contextState.lastRideId && familyRideIds.has(item.contextState.lastRideId) ? item.contextState.lastRideId : undefined,
+      lastActivityId: item.contextState.lastActivityId && familyActivityIds.has(item.contextState.lastActivityId) ? item.contextState.lastActivityId : undefined,
+      lastResultIds: item.contextState.lastResultIds?.filter(id => validEntityIds.has(id)),
+      candidateMemberIds: item.contextState.candidateMemberIds?.filter(id => members.has(id)),
+      excludedMemberIds: item.contextState.excludedMemberIds?.filter(id => members.has(id)),
     } : undefined
     const messages = validPending === pending ? item.messages : item.messages.map(entry => entry.action?.kind === 'sendRideRequest' && entry.status === 'sent' ? { ...entry, status: 'failed' as const } : entry)
     return { ...item, messages, contextState }

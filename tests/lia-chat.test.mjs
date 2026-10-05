@@ -287,3 +287,117 @@ test('משימות בניסוח טבעי מסוננות לפי בן המשפחה
   assert.match(answer, /משימה של אוראל/)
   assert.doesNotMatch(answer, /אישור הורים/)
 })
+
+test('פרפראזות טבעיות על לו״ז מתכנסות לאותה כוונה ושומרות Member', () => {
+  for (const prompt of ['מה איתמר עושה היום?', 'מה יש לאיתמר היום?', 'איתמר עסוק היום?', 'איפה איתמר צריך להיות היום?']) {
+    const data = sendLiaChatMessage(simpleData(), 'f', 'm', prompt).data
+    const chat = conversationFor(data, 'f', 'm')
+    assert.match(chat.messages.at(-1).text, /חוג של איתמר/)
+    assert.equal(chat.contextState.lastMemberId, 'c')
+  }
+})
+
+test('שיחה רציפה שומרת אירוע, אדם והסעה בין שאלות המשך', () => {
+  let data = sendLiaChatMessage(simpleData(), 'f', 'm', 'מה איתמר עושה היום?').data
+  data = sendLiaChatMessage(data, 'f', 'm', 'מי מחזיר אותו?').data
+  assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /עדיין לא נקבע/)
+  data = sendLiaChatMessage(data, 'f', 'm', 'מי יכול להחזיר במקום?').data
+  assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /אוראל.*מתאים/)
+  data = sendLiaChatMessage(data, 'f', 'm', 'למה דווקא אוראל?').data
+  assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /אוראל.*תנאי הנהיגה|זמין/)
+})
+
+test('תיקון אדם ומעבר נושא מפעילים מחדש את הכוונה הקודמת', () => {
+  const base = simpleData()
+  base.families[0].people.push({ id: 'o', name: 'עומר', role: 'בן', color: 'gold', age: 6, hasLicense: false, hasCar: false, availableForPickup: false })
+  base.events.push({ ...base.events[0], id: 'garden', title: 'מסיבת גן', participantIds: ['o'], time: '18:30', requiresDriver: false })
+  let data = sendLiaChatMessage(base, 'f', 'm', 'מה איתמר עושה היום?').data
+  data = sendLiaChatMessage(data, 'f', 'm', 'לא איתמר, התכוונתי לעומר').data
+  assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /מסיבת גן/)
+  assert.equal(conversationFor(data, 'f', 'm').contextState.lastMemberId, 'o')
+  data = sendLiaChatMessage(data, 'f', 'm', 'ומה עם מור?').data
+  assert.equal(conversationFor(data, 'f', 'm').contextState.lastMemberId, 'm')
+})
+
+test('טווח ערב מסנן אירועים ואינו ממציא מידע חסר', () => {
+  const base = simpleData()
+  base.events.push({ ...base.events[0], id: 'morning', title: 'בדיקת בוקר', time: '09:00', requiresDriver: false })
+  let data = sendLiaChatMessage(base, 'f', 'm', 'יש לאיתמר משהו בערב?').data
+  assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /חוג של איתמר/)
+  assert.doesNotMatch(conversationFor(data, 'f', 'm').messages.at(-1).text, /בדיקת בוקר/)
+  data = sendLiaChatMessage(data, 'f', 'm', 'איפה זה?').data
+  assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /אין לי כרגע מיקום/)
+})
+
+test('הסבר נהג משתמש בסיבת פסילה אמיתית ומי עוד מתקדם במועמדים', () => {
+  const base = simpleData()
+  base.families[0].people[1].availability = 'work'
+  let data = sendLiaChatMessage(base, 'f', 'm', 'מי יכול לקחת את איתמר?').data
+  data = sendLiaChatMessage(data, 'f', 'm', 'מור יכולה במקום?').data
+  assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /מור.*בעבודה/)
+  data = sendLiaChatMessage(data, 'f', 'm', 'ומי עוד?').data
+  assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /אוראל.*האפשרות הנוספת/)
+})
+
+test('what-if בודק בלי לשנות state ובקשת פעולה מחכה לאישור', () => {
+  const base = simpleData()
+  let data = sendLiaChatMessage(base, 'f', 'm', 'אם נעביר לאוראל זה מסתדר?').data
+  assert.equal(data.transportationRequests.length, 0)
+  assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /לא שיניתי דבר/)
+  data = sendLiaChatMessage(data, 'f', 'm', 'תעבירי את ההסעה לאוראל').data
+  assert.equal(data.transportationRequests.length, 0)
+  assert.equal(conversationFor(data, 'f', 'm').messages.at(-1).type, 'actionRequest')
+  data = sendLiaChatMessage(data, 'f', 'm', 'כן').data
+  assert.ok(requestForEvent(data, 'club'))
+})
+
+test('משפחה ריקה מחזירה תשובה בטוחה ללא hallucination', () => {
+  const empty = { families: [{ id: 'f', name: 'חדשה', people: [{ id: 'm', name: 'נועה', role: 'אם', color: 'sage', age: 30, hasLicense: false, hasCar: false, availableForPickup: false }] }], events: [], tasks: [], activity: [], transportationRequests: [], integrationLogs: [], calendarMirrors: [], liaConversations: [] }
+  let data = sendLiaChatMessage(empty, 'f', 'm', 'מה יש לי היום?').data
+  assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /אין לך/)
+  data = sendLiaChatMessage(data, 'f', 'm', 'מתי זה?').data
+  assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /לא מצאתי/)
+})
+
+test('שיחת שמונה תורות נשארת קוהרנטית ואז מחליפה נושא באופן טבעי', () => {
+  const base = simpleData()
+  base.families[0].people[1].availability = 'work'
+  let data = base
+  const ask = prompt => { data = sendLiaChatMessage(data, 'f', 'm', prompt).data; return conversationFor(data, 'f', 'm').messages.at(-1).text }
+  assert.match(ask('מה איתמר עושה היום?'), /חוג של איתמר/)
+  assert.match(ask('ומה אחר כך?'), /אין.*נוסף/)
+  assert.match(ask('מי מחזיר אותו?'), /עדיין לא נקבע/)
+  assert.match(ask('מי יכול להחזיר במקום?'), /אוראל.*מתאים/)
+  assert.match(ask('מור יכולה?'), /מור.*בעבודה/)
+  assert.match(ask('למה לא?'), /מור.*בעבודה/)
+  assert.match(ask('ומי עוד?'), /לא מצאתי.*נוספת|אוראל.*נוספת/)
+  assert.match(ask('לא משנה, מה מור צריכה לעשות היום?'), /אישור הורים/)
+  assert.equal(conversationFor(data, 'f', 'm').contextState.lastMemberId, 'm')
+})
+
+test('החלטת LIA מהצ׳אט משתמשת ב-flow האמיתי ורק לאחר אישור', () => {
+  const base = simpleData()
+  base.events[0].responsibleId = 'm'
+  base.liaInterventions[0] = { ...base.liaInterventions[0], type: 'traffic', actions: [{ id: 'approve', kind: 'approve', label: 'אישור', primary: true }, { id: 'dismiss', kind: 'dismiss', label: 'לא מתאים' }] }
+  let data = sendLiaChatMessage(base, 'f', 'm', 'מה דורש ממני פעולה?').data
+  const pending = conversationFor(data, 'f', 'm')
+  assert.equal(pending.messages.at(-1).action.kind, 'liaDecision')
+  assert.equal(data.liaInterventions[0].status, 'decisionRequired')
+  data = sendLiaChatMessage(data, 'f', 'm', 'כן').data
+  assert.equal(data.liaInterventions[0].status, 'completed')
+  assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /עודכנה|בוצע/)
+})
+
+test('מצב ילד אינו חושף לו״ז של בן משפחה אחר דרך ניסוח שיחתי', () => {
+  const data = sendLiaChatMessage(simpleData(), 'f', 'c', 'מה מור עושה היום?').data
+  assert.match(conversationFor(data, 'f', 'c').messages.at(-1).text, /רק עם הלו״ז.*שלך/)
+  assert.doesNotMatch(conversationFor(data, 'f', 'c').messages.at(-1).text, /עבודה/)
+})
+
+test('שאלת רמז אחרי רשימה מרובת אירועים מבקשת הבהרה במקום לנחש', () => {
+  const base = simpleData()
+  base.events.push({ ...base.events[0], id: 'second', title: 'מפגש חברים', time: '19:00', requiresDriver: false })
+  let data = sendLiaChatMessage(base, 'f', 'm', 'מה איתמר עושה היום?').data
+  data = sendLiaChatMessage(data, 'f', 'm', 'מתי זה?').data
+  assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /למה התכוונת.*חוג של איתמר.*מפגש חברים/)
+})
