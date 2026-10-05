@@ -388,21 +388,23 @@ p { color: var(--fp-body); }
 .concept-e-home .lia-priority.lia-tone-urgent { --lia-tone:var(--fp-danger); --lia-tone-text:#8e4141; --lia-tone-line:rgba(169,80,80,.25); --lia-tone-soft:rgba(255,246,244,.72); }
 .concept-e-home .lia-priority::before { width: 3px; background: var(--lia-tone); }
 .concept-e-home .lia-priority::after { content: none; }
-.concept-e-home .lia-section-heading { position: relative; z-index: 1; margin-bottom: 15px; }
+.concept-e-home .lia-section-heading { position: relative; z-index: 1; margin-bottom: 15px; padding-inline-end: clamp(58px, 7vw, 88px); }
 .concept-e-home .lia-section-icon { position:relative; width: 34px; height: 34px; color: var(--fp-indigo); background: #eeedf8; border-color: #d5d3e7; border-radius: 11px; }
 .concept-e-home .lia-section-heading > div > span { color: #6763a5; font-size: 8px; font-weight: 800; letter-spacing: .08em; }
-.concept-e-home .lia-section-icon > .lia-live-dot {
-  position: absolute; z-index: 2; inset-inline-end: -3px; bottom: -3px; width: 9px; height: 9px; display: block;
-  border: 2px solid rgba(255,255,255,.96); border-radius: 50%;
-  background: var(--lia-tone); box-shadow: 0 0 0 1px var(--lia-tone-line);
+.concept-e-home .lia-priority > .lia-live-dot {
+  position: absolute; z-index: 2; inset-inline-end: clamp(50px, 5.8vw, 72px); top: 42px;
+  width: clamp(14px, 1.2vw, 17px); aspect-ratio: 1; display: block; pointer-events: none;
+  border: 3px solid rgba(255,255,255,.96); border-radius: 50%;
+  background: var(--lia-tone); box-shadow: 0 0 0 1px var(--lia-tone-line), 0 4px 13px color-mix(in srgb, var(--lia-tone) 24%, transparent);
 }
-.concept-e-home .lia-section-icon > .lia-live-dot::after {
-  content: ""; position: absolute; inset: -2px; border: 1px solid var(--lia-tone);
-  border-radius: 50%; animation: lia-live-pulse 2s ease-out infinite;
+.concept-e-home .lia-priority.lia-all-good > .lia-live-dot { top: 50%; transform: translateY(-50%); }
+.concept-e-home .lia-priority > .lia-live-dot::after {
+  content: ""; position: absolute; inset: -4px; border: 1.5px solid var(--lia-tone);
+  border-radius: 50%; animation: lia-live-pulse 2.2s ease-out infinite;
 }
 @keyframes lia-live-pulse {
-  0%, 42% { transform: scale(1); opacity: .65; }
-  72% { transform: scale(2.65); opacity: 0; }
+  0%, 38% { transform: scale(1); opacity: .58; }
+  76% { transform: scale(3.25); opacity: 0; }
   100% { transform: scale(1); opacity: 0; }
 }
 .concept-e-home .lia-section-heading h2 { margin-top: 4px; font-size: 19px; }
@@ -541,6 +543,8 @@ p { color: var(--fp-body); }
   .concept-e-state { margin: 9px 7px 0; padding-inline: 9px; }
   .concept-e-state-status { padding-inline: 7px; }
   .concept-e-home .lia-priority { padding: 17px 15px 16px 19px; border-radius: 4px 13px 13px 13px; }
+  .concept-e-home .lia-section-heading { padding-inline-end: 48px; }
+  .concept-e-home .lia-priority > .lia-live-dot { inset-inline-end: 22px; top: 38px; width: 14px; border-width: 2px; }
   .concept-e-home .lia-card { padding: 13px 1px 1px; }
   .concept-e-home .lia-card + .lia-card { padding: 13px 1px 1px; }
   .concept-e-home .lia-actions { width:100%; gap:6px; }
