@@ -176,7 +176,6 @@ export const initialData: AppData = {
     { id: 'product-management-course', familyId: DEFAULT_FAMILY_ID, title: 'קורס ניהול מוצר', date: nextWednesday(), time: '19:00', endTime: '21:15', icon: '💡', participantIds: ['Mor'], responsibleId: 'Mor', details: 'בין 19:30 ל־19:40 מור מציגה את פרויקט אוטופיילוט כחלק מובנה מהקורס' },
     { id: 'football', familyId: DEFAULT_FAMILY_ID, title: 'חוג כדורסל לאיתמר', date: nextThursday(), time: '16:30', endTime: '18:00', icon: '🏀', participantIds: ['Itamar'], responsibleId: 'Orel', details: 'איתמר הולך לחוג לבד; אוראל אחראי על ההחזרה', requiresDriver: true },
     { id: 'orel-haircut', familyId: DEFAULT_FAMILY_ID, title: 'תספורת לאוראל', date: nextWednesday(), time: '18:00', endTime: '18:30', icon: '✂️', participantIds: ['Orel'], responsibleId: 'Orel', details: 'תור במספרה' },
-    { id: 'supermarket', familyId: DEFAULT_FAMILY_ID, title: 'קניות בסופר', date: nextTuesday(), time: '17:00', endTime: '19:00', icon: '🛒', participantIds: ['Orel'], responsibleId: 'Orel', details: 'אוראל הולך לקניות אחרי העבודה וחוזר סביב 19:00' },
     { id: 'tomer-bar-mitzvah', familyId: DEFAULT_FAMILY_ID, title: 'בר מצווה לתומר', date: nextThursday(), time: '19:30', endTime: '22:30', icon: '🎉', participantIds: ['Mor', 'Orel', 'Itamar', 'noa', 'yehonatan'], responsibleId: '', details: 'בר המצווה של תומר, בן הדוד' },
     { id: 'parents-meeting', familyId: DEFAULT_FAMILY_ID, title: 'אסיפת הורים', date: localDate(5), time: '18:30', endTime: '19:30', icon: '🏫', participantIds: ['Mor', 'Orel', 'Itamar'], responsibleId: 'Mor', details: 'אסיפת הורים בבית הספר של איתמר' },
     { id: 'dinner', familyId: DEFAULT_FAMILY_ID, title: 'ארוחת ערב משפחתית', date: localDate(6), time: '19:30', endTime: '20:30', icon: '🍽️', participantIds: ['Mor', 'Orel', 'Itamar', 'noa', 'yehonatan'], responsibleId: '', details: 'כולם יחד' },
@@ -185,7 +184,8 @@ export const initialData: AppData = {
     { id: 'pickup', familyId: DEFAULT_FAMILY_ID, title: 'איסוף איתמר מכדורגל', date: localDate(9), time: '18:30', icon: '🚗', participantIds: ['Itamar'], responsibleId: '', details: 'דרוש נהג/ת לאיסוף', needsAttention: true, requiresDriver: true },
   ],
   tasks: [
-    { id: 'groceries', familyId: DEFAULT_FAMILY_ID, title: 'קניות לבית', ownerId: 'Mor', due: localDate(), done: false, requiresAdult: true, priority: 'low', flexible: true },
+    { id: 'groceries', familyId: DEFAULT_FAMILY_ID, title: 'קניות בסופר', ownerId: 'Orel', due: `${nextTuesday()}T19:00`, done: false, requiresAdult: true, priority: 'normal', flexible: true },
+    { id: 'fampilot-presentation', familyId: DEFAULT_FAMILY_ID, title: 'פרזנטציה של עבודה על FamPilot', ownerId: 'Mor', due: '2026-10-07T20:00', done: false, requiresAdult: true, priority: 'high', flexible: false },
     { id: 'schoolbag', familyId: DEFAULT_FAMILY_ID, title: 'לארוז תיק לטיול', ownerId: 'Mor', due: localDate(5), done: false },
   ],
   activity: [
