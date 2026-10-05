@@ -2943,7 +2943,7 @@ function DecisionCenter({
           const pending = request?.responses[actorId] === 'PENDING' && request.eligibleMemberIds.includes(actorId)
           return (
             <article className="decision-item action-center-item" key={event.id}>
-              <span className="decision-icon">{event.icon}</span>
+              <button type="button" className="decision-icon action-center-calendar-link" onClick={() => onOpenEvent(event.id)} aria-label={`פתיחת ${event.title} ביומן`} title="פתיחה ביומן">{event.icon}</button>
               <div className="action-center-copy">
                 <span className="action-center-kind">תיאום אירוע</span>
                 <button className="action-center-event-link" onClick={() => onOpenEvent(event.id)}>{event.title}<ArrowLeft size={12}/></button>
@@ -3001,9 +3001,9 @@ function DecisionCenter({
           </div>
           {visibleRisks.map((risk) => (
             <article className="forecast-item action-center-item" key={risk.id}>
-              <span className="forecast-icon">
+              <button type="button" className="forecast-icon action-center-calendar-link" onClick={() => onOpenEvent(risk.eventId)} aria-label={`פתיחת ${risk.title} ביומן`} title="פתיחה ביומן">
                 <CalendarDays size={17} />
-              </span>
+              </button>
               <div className="action-center-copy">
                 <span className="action-center-kind">מבט קדימה</span>
                 <button className="action-center-event-link" onClick={() => onOpenEvent(risk.eventId)}>{risk.title}<ArrowLeft size={12}/></button>

@@ -500,9 +500,9 @@ h2 { letter-spacing: -.02em; }
 .settings-toggle input:focus-visible + span { outline-color: var(--lia-focus); }
 .privacy-note { margin-top: 18px; background: var(--surface-subtle); color: var(--text-muted); }
 .connections-list { display: grid; gap: 8px; max-width: 820px; }
-.connection-row { border: 1px solid var(--border); border-radius: 14px; background: var(--surface); overflow: hidden; transition: border-color .18s ease, background .18s ease; }
+.connection-row { display: block; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); overflow: hidden; transition: border-color .18s ease, background .18s ease, box-shadow .18s ease; }
 .connection-row.is-active { border-color: color-mix(in srgb, var(--active) 30%, var(--border)); }
-.connection-row > summary { min-height: 68px; display: grid; grid-template-columns: 38px minmax(180px,1fr) 62px max-content 15px; align-items: center; gap: 12px; padding: 10px 14px; list-style: none; cursor: pointer; }
+.connection-row > summary { min-height: 68px; display: grid !important; grid-template-columns: 38px minmax(180px,1fr) 62px max-content 15px; align-items: center; gap: 12px; padding: 10px 14px; list-style: none; cursor: pointer; transition: background .18s ease; }
 .connection-row > summary::-webkit-details-marker { display: none; }
 .connection-row .connection-icon { width: 38px; height: 38px; border-radius: 11px; }
 .connection-name { display: grid; gap: 2px; min-width: 0; overflow: hidden; }
@@ -511,8 +511,11 @@ h2 { letter-spacing: -.02em; }
 .connection-state { width: 62px; position: relative; z-index: 1; text-align: center; padding: 5px 8px; border-radius: 999px; background: var(--surface-subtle); color: var(--text-muted); font-size: 10px; font-style: normal; font-weight: 800; white-space: nowrap; }
 .connection-state.active { background: #e8f2e9; color: #39704c; }
 .manage-label { color: var(--lia-primary); font-size: 11px; font-weight: 800; }
+.connection-row[open] { box-shadow: 0 8px 22px rgba(42,45,58,.045); }
+.connection-row[open] > summary { background: color-mix(in srgb, var(--surface) 88%, var(--lia-primary-soft)); }
 .connection-row[open] > summary svg:last-child { transform: rotate(-90deg); }
-.connection-row .connection-details { display: grid; grid-template-columns: minmax(0,1fr) auto auto; align-items: center; gap: 14px; padding: 12px 14px; border-top: 1px solid var(--border); background: var(--surface-subtle); }
+.connection-row .connection-details { display: grid; grid-template-columns: minmax(0,1fr) auto auto; align-items: center; gap: 14px; padding: 12px 14px; border-top: 1px solid var(--border); background: var(--surface-subtle); animation: connection-details-in .18s ease-out; }
+@keyframes connection-details-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
 .connection-row .preference-row { display: contents; }
 .connection-row .preference-row > div { display: grid; gap: 3px; min-width: 0; }
 .connection-row .preference-row strong { font-size: 11px; }

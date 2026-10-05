@@ -389,15 +389,15 @@ p { color: var(--fp-body); }
 .concept-e-home .lia-priority::before { width: 3px; background: var(--lia-tone); }
 .concept-e-home .lia-priority::after { content: none; }
 .concept-e-home .lia-section-heading { position: relative; z-index: 1; margin-bottom: 15px; }
-.concept-e-home .lia-section-icon { width: 34px; height: 34px; color: var(--fp-indigo); background: #eeedf8; border-color: #d5d3e7; border-radius: 11px; }
+.concept-e-home .lia-section-icon { position:relative; width: 34px; height: 34px; color: var(--fp-indigo); background: #eeedf8; border-color: #d5d3e7; border-radius: 11px; }
 .concept-e-home .lia-section-heading > div > span { color: #6763a5; font-size: 8px; font-weight: 800; letter-spacing: .08em; }
-.concept-e-home .lia-priority > .lia-live-dot {
-  position: absolute; z-index: 2; inset-inline-start: 47px; top: 43px; width: 10px; height: 10px; display: block;
+.concept-e-home .lia-section-icon > .lia-live-dot {
+  position: absolute; z-index: 2; inset-inline-end: -3px; bottom: -3px; width: 9px; height: 9px; display: block;
   border: 2px solid rgba(255,255,255,.96); border-radius: 50%;
   background: var(--lia-tone); box-shadow: 0 0 0 1px var(--lia-tone-line);
 }
-.concept-e-home .lia-priority > .lia-live-dot::after {
-  content: ""; position: absolute; inset: -1px; border: 1px solid var(--fp-indigo);
+.concept-e-home .lia-section-icon > .lia-live-dot::after {
+  content: ""; position: absolute; inset: -2px; border: 1px solid var(--lia-tone);
   border-radius: 50%; animation: lia-live-pulse 2s ease-out infinite;
 }
 @keyframes lia-live-pulse {
@@ -409,7 +409,6 @@ p { color: var(--fp-body); }
 .concept-e-home .lia-section-heading p { color: #757488; }
 .concept-e-home .lia-priority.lia-all-good { padding-block: 16px; }
 .concept-e-home .lia-priority.lia-all-good .lia-section-heading { margin-bottom: 0; }
-.concept-e-home .lia-priority.lia-all-good > .lia-live-dot { top: 40px; }
 .concept-e-home .lia-card-grid { position: relative; z-index: 1; gap: 12px; }
 .concept-e-home .lia-card {
   padding: 14px 2px 2px; border: 0; border-top: 1px solid rgba(84,80,151,.14); border-radius: 0;
@@ -486,8 +485,17 @@ p { color: var(--fp-body); }
 .concept-e-attention-zone .request-actions,
 .concept-e-attention-zone .recommendation { margin-top:5px; }
 .concept-e-attention-zone .workflow-actions { margin-top:0; }
-.concept-e-attention-zone .action-center-group:empty { display:none; }
+.concept-e-attention-zone .action-center-group:empty,
+.concept-e-attention-zone .action-center-group:not(:has(.action-center-item)) { display:none; }
 .concept-e-attention-zone .decision-icon, .concept-e-attention-zone .forecast-icon, .concept-e-attention-zone .request-icon { color: #765c98; background: #ede7f0; border-radius: 10px; }
+.concept-e-attention-zone .action-center-calendar-link { padding:0; border:1px solid transparent; font:inherit; cursor:pointer; transition:transform .16s ease, background .16s ease, border-color .16s ease, box-shadow .16s ease; }
+.concept-e-attention-zone .action-center-calendar-link:hover { transform:translateY(-1px); border-color:rgba(81,79,163,.2); background:#f7f5fc; box-shadow:0 4px 10px rgba(62,59,117,.08); }
+.concept-e-attention-zone .action-center-calendar-link:focus-visible { outline:2px solid rgba(81,79,163,.42); outline-offset:2px; }
+.concept-e-attention-zone .decision-list,.concept-e-attention-zone .forecast-list,.concept-e-attention-zone .request-grid { gap:0; }
+.concept-e-attention-zone .action-center-item { min-height:0; padding-block:11px; }
+.concept-e-attention-zone .action-center-item::before { top:13px; height:24px; }
+.concept-e-attention-zone .action-center-kind { margin-bottom:2px; }
+.concept-e-attention-zone .workflow-actions,.concept-e-attention-zone .decision-actions,.concept-e-attention-zone .request-actions,.concept-e-attention-zone .recommendation { margin-top:5px; }
 .concept-e-attention-zone .response-list span { background: rgba(255,255,255,.55); }
 
 .concept-e-context { gap: 14px; margin-top: 14px; }
@@ -533,7 +541,6 @@ p { color: var(--fp-body); }
   .concept-e-state { margin: 9px 7px 0; padding-inline: 9px; }
   .concept-e-state-status { padding-inline: 7px; }
   .concept-e-home .lia-priority { padding: 17px 15px 16px 19px; border-radius: 4px 13px 13px 13px; }
-  .concept-e-home .lia-priority > .lia-live-dot { inset-inline-start: 40px; top: 40px; width: 9px; height: 9px; border-width: 2px; }
   .concept-e-home .lia-card { padding: 13px 1px 1px; }
   .concept-e-home .lia-card + .lia-card { padding: 13px 1px 1px; }
   .concept-e-agenda { padding: 16px 14px 12px; border-radius: 14px; }
