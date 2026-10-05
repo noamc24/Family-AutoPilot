@@ -66,13 +66,16 @@ export const localDate = (offset = 0) => {
   date.setDate(date.getDate() + offset)
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
-const nextWednesday = () => {
+const nextWeekday = (weekday: number) => {
   const date = new Date()
   const currentDay = date.getDay()
-  const diff = (3 - currentDay + 7) % 7 || 7
+  const diff = (weekday - currentDay + 7) % 7 || 7
   date.setDate(date.getDate() + diff)
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
+const nextTuesday = () => nextWeekday(2)
+const nextWednesday = () => nextWeekday(3)
+const nextThursday = () => nextWeekday(4)
 export function mergeRoutineEntries(routines: WeeklyRoutine[] = []): WeeklyRoutine[] {
   const grouped = new Map<string, WeeklyRoutine>()
   for (const routine of routines) {
@@ -146,38 +149,39 @@ export function pruneExpiredData(data: AppData, now = new Date()): AppData {
   }
 }
 
-const weeklyCare = (personId: string, label: string): WeeklyRoutine[] => [
-  { id: `default-${personId}-weekdays`, kind: 'study', label, day: 0, days: [0, 1, 2, 3, 4], start: '08:00', end: '16:00' },
-  { id: `default-${personId}-friday`, kind: 'study', label, day: 5, days: [5], start: '08:00', end: '13:30' },
+const weeklyCare = (personId: string, label: string, weekdayStart: string, weekdayEnd: string, fridayStart: string, fridayEnd: string): WeeklyRoutine[] => [
+  { id: `default-${personId}-weekdays`, kind: 'study', label, day: 0, days: [0, 1, 2, 3, 4], start: weekdayStart, end: weekdayEnd },
+  { id: `default-${personId}-friday`, kind: 'study', label, day: 5, days: [5], start: fridayStart, end: fridayEnd },
 ]
 
 const defaultFamilyRoutines: Record<string, WeeklyRoutine[]> = {
-  Itamar: [{ id: 'default-Itamar-soccer', kind: 'activity', label: 'חוג כדורגל', day: 2, days: [2], start: '18:00', end: '20:00' }],
-  noa: [{ id: 'default-noa-swim', kind: 'activity', label: 'חוג שחייה', day: 3, days: [3], start: '18:00', end: '19:30' }],
-  Mor: [],
-  Orel: [],
+  Itamar: [],
+  noa: [],
+  Mor: [{ id: 'default-Mor-work', kind: 'work', label: 'עבודה', day: 0, days: [0, 1, 2, 3, 4], start: '08:00', end: '16:30' }],
+  Orel: [{ id: 'default-Orel-work', kind: 'work', label: 'עבודה', day: 0, days: [0, 1, 2, 3, 4], start: '08:30', end: '17:30' }],
 }
 
 export const initialData: AppData = {
   families: [{ id: DEFAULT_FAMILY_ID, name: 'משפחת אברהמי', people: [
     { id: 'Orel', name: 'אוראל', role: 'אב', color: 'sage', birthDate: '1988-11-06', birthYear: 1988, age: ageFromBirthDate('1988-11-06'), hasLicense: true, hasCar: true, availableForPickup: true, routines: defaultFamilyRoutines.Orel, personalSettings: demoPersonalSettings() },
     { id: 'Mor', name: 'מור', role: 'אם', color: 'peach', birthDate: '1993-12-12', birthYear: 1993, age: ageFromBirthDate('1993-12-12'), hasLicense: true, hasCar: true, availableForPickup: true, routines: defaultFamilyRoutines.Mor, personalSettings: demoPersonalSettings() },
-    { id: 'Itamar', name: 'איתמר', role: 'בן', color: 'lavender', birthDate: '2018-10-06', birthYear: 2018, age: ageFromBirthDate('2018-10-06'), hasLicense: false, hasCar: false, availableForPickup: false, routines: [...weeklyCare('Itamar', 'בית ספר'), ...defaultFamilyRoutines.Itamar] },
-    { id: 'noa', name: 'עומר', role: 'בן', color: 'butter', birthDate: '2021-12-30', birthYear: 2021, age: ageFromBirthDate('2021-12-30'), hasLicense: false, hasCar: false, availableForPickup: false, routines: [...weeklyCare('noa', 'בית ספר'), ...defaultFamilyRoutines.noa] },
-    { id: 'yehonatan', name: 'יהונתן', role: 'בן', color: 'sage', birthDate: '2024-11-11', birthYear: 2024, age: ageFromBirthDate('2024-11-11'), hasLicense: false, hasCar: false, availableForPickup: false, routines: weeklyCare('yehonatan', 'מעון') },
+    { id: 'Itamar', name: 'איתמר', role: 'בן', color: 'lavender', birthDate: '2018-10-06', birthYear: 2018, age: ageFromBirthDate('2018-10-06'), hasLicense: false, hasCar: false, availableForPickup: false, routines: [...weeklyCare('Itamar', 'בית ספר · כיתה ג׳', '08:00', '13:30', '08:00', '12:00'), ...defaultFamilyRoutines.Itamar] },
+    { id: 'noa', name: 'עומר', role: 'בן', color: 'butter', birthDate: '2021-12-30', birthYear: 2021, age: ageFromBirthDate('2021-12-30'), hasLicense: false, hasCar: false, availableForPickup: false, routines: [...weeklyCare('noa', 'גן חובה', '07:30', '14:00', '07:30', '12:30'), ...defaultFamilyRoutines.noa] },
+    { id: 'yehonatan', name: 'יהונתן', role: 'בן', color: 'sage', birthDate: '2024-11-11', birthYear: 2024, age: ageFromBirthDate('2024-11-11'), hasLicense: false, hasCar: false, availableForPickup: false, routines: weeklyCare('yehonatan', 'מעון', '07:30', '16:00', '07:30', '12:30') },
   ] }],
   events: [
     { id: 'dentist', familyId: DEFAULT_FAMILY_ID, title: 'רופא שיניים לעומר', date: localDate(1), time: '10:30', endTime: '11:15', icon: '🦷', participantIds: ['noa', 'Mor'], responsibleId: 'Mor', details: 'מור מלווה את עומר לתור', priority: 'high' },
     { id: 'dance', familyId: DEFAULT_FAMILY_ID, title: 'חוג שחייה לעומר', date: localDate(2), time: '17:00', endTime: '18:00', icon: '🏊', participantIds: ['noa', 'Mor'], responsibleId: 'Mor', details: 'מור מסיעה את עומר לחוג', requiresDriver: true },
     { id: 'temporary-wednesday-lesson', familyId: DEFAULT_FAMILY_ID, title: 'שיעור זמני', date: nextWednesday(), time: '19:30', endTime: '19:40', icon: '📝', participantIds: ['Orel'], responsibleId: 'Orel', details: 'אירוע זמני — ניתן לשנות את השם בהמשך' },
-    { id: 'football', familyId: DEFAULT_FAMILY_ID, title: 'חוג כדורגל לאיתמר', date: localDate(3), time: '17:00', endTime: '18:15', icon: '⚽', participantIds: ['Itamar', 'Orel'], responsibleId: 'Orel', details: 'אוראל מסיע את איתמר לחוג', requiresDriver: true },
-    { id: 'supermarket', familyId: DEFAULT_FAMILY_ID, title: 'סופר', date: localDate(4), time: '18:00', endTime: '19:00', icon: '🛒', participantIds: ['Orel'], responsibleId: 'Orel', details: 'קניות שבועיות לבית' },
+    { id: 'football', familyId: DEFAULT_FAMILY_ID, title: 'חוג כדורגל לאיתמר', date: nextTuesday(), time: '18:00', endTime: '19:15', icon: '⚽', participantIds: ['Itamar', 'Orel'], responsibleId: 'Orel', details: 'אוראל מסיע את איתמר לחוג', requiresDriver: true },
+    { id: 'orel-haircut', familyId: DEFAULT_FAMILY_ID, title: 'תספורת לאוראל', date: nextWednesday(), time: '18:00', endTime: '18:30', icon: '✂️', participantIds: ['Orel'], responsibleId: 'Orel', details: 'תור במספרה' },
+    { id: 'supermarket', familyId: DEFAULT_FAMILY_ID, title: 'קניות בסופר', date: nextThursday(), time: '18:00', endTime: '19:00', icon: '🛒', participantIds: ['Orel'], responsibleId: 'Orel', details: 'אוראל אחראי על הקניות השבועיות לבית' },
+    { id: 'tomer-bar-mitzvah', familyId: DEFAULT_FAMILY_ID, title: 'בר מצווה לתומר', date: nextThursday(), time: '19:30', endTime: '22:30', icon: '🎉', participantIds: ['Mor', 'Orel', 'Itamar', 'noa', 'yehonatan'], responsibleId: '', details: 'בר המצווה של תומר, בן הדוד' },
     { id: 'parents-meeting', familyId: DEFAULT_FAMILY_ID, title: 'אסיפת הורים', date: localDate(5), time: '18:30', endTime: '19:30', icon: '🏫', participantIds: ['Mor', 'Orel', 'Itamar'], responsibleId: 'Mor', details: 'אסיפת הורים בבית הספר של איתמר' },
     { id: 'dinner', familyId: DEFAULT_FAMILY_ID, title: 'ארוחת ערב משפחתית', date: localDate(6), time: '19:30', endTime: '20:30', icon: '🍽️', participantIds: ['Mor', 'Orel', 'Itamar', 'noa', 'yehonatan'], responsibleId: '', details: 'כולם יחד' },
     { id: 'trip', familyId: DEFAULT_FAMILY_ID, title: 'טיול בית ספר', routineOverride: true, date: localDate(7), time: '08:00', endTime: '14:00', icon: '🎒', participantIds: ['Itamar'], responsibleId: 'Mor', details: 'להביא תיק, מים וכובע' },
     { id: 'traffic-pickup', familyId: DEFAULT_FAMILY_ID, title: 'איסוף איתמר מאימון', date: localDate(8), time: '17:00', icon: '🚗', participantIds: ['Itamar', 'Orel'], responsibleId: 'Orel', details: 'אוראל אחראי לאיסוף', requiresDriver: true },
     { id: 'pickup', familyId: DEFAULT_FAMILY_ID, title: 'איסוף איתמר מכדורגל', date: localDate(9), time: '18:30', icon: '🚗', participantIds: ['Itamar'], responsibleId: '', details: 'דרוש נהג/ת לאיסוף', needsAttention: true, requiresDriver: true },
-    { id: 'orel-haircut', familyId: DEFAULT_FAMILY_ID, title: 'תספורת לאוראל', date: localDate(10), time: '16:30', endTime: '17:15', icon: '✂️', participantIds: ['Orel'], responsibleId: 'Orel', details: 'תור במספרה' },
   ],
   tasks: [
     { id: 'groceries', familyId: DEFAULT_FAMILY_ID, title: 'קניות לבית', ownerId: 'Mor', due: localDate(), done: false, requiresAdult: true, priority: 'low', flexible: true },
