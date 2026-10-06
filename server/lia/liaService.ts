@@ -30,7 +30,8 @@ export async function askLIA(message: string, context?: LiaReadContext, complete
           const proposal = createActionProposal(call.function.name, args, context)
           toolTrace.push({ name: call.function.name, arguments: args, result: proposal })
           const warning = proposal.warnings.length ? `\nשימי לב: ${proposal.warnings.join('; ')}.` : ''
-          return { reply: `שינוי מוצע:\n${proposal.eventTitle}\n${proposal.before.time} → ${proposal.after.time}${warning}`, proposal, toolTrace }
+          const details = proposal.type === 'update_event_time' ? `${proposal.eventTitle}\n${proposal.before.time} → ${proposal.after.time}` : proposal.type === 'create_event' ? `${proposal.title} · ${proposal.participant.name}\n${proposal.date} · ${proposal.time}${proposal.endTime ? `–${proposal.endTime}` : ''}` : `${proposal.title}\n${proposal.assignee.name} · ${proposal.due}`
+          return { reply: `${proposal.summary}\n${details}${warning}`, proposal, toolTrace }
         }
         result = context ? executeLiaReadTool(call.function.name, args, context) : { error: 'Family data is unavailable' }
       } catch {

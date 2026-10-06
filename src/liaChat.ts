@@ -57,7 +57,8 @@ export function appendLiaTextReply(data: AppData, familyId: string, memberId: st
 
 export function appendLiaProposalReply(data: AppData, familyId: string, memberId: string, reply: string, proposal: LiaActionProposal): AppData {
   const conversation = conversationFor(data, familyId, memberId)
-  const liaMessage = message('lia', reply, 'actionRequest', { kind: 'actionProposal', label: 'אישור', proposal }, [proposal.targetId])
+  const relatedEntityIds = proposal.type === 'update_event_time' ? [proposal.targetId] : undefined
+  const liaMessage = message('lia', reply, 'actionRequest', { kind: 'actionProposal', label: 'אישור', proposal }, relatedEntityIds)
   return saveConversation(data, { ...conversation, messages: [...conversation.messages, liaMessage], updatedAt: liaMessage.createdAt })
 }
 
@@ -65,8 +66,9 @@ export function resolveLiaProposalMessage(data: AppData, familyId: string, membe
   const conversation = conversationFor(data, familyId, memberId)
   const target = conversation.messages.find(item => item.id === messageId)
   if (!target?.action?.proposal || target.status !== 'sent') return data
-  const resolved = resolveLiaActionProposal(data, familyId, target.action.proposal, decision)
-  const result = message('lia', resolved.message, 'actionResult', undefined, [target.action.proposal.targetId])
+  const resolved = resolveLiaActionProposal(data, familyId, target.action.proposal, decision, memberId)
+  const relatedId = target.action.proposal.type === 'update_event_time' ? target.action.proposal.targetId : undefined
+  const result = message('lia', resolved.message, 'actionResult', undefined, relatedId ? [relatedId] : undefined)
   const nextConversation = { ...conversation, messages: [...conversation.messages.map(item => item.id === messageId ? { ...item, status: resolved.status } : item), result], updatedAt: result.createdAt }
   return saveConversation(resolved.data, nextConversation)
 }

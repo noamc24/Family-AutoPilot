@@ -12,5 +12,33 @@ export type LiaUpdateEventTimeProposal = {
   requiresConfirmation: true
 }
 
-export type LiaActionProposal = LiaUpdateEventTimeProposal
+export type LiaCreateEventProposal = {
+  id: string
+  type: 'create_event'
+  familyId: string
+  summary: string
+  title: string
+  date: string
+  weekday: string
+  time: string
+  endTime: string | null
+  participant: { id: string; name: string }
+  warnings: string[]
+  requiresConfirmation: true
+}
+
+export type LiaCreateTaskProposal = {
+  id: string
+  type: 'create_task'
+  familyId: string
+  summary: string
+  title: string
+  due: string
+  weekday: string
+  assignee: { id: string; name: string }
+  warnings: string[]
+  requiresConfirmation: true
+}
+
+export type LiaActionProposal = LiaUpdateEventTimeProposal | LiaCreateEventProposal | LiaCreateTaskProposal
 
