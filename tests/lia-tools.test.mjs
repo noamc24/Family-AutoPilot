@@ -57,6 +57,14 @@ test('missing data stays empty instead of being invented', () => {
   assert.equal(result.isToday, false)
 })
 
+test('event search resolves real upcoming targets without inventing ids', () => {
+  const found = executeLiaReadTool('find_events', { query: 'חוג', member: 'איתמר' }, context())
+  assert.equal(found.count, 1)
+  assert.equal(found.events[0].id, 'club')
+  assert.equal(found.events[0].weekday, 'שלישי')
+  assert.deepEqual(executeLiaReadTool('find_events', { query: 'לא קיים' }, context()).events, [])
+})
+
 test('empty date-scoped results retain deterministic calendar grounding', () => {
   const emptyTasks = executeLiaReadTool('get_tasks', { date: '2026-10-07' }, context())
   const conflicts = executeLiaReadTool('get_schedule_conflicts', {}, context())

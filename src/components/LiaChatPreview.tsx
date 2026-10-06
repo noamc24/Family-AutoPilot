@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Check, Clock3, Send, Trash2, X } from 'lucide-react'
 import type { LiaConversation, LiaMessage } from '../liaChatTypes'
 
-type Props = { conversation: LiaConversation; memberName: string; processing: boolean; onSend: (value: string) => void; onQuickPrompt: (value: string) => void; onAction: (message: LiaMessage) => void; onClear: () => void }
+type Props = { conversation: LiaConversation; memberName: string; processing: boolean; onSend: (value: string) => void; onQuickPrompt: (value: string) => void; onAction: (message: LiaMessage, decision?: 'approve' | 'reject') => void; onClear: () => void }
 export const liaQuickPrompts = ['מה דורש טיפול היום?', 'מה יש לי היום?', 'מי פנוי להסעה?', 'מה כבר טופל?']
 
 function MessageText({ text }: { text: string }) {
@@ -12,17 +12,19 @@ function MessageText({ text }: { text: string }) {
   return <p>{text}</p>
 }
 
-function ActionCard({ message, onAction }: { message: LiaMessage; onAction: () => void }) {
+function ActionCard({ message, onAction }: { message: LiaMessage; onAction: (decision?: 'approve' | 'reject') => void }) {
   if (!message.action) return null
   const name = message.text.match(/מצאתי את ([^\s,.]+)/)?.[1] || message.text.match(/^([^\s,.]+)/)?.[1] || 'בן משפחה'
   const state = message.status || 'sent'
-  const decision = message.action.kind === 'liaDecision'
+  const proposal = message.action.proposal
+  const decision = message.action.kind === 'liaDecision' || !!proposal
   const stateCopy = state === 'completed' ? decision ? 'הפעולה בוצעה' : 'הבקשה נשלחה' : state === 'failed' ? decision ? 'הפעולה לא בוצעה' : 'הבקשה לא נשלחה' : state === 'dismissed' ? decision ? 'הפעולה בוטלה' : 'לא נשלחה בקשה' : decision ? 'ממתין לאישור שלך' : 'מוכן לשליחה'
   const StateIcon = state === 'completed' ? Check : state === 'failed' || state === 'dismissed' ? X : Clock3
   return <div className={`lia-chat-action-card state-${state}`}>
-    <div className="lia-action-person"><span>{decision ? '✓' : name.slice(0, 1)}</span><div><strong>{decision ? 'המלצת LIA' : name}</strong><small>{message.action.kind === 'sendRideRequest' ? 'פנוי/ה ומתאים/ה להסעה' : decision ? 'פעולה אמיתית ב־FamPilot' : 'פעולה ביומן'}</small></div></div>
+    <div className="lia-action-person"><span>{decision || proposal ? '✓' : name.slice(0, 1)}</span><div><strong>{proposal ? proposal.summary : decision ? 'המלצת LIA' : name}</strong><small>{proposal ? `${proposal.before.time} → ${proposal.after.time}` : message.action.kind === 'sendRideRequest' ? 'פנוי/ה ומתאים/ה להסעה' : decision ? 'פעולה אמיתית ב־FamPilot' : 'פעולה ביומן'}</small></div></div>
+    {proposal?.warnings.length ? <div className="lia-action-warning">התנגשות אפשרית: {proposal.warnings.join('; ')}</div> : null}
     <div className="lia-action-meta"><span>לפי הזמינות</span><span>לפי הלו״ז המשפחתי</span></div>
-    {state === 'sent' ? <button onClick={onAction}>{message.action.label}</button> : <div className="lia-action-state"><StateIcon size={14}/>{stateCopy}</div>}
+    {state === 'sent' ? proposal ? <div className="lia-actions"><button onClick={() => onAction('approve')}>אישור</button><button className="secondary-button" onClick={() => onAction('reject')}>ביטול</button></div> : <button onClick={() => onAction()}>{message.action.label}</button> : <div className="lia-action-state"><StateIcon size={14}/>{stateCopy}</div>}
   </div>
 }
 
@@ -39,7 +41,7 @@ export function LiaChatPreview({ conversation, processing, onSend, onQuickPrompt
     <header className="lia-chat-header"><span className="lia-header-mark" aria-hidden="true">✦</span><div><h1>LIA</h1><p>העוזרת המשפחתית שלך</p></div>{messages.length > 0 && <button className="lia-clear-chat" onClick={onClear} aria-label="ניקוי השיחה"><Trash2 size={15}/><span>נקה שיחה</span></button>}</header>
     <div className="lia-conversation" ref={scrollRef} aria-live="polite" onScroll={event => { const element = event.currentTarget; wasNearBottom.current = element.scrollHeight - element.scrollTop - element.clientHeight < 90 }}>
       {!messages.length && <div className="lia-chat-welcome"><span aria-hidden="true">✦</span><h2>איך אפשר לעזור?</h2><p>אפשר לשאול על הלו״ז, משימות, הסעות ומה דורש טיפול.</p></div>}
-      {messages.map(item => <article className={`lia-chat-message ${item.sender}`} key={item.id} data-message-type={item.type} data-status={item.status}>{item.sender === 'lia' && <span className="lia-message-mark" aria-hidden="true">✦</span>}<div className="lia-message-bubble"><MessageText text={item.text}/><ActionCard message={item} onAction={() => onAction(item)}/></div></article>)}
+      {messages.map(item => <article className={`lia-chat-message ${item.sender}`} key={item.id} data-message-type={item.type} data-status={item.status}>{item.sender === 'lia' && <span className="lia-message-mark" aria-hidden="true">✦</span>}<div className="lia-message-bubble"><MessageText text={item.text}/><ActionCard message={item} onAction={decision => onAction(item, decision)}/></div></article>)}
       {processing && <div className="lia-chat-message lia"><span className="lia-message-mark" aria-hidden="true">✦</span><div className="lia-typing" aria-label="LIA מקלידה"><i/><i/><i/></div></div>}
     </div>
     {!messages.length && <div className="lia-quick-prompts">{liaQuickPrompts.map(item => <button key={item} disabled={processing} onClick={() => { if (!processing) onQuickPrompt(item) }}>{item}</button>)}</div>}

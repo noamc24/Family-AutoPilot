@@ -22,9 +22,9 @@ app.post('/api/lia/chat', async (request, response) => {
       response.status(400).json({ error: 'Invalid family context' })
       return
     }
-    const { reply, toolTrace } = await askLIA(message, context)
+    const { reply, proposal, toolTrace } = await askLIA(message, context)
     if (toolTrace.length) console.log('LIA read tools:', JSON.stringify(toolTrace))
-    response.json({ reply })
+    response.json({ reply, ...(proposal ? { proposal } : {}) })
   } catch (error) {
     if (error instanceof GroqConfigurationError) {
       console.error('LIA AI is not configured')

@@ -1,10 +1,18 @@
 export const LIA_READ_TOOLS = [
   { type: 'function', function: { name: 'get_family_members', description: 'List family members and stable identifiers.', parameters: { type: 'object', properties: {}, additionalProperties: false } } },
+  { type: 'function', function: { name: 'find_events', description: 'Find real upcoming events by title text and/or exact family member. Use this before proposing an event change when the user did not provide an exact date. The result count determines whether to propose, clarify, or report no match.', parameters: { type: 'object', properties: { query: { type: 'string', description: 'Distinctive text from the event title' }, member: { type: 'string', description: 'Member id or exact name' } }, additionalProperties: false } } },
   { type: 'function', function: { name: 'get_schedule', description: 'Get family events, routines, and authoritative date/weekday metadata, optionally filtered by date and member. Use this for questions about today\'s date or weekday.', parameters: { type: 'object', properties: { date: { type: 'string', description: 'YYYY-MM-DD; omit for today' }, member: { type: 'string', description: 'Member id or exact name' } }, additionalProperties: false } } },
   { type: 'function', function: { name: 'get_member_availability', description: 'Check one or all family members for availability at a date and optional time range.', parameters: { type: 'object', properties: { member: { type: 'string' }, date: { type: 'string', description: 'YYYY-MM-DD; omit for today' }, time: { type: 'string', description: 'HH:MM' }, endTime: { type: 'string', description: 'HH:MM' } }, additionalProperties: false } } },
   { type: 'function', function: { name: 'get_tasks', description: 'Get family tasks. Defaults to today; set allDates true only when the user asks about tasks across all dates.', parameters: { type: 'object', properties: { member: { type: 'string' }, date: { type: 'string', description: 'YYYY-MM-DD; omit for today' }, allDates: { type: 'boolean' }, status: { type: 'string', enum: ['open', 'done', 'all'] } }, additionalProperties: false } } },
   { type: 'function', function: { name: 'get_schedule_conflicts', description: 'Find deterministic schedule overlaps for a date and optional member.', parameters: { type: 'object', properties: { date: { type: 'string', description: 'YYYY-MM-DD; omit for today' }, member: { type: 'string' } }, additionalProperties: false } } },
   { type: 'function', function: { name: 'find_available_drivers', description: 'Find drivers for a real event using Family Autopilot eligibility rules. Provide eventId or eventTitle.', parameters: { type: 'object', properties: { eventId: { type: 'string' }, eventTitle: { type: 'string' }, date: { type: 'string', description: 'YYYY-MM-DD; omit for today' } }, additionalProperties: false } } },
 ] as const
+
+export const LIA_PROPOSAL_TOOLS = [
+  { type: 'function', function: { name: 'propose_update_event_time', description: 'Create a confirmation-required proposal to change the time of one real event. First use find_events or get_schedule to resolve exactly one event and use its exact id. This never executes the change.', parameters: { type: 'object', required: ['targetId', 'time'], properties: { targetId: { type: 'string', description: 'Exact event id returned by a read tool' }, time: { type: 'string', description: 'New time in HH:MM format' } }, additionalProperties: false } } },
+] as const
+
+export const LIA_TOOLS = [...LIA_READ_TOOLS, ...LIA_PROPOSAL_TOOLS] as const
+export const LIA_PROPOSAL_TOOL_NAMES = new Set(LIA_PROPOSAL_TOOLS.map(tool => tool.function.name))
 
 export type LiaReadToolName = typeof LIA_READ_TOOLS[number]['function']['name']

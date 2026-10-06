@@ -6,6 +6,8 @@ import { applyTrafficFlowAction } from './liaCoreFlow'
 import { applyShowcaseAction } from './showcaseFlows'
 import { classifyLiaIntent, normalizeHebrew, resolveMember, temporalScope, type LiaIntent } from './liaLanguage'
 import type { LiaChatAction, LiaConversation, LiaMessage, LiaPendingIntent } from './liaChatTypes'
+import type { LiaActionProposal } from './liaActionProposals'
+import { resolveLiaActionProposal } from './liaProposalActions'
 
 export type LiaChatIntent = LiaIntent | 'TODAY_SCHEDULE' | 'UPCOMING_EVENTS' | 'MEMBER_AVAILABILITY' | 'OPEN_TASKS'
 
@@ -51,6 +53,22 @@ export function appendLiaTextReply(data: AppData, familyId: string, memberId: st
   const conversation = conversationFor(data, familyId, memberId)
   const liaMessage = message('lia', reply.trim() || 'משהו השתבש כרגע. אפשר לנסות שוב בעוד רגע.')
   return saveConversation(data, { ...conversation, messages: [...conversation.messages, liaMessage], updatedAt: liaMessage.createdAt })
+}
+
+export function appendLiaProposalReply(data: AppData, familyId: string, memberId: string, reply: string, proposal: LiaActionProposal): AppData {
+  const conversation = conversationFor(data, familyId, memberId)
+  const liaMessage = message('lia', reply, 'actionRequest', { kind: 'actionProposal', label: 'אישור', proposal }, [proposal.targetId])
+  return saveConversation(data, { ...conversation, messages: [...conversation.messages, liaMessage], updatedAt: liaMessage.createdAt })
+}
+
+export function resolveLiaProposalMessage(data: AppData, familyId: string, memberId: string, messageId: string, decision: 'approve' | 'reject'): AppData {
+  const conversation = conversationFor(data, familyId, memberId)
+  const target = conversation.messages.find(item => item.id === messageId)
+  if (!target?.action?.proposal || target.status !== 'sent') return data
+  const resolved = resolveLiaActionProposal(data, familyId, target.action.proposal, decision)
+  const result = message('lia', resolved.message, 'actionResult', undefined, [target.action.proposal.targetId])
+  const nextConversation = { ...conversation, messages: [...conversation.messages.map(item => item.id === messageId ? { ...item, status: resolved.status } : item), result], updatedAt: result.createdAt }
+  return saveConversation(resolved.data, nextConversation)
 }
 
 export function fallbackLiaChatMessage(data: AppData, familyId: string, memberId: string, input: string, optimisticMessageId?: string): AppData {

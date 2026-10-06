@@ -1,11 +1,13 @@
 import type { LiaReadContext } from '../liaReadContext'
+import type { LiaActionProposal } from '../liaActionProposals'
 
 type LiaChatResponse = {
   reply?: string
+  proposal?: LiaActionProposal
   error?: string
 }
 
-export async function askLiaAI(message: string, context?: LiaReadContext): Promise<string> {
+export async function askLiaAI(message: string, context?: LiaReadContext): Promise<{ reply: string; proposal?: LiaActionProposal }> {
   const text = message.trim()
   if (!text) throw new Error('Message is required')
 
@@ -23,5 +25,5 @@ export async function askLiaAI(message: string, context?: LiaReadContext): Promi
   const data = await response.json().catch(() => ({})) as LiaChatResponse
   if (!response.ok) throw new Error(data.error || 'LIA AI request failed')
   if (!data.reply) throw new Error('LIA AI returned an empty response')
-  return data.reply
+  return { reply: data.reply, proposal: data.proposal }
 }

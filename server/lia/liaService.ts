@@ -1,19 +1,21 @@
 import { createGroqChatCompletion, type GroqMessage, type GroqToolDefinition } from './groqClient.js'
 import { LIA_SYSTEM_PROMPT } from './systemPrompt.js'
 import type { LiaReadContext } from '../../src/liaReadContext.js'
-import { LIA_READ_TOOLS } from './tools/definitions.js'
+import type { LiaActionProposal } from '../../src/liaActionProposals.js'
+import { LIA_PROPOSAL_TOOL_NAMES, LIA_TOOLS } from './tools/definitions.js'
 import { executeLiaReadTool } from './tools/executeTool.js'
+import { createActionProposal } from './tools/proposalTools.js'
 
 export type LiaToolTrace = { name: string; arguments: unknown; result: unknown }
 
-export async function askLIA(message: string, context?: LiaReadContext, complete = createGroqChatCompletion): Promise<{ reply: string; toolTrace: LiaToolTrace[] }> {
+export async function askLIA(message: string, context?: LiaReadContext, complete = createGroqChatCompletion): Promise<{ reply: string; toolTrace: LiaToolTrace[]; proposal?: LiaActionProposal }> {
   const messages: GroqMessage[] = [
     { role: 'system', content: LIA_SYSTEM_PROMPT },
     { role: 'user', content: message },
   ]
   const toolTrace: LiaToolTrace[] = []
   for (let turn = 0; turn < 5; turn += 1) {
-    const assistant = await complete(messages, context ? LIA_READ_TOOLS as unknown as readonly GroqToolDefinition[] : undefined)
+    const assistant = await complete(messages, context ? LIA_TOOLS as unknown as readonly GroqToolDefinition[] : undefined)
     messages.push(assistant)
     if (!assistant.tool_calls?.length) {
       if (!assistant.content) throw new Error('LIA returned no reply')
@@ -24,6 +26,12 @@ export async function askLIA(message: string, context?: LiaReadContext, complete
       let result: unknown
       try {
         args = JSON.parse(call.function.arguments || '{}')
+        if (context && LIA_PROPOSAL_TOOL_NAMES.has(call.function.name as never)) {
+          const proposal = createActionProposal(call.function.name, args, context)
+          toolTrace.push({ name: call.function.name, arguments: args, result: proposal })
+          const warning = proposal.warnings.length ? `\nשימי לב: ${proposal.warnings.join('; ')}.` : ''
+          return { reply: `שינוי מוצע:\n${proposal.eventTitle}\n${proposal.before.time} → ${proposal.after.time}${warning}`, proposal, toolTrace }
+        }
         result = context ? executeLiaReadTool(call.function.name, args, context) : { error: 'Family data is unavailable' }
       } catch {
         result = { error: 'The requested family information could not be read' }

@@ -1,9 +1,10 @@
 import type { LiaReadContext } from '../../../src/liaReadContext.js'
 import type { LiaReadToolName } from './definitions.js'
-import { findAvailableDrivers, getFamilyMembers, getMemberAvailability, getSchedule, getScheduleConflicts, getTasks } from './readTools.js'
+import { findAvailableDrivers, findEvents, getFamilyMembers, getMemberAvailability, getSchedule, getScheduleConflicts, getTasks } from './readTools.js'
 
 const registry: Record<LiaReadToolName, (context: LiaReadContext, args: Record<string, unknown>) => unknown> = {
   get_family_members: getFamilyMembers,
+  find_events: findEvents,
   get_schedule: getSchedule,
   get_member_availability: getMemberAvailability,
   get_tasks: getTasks,

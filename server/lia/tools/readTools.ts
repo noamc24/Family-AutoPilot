@@ -11,6 +11,11 @@ const timePattern = /^([01]\d|2[0-3]):[0-5]\d$/
 const minutes = (value: string) => { const [h, m] = value.split(':').map(Number); return h * 60 + m }
 const eventEnd = (event: FamilyEvent) => event.endTime || `${String(Math.min(23, Number(event.time.slice(0, 2)) + 1)).padStart(2, '0')}:${event.time.slice(3)}`
 const overlaps = (a: string, b: string, c: string, d: string) => minutes(a) < minutes(d) && minutes(c) < minutes(b)
+const shiftedEnd = (event: FamilyEvent, time: string) => {
+  const duration = Math.max(1, minutes(eventEnd(event)) - minutes(event.time))
+  const total = Math.min(23 * 60 + 59, minutes(time) + duration)
+  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
+}
 
 function textArg(args: Args, key: string, pattern?: RegExp) {
   const value = args[key]
@@ -30,6 +35,22 @@ function memberFor(context: LiaReadContext, value?: string): Person | undefined 
 function appData(context: LiaReadContext) {
   return { families: [context.family], events: context.events, tasks: context.tasks, transportationRequests: context.transportationRequests, activity: [], integrationLogs: [], calendarMirrors: [] }
 }
+
+export function findEventTimeConflicts(context: LiaReadContext, target: FamilyEvent, time: string): string[] {
+  const endTime = shiftedEnd(target, time)
+  const involved = new Set([...target.participantIds, target.responsibleId].filter(Boolean))
+  const warnings: string[] = []
+  for (const event of context.events) {
+    if (event.id === target.id || event.date !== target.date || !overlaps(time, endTime, event.time, eventEnd(event))) continue
+    const shared = context.family.people.filter(person => involved.has(person.id) && (event.participantIds.includes(person.id) || event.responsibleId === person.id))
+    if (shared.length) warnings.push(`${shared.map(person => person.name).join(', ')}: ${event.title}`)
+  }
+  for (const person of context.family.people.filter(item => involved.has(item.id))) {
+    const routine = routineAt(person, target.date, time, endTime)
+    if (routine) warnings.push(`${person.name}: ${routine.label}`)
+  }
+  return [...new Set(warnings)]
+}
 function dateContext(context: LiaReadContext, date: string) {
   return { date, weekday: hebrewWeekday(date), isToday: date === context.today }
 }
@@ -37,6 +58,17 @@ function dateContext(context: LiaReadContext, date: string) {
 export function getFamilyMembers(context: LiaReadContext, args: Args) {
   assertKeys(args, [])
   return context.family.people.map(({ id, name, role }) => ({ id, name, role }))
+}
+export function findEvents(context: LiaReadContext, args: Args) {
+  assertKeys(args, ['query', 'member'])
+  const query = textArg(args, 'query')?.toLocaleLowerCase('he-IL')
+  const member = memberFor(context, textArg(args, 'member'))
+  if (!query && !member) throw new Error('query or member is required')
+  const events = context.events
+    .filter(event => event.date >= context.today && (!query || event.title.toLocaleLowerCase('he-IL').includes(query)) && (!member || event.participantIds.includes(member.id) || event.responsibleId === member.id))
+    .sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`))
+    .map(event => ({ id: event.id, title: event.title, date: event.date, weekday: hebrewWeekday(event.date), time: event.time, endTime: event.endTime, participants: event.participantIds.map(id => context.family.people.find(person => person.id === id)?.name).filter(Boolean) }))
+  return { count: events.length, events }
 }
 export function getSchedule(context: LiaReadContext, args: Args) {
   assertKeys(args, ['date', 'member'])

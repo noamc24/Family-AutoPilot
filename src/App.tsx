@@ -110,7 +110,7 @@ import { CalendarView } from './components/CalendarView'
 import { TasksView } from './components/TasksView'
 import { FamilyView } from './components/FamilyView'
 import { resetPresentationDemo, runPresentationShortcut, type PresentationShortcut } from './presentationShortcuts'
-import { appendLiaTextReply, appendLiaUserMessage, clearLiaConversation, conversationFor, fallbackLiaChatMessage, performLiaChatAction, sendLiaChatMessage } from './liaChat'
+import { appendLiaProposalReply, appendLiaTextReply, appendLiaUserMessage, clearLiaConversation, conversationFor, fallbackLiaChatMessage, performLiaChatAction, resolveLiaProposalMessage, sendLiaChatMessage } from './liaChat'
 import { askLiaAI } from './services/liaAi'
 import { createLiaReadContext } from './liaReadContext'
 import { notificationPreferenceAllows, proactiveSuggestionsEnabled, type OptionalNotificationCategory } from './personalSettings'
@@ -1274,8 +1274,8 @@ function App() {
     })
 
     try {
-      const reply = await askLiaAI(text, createLiaReadContext(dataRef.current, targetFamilyId, localDate()))
-      setData((previous) => appendLiaTextReply(previous, targetFamilyId, targetMemberId, reply))
+      const result = await askLiaAI(text, createLiaReadContext(dataRef.current, targetFamilyId, localDate()))
+      setData((previous) => result.proposal ? appendLiaProposalReply(previous, targetFamilyId, targetMemberId, result.reply, result.proposal) : appendLiaTextReply(previous, targetFamilyId, targetMemberId, result.reply))
     } catch {
       setData((previous) => {
         try {
@@ -1295,8 +1295,12 @@ function App() {
     setData((previous) => sendLiaChatMessage(previous, family.id, activePersonId, value).data)
     queueMicrotask(() => { chatRequestInFlight.current = false })
   }
-  function runChatAction(message: LiaMessage) {
+  function runChatAction(message: LiaMessage, decision?: 'approve' | 'reject') {
     if (!message.action || childMode) return
+    if (message.action.kind === 'actionProposal' && decision) {
+      setData((previous) => resolveLiaProposalMessage(previous, family.id, activePersonId, message.id, decision))
+      return
+    }
     setData((previous) => performLiaChatAction(previous, conversationFor(previous, family.id, activePersonId), activePersonId).data)
   }
   function clearChat() {
