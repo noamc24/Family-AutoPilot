@@ -4,20 +4,29 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --host 0.0.0.0",
-    "build": "tsc -b && vite build",
+    "dev": "concurrently -k -n client,server \"npm:dev:client\" \"npm:dev:server\"",
+    "dev:client": "vite --host 0.0.0.0",
+    "dev:server": "tsx watch server/index.ts",
+    "build": "tsc -p tsconfig.server.json && tsc -b && vite build",
+    "start:server": "node dist-server/index.js",
     "preview": "vite preview --host 0.0.0.0",
     "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {
+    "dotenv": "^18.0.5",
+    "express": "^5.2.1",
     "lucide-react": "^0.468.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.6.4",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
     "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^10.0.5",
+    "tsx": "^4.23.15",
     "typescript": "^5.7.3",
     "vite": "^6.0.5"
   }
