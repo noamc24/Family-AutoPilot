@@ -7,7 +7,7 @@
     "dev": "concurrently -k -n client,server \"npm:dev:client\" \"npm:dev:server\"",
     "dev:client": "vite --host 0.0.0.0",
     "dev:server": "tsx watch server/index.ts",
-    "build": "tsc -p tsconfig.server.json && tsc -b && vite build",
+    "build": "tsc -p tsconfig.server.json && esbuild server/index.ts --bundle --platform=node --format=esm --outfile=dist-server/index.js && tsc -b && vite build",
     "start:server": "node dist-server/index.js",
     "preview": "vite preview --host 0.0.0.0",
     "test": "node --test tests/*.test.mjs"
@@ -26,6 +26,7 @@
     "@types/react-dom": "^18.3.5",
     "@vitejs/plugin-react": "^4.3.4",
     "concurrently": "^10.0.5",
+    "esbuild": "^0.28.2",
     "tsx": "^4.23.15",
     "typescript": "^5.7.3",
     "vite": "^6.0.5"

@@ -2,6 +2,7 @@ import 'dotenv/config'
 import express from 'express'
 import { askLIA } from './lia/liaService.js'
 import { GroqConfigurationError, GroqRequestError } from './lia/groqClient.js'
+import type { LiaReadContext } from '../src/liaReadContext.js'
 
 const app = express()
 const port = Number(process.env.PORT) || 3001
@@ -16,7 +17,13 @@ app.post('/api/lia/chat', async (request, response) => {
   }
 
   try {
-    const reply = await askLIA(message)
+    const context = request.body?.context as LiaReadContext | undefined
+    if (context && (!context.family || !Array.isArray(context.family.people) || !Array.isArray(context.events) || !Array.isArray(context.tasks) || !Array.isArray(context.transportationRequests) || typeof context.today !== 'string')) {
+      response.status(400).json({ error: 'Invalid family context' })
+      return
+    }
+    const { reply, toolTrace } = await askLIA(message, context)
+    if (toolTrace.length) console.log('LIA read tools:', JSON.stringify(toolTrace))
     response.json({ reply })
   } catch (error) {
     if (error instanceof GroqConfigurationError) {

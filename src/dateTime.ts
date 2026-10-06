@@ -16,6 +16,14 @@ export function formatDate(value: string): string {
   return match && isIsoDate(date) ? `${match[3]}/${match[2]}/${match[1]}` : ''
 }
 
+const HEBREW_WEEKDAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'] as const
+
+export function hebrewWeekday(value: string): string {
+  if (!isIsoDate(value)) return ''
+  const [year, month, day] = value.split('-').map(Number)
+  return HEBREW_WEEKDAYS[new Date(Date.UTC(year, month - 1, day)).getUTCDay()]
+}
+
 export function parseDisplayDate(value: string): string | null {
   const match = value.trim().match(DISPLAY_DATE)
   if (!match) return null

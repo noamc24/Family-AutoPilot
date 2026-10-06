@@ -1,9 +1,11 @@
+import type { LiaReadContext } from '../liaReadContext'
+
 type LiaChatResponse = {
   reply?: string
   error?: string
 }
 
-export async function askLiaAI(message: string): Promise<string> {
+export async function askLiaAI(message: string, context?: LiaReadContext): Promise<string> {
   const text = message.trim()
   if (!text) throw new Error('Message is required')
 
@@ -12,7 +14,7 @@ export async function askLiaAI(message: string): Promise<string> {
     response = await fetch('/api/lia/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: text }),
+      body: JSON.stringify({ message: text, context }),
     })
   } catch {
     throw new Error('Could not connect to LIA AI')

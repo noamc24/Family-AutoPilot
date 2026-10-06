@@ -5,14 +5,14 @@ import { build } from 'esbuild'
 
 const result = await build({
   stdin: {
-    contents: `export { conversationFor, clearLiaConversation, detectLiaIntent, performLiaChatAction, sendLiaChatMessage } from './src/liaChat.ts'; export { liaQuickPrompts } from './src/components/LiaChatPreview.tsx'; export { initialData, localDate, readData, sanitizeAppData } from './src/data.ts'; export { respondToRequest, confirmDriver, requestForEvent } from './src/coordination.ts';`,
+    contents: `export { appendLiaTextReply, appendLiaUserMessage, conversationFor, clearLiaConversation, detectLiaIntent, fallbackLiaChatMessage, performLiaChatAction, sendLiaChatMessage } from './src/liaChat.ts'; export { liaQuickPrompts } from './src/components/LiaChatPreview.tsx'; export { initialData, localDate, readData, sanitizeAppData } from './src/data.ts'; export { respondToRequest, confirmDriver, requestForEvent } from './src/coordination.ts';`,
     resolveDir: process.cwd(), sourcefile: 'lia-chat-test-entry.ts', loader: 'ts',
   },
   bundle: true, write: false, format: 'cjs', platform: 'node',
 })
 const module = { exports: {} }
 new Function('module', 'exports', 'require', result.outputFiles[0].text)(module, module.exports, createRequire(import.meta.url))
-const { conversationFor, clearLiaConversation, detectLiaIntent, performLiaChatAction, sendLiaChatMessage, liaQuickPrompts, initialData, localDate, readData, sanitizeAppData, respondToRequest, confirmDriver, requestForEvent } = module.exports
+const { appendLiaTextReply, appendLiaUserMessage, conversationFor, clearLiaConversation, detectLiaIntent, fallbackLiaChatMessage, performLiaChatAction, sendLiaChatMessage, liaQuickPrompts, initialData, localDate, readData, sanitizeAppData, respondToRequest, confirmDriver, requestForEvent } = module.exports
 
 const clone = value => structuredClone(value)
 const conversation = (data, memberId = 'Mor') => conversationFor(data, 'Avrahami', memberId)
@@ -33,6 +33,31 @@ function simpleData() {
     liaConversations: [],
   }
 }
+
+test('AI success stores one user message and exactly one LIA reply', () => {
+  const optimistic = appendLiaUserMessage(simpleData(), 'f', 'm', 'מי את?', 'optimistic-1')
+  const data = appendLiaTextReply(optimistic.data, 'f', 'm', 'אני LIA.')
+  const messages = conversationFor(data, 'f', 'm').messages
+  assert.deepEqual(messages.map(item => [item.sender, item.text]), [['user', 'מי את?'], ['lia', 'אני LIA.']])
+})
+
+test('AI failure replaces the optimistic message with one dictionary fallback exchange', () => {
+  const optimistic = appendLiaUserMessage(simpleData(), 'f', 'm', 'מי את?', 'optimistic-2')
+  const data = fallbackLiaChatMessage(optimistic.data, 'f', 'm', 'מי את?', optimistic.messageId)
+  const messages = conversationFor(data, 'f', 'm').messages
+  assert.deepEqual(messages.map(item => item.sender), ['user', 'lia'])
+  assert.match(messages[1].text, /LIA|העוזרת המשפחתית/)
+})
+
+test('AI-only action acknowledgement cannot mutate application state', () => {
+  const base = simpleData()
+  const before = { events: clone(base.events), requests: clone(base.transportationRequests), tasks: clone(base.tasks) }
+  const optimistic = appendLiaUserMessage(base, 'f', 'm', 'תעבירי את החוג של איתמר לשש', 'optimistic-3')
+  const data = appendLiaTextReply(optimistic.data, 'f', 'm', 'הבנתי שמדובר בשינוי השעה, אבל כרגע איני יכולה לבצע אותו.')
+  assert.deepEqual(data.events, before.events)
+  assert.deepEqual(data.transportationRequests, before.requests)
+  assert.deepEqual(data.tasks, before.tasks)
+})
 
 test('הודעת משתמש ותשובת ליה נשמרות לפי הסדר והודעה ריקה נזנחת', () => {
   const base = clone(initialData)

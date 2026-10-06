@@ -1,19 +1,19 @@
 const GROQ_CHAT_URL = 'https://api.groq.com/openai/v1/chat/completions'
 export const LIA_MODEL = 'openai/gpt-oss-20b'
 
-export type GroqMessage = {
-  role: 'system' | 'user' | 'assistant'
-  content: string
-}
+export type GroqToolCall = { id: string; type: 'function'; function: { name: string; arguments: string } }
+export type GroqMessage =
+  | { role: 'system' | 'user'; content: string }
+  | { role: 'assistant'; content: string | null; tool_calls?: GroqToolCall[] }
+  | { role: 'tool'; content: string; tool_call_id: string }
 
-type GroqChatResponse = {
-  choices?: Array<{ message?: { content?: string } }>
-}
+type GroqChatResponse = { choices?: Array<{ message?: { content?: string | null; tool_calls?: GroqToolCall[] } }> }
+export type GroqToolDefinition = { type: 'function'; function: { name: string; description: string; parameters: unknown } }
 
 export class GroqConfigurationError extends Error {}
 export class GroqRequestError extends Error {}
 
-export async function createGroqChatCompletion(messages: GroqMessage[]): Promise<string> {
+export async function createGroqChatCompletion(messages: GroqMessage[], tools?: readonly GroqToolDefinition[]): Promise<Extract<GroqMessage, { role: 'assistant' }>> {
   const apiKey = process.env.GROQ_API_KEY?.trim()
   if (!apiKey) throw new GroqConfigurationError('GROQ_API_KEY is not configured')
 
@@ -28,6 +28,7 @@ export async function createGroqChatCompletion(messages: GroqMessage[]): Promise
       body: JSON.stringify({
         model: LIA_MODEL,
         messages,
+        ...(tools?.length ? { tools, tool_choice: 'auto' } : {}),
       }),
       signal: AbortSignal.timeout(30_000),
     })
@@ -44,7 +45,7 @@ export async function createGroqChatCompletion(messages: GroqMessage[]): Promise
     throw new GroqRequestError('Groq returned an invalid response')
   }
 
-  const reply = data.choices?.[0]?.message?.content?.trim()
-  if (!reply) throw new GroqRequestError('Groq returned an empty response')
-  return reply
+  const result = data.choices?.[0]?.message
+  if (!result || !result.content?.trim() && !result.tool_calls?.length) throw new GroqRequestError('Groq returned an empty response')
+  return { role: 'assistant', content: result.content?.trim() || null, tool_calls: result.tool_calls }
 }

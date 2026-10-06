@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Check, Clock3, Send, Trash2, X } from 'lucide-react'
 import type { LiaConversation, LiaMessage } from '../liaChatTypes'
 
-type Props = { conversation: LiaConversation; memberName: string; processing: boolean; onSend: (value: string) => void; onAction: (message: LiaMessage) => void; onClear: () => void }
+type Props = { conversation: LiaConversation; memberName: string; processing: boolean; onSend: (value: string) => void; onQuickPrompt: (value: string) => void; onAction: (message: LiaMessage) => void; onClear: () => void }
 export const liaQuickPrompts = ['מה דורש טיפול היום?', 'מה יש לי היום?', 'מי פנוי להסעה?', 'מה כבר טופל?']
 
 function MessageText({ text }: { text: string }) {
@@ -26,7 +26,7 @@ function ActionCard({ message, onAction }: { message: LiaMessage; onAction: () =
   </div>
 }
 
-export function LiaChatPreview({ conversation, processing, onSend, onAction, onClear }: Props) {
+export function LiaChatPreview({ conversation, processing, onSend, onQuickPrompt, onAction, onClear }: Props) {
   const [value, setValue] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
   const composerRef = useRef<HTMLTextAreaElement>(null)
@@ -42,7 +42,7 @@ export function LiaChatPreview({ conversation, processing, onSend, onAction, onC
       {messages.map(item => <article className={`lia-chat-message ${item.sender}`} key={item.id} data-message-type={item.type} data-status={item.status}>{item.sender === 'lia' && <span className="lia-message-mark" aria-hidden="true">✦</span>}<div className="lia-message-bubble"><MessageText text={item.text}/><ActionCard message={item} onAction={() => onAction(item)}/></div></article>)}
       {processing && <div className="lia-chat-message lia"><span className="lia-message-mark" aria-hidden="true">✦</span><div className="lia-typing" aria-label="LIA מקלידה"><i/><i/><i/></div></div>}
     </div>
-    {!messages.length && <div className="lia-quick-prompts">{liaQuickPrompts.map(item => <button key={item} onClick={() => submit(item)}>{item}</button>)}</div>}
+    {!messages.length && <div className="lia-quick-prompts">{liaQuickPrompts.map(item => <button key={item} disabled={processing} onClick={() => { if (!processing) onQuickPrompt(item) }}>{item}</button>)}</div>}
     <div className="lia-composer"><textarea ref={composerRef} rows={1} value={value} onChange={event => { setValue(event.target.value); resizeComposer() }} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); submit() } }} placeholder="שאלו את LIA..." aria-label="שאלו את LIA"/><button disabled={!value.trim() || processing} onClick={() => submit()} aria-label="שליחה ל־LIA"><Send size={17}/><span>שליחה</span></button></div>
   </section>
 }

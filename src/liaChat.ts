@@ -38,6 +38,28 @@ function saveConversation(data: AppData, conversation: LiaConversation): AppData
   return { ...data, liaConversations: [...conversations, conversation] }
 }
 
+export function appendLiaUserMessage(data: AppData, familyId: string, memberId: string, input: string, optimisticMessageId?: string): { data: AppData; conversation: LiaConversation; messageId?: string } {
+  const text = input.trim()
+  const conversation = conversationFor(data, familyId, memberId)
+  if (!text) return { data, conversation }
+  const userMessage = { ...message('user', text), id: optimisticMessageId || uid() }
+  const next = { ...conversation, messages: [...conversation.messages, userMessage], updatedAt: userMessage.createdAt }
+  return { data: saveConversation(data, next), conversation: next, messageId: userMessage.id }
+}
+
+export function appendLiaTextReply(data: AppData, familyId: string, memberId: string, reply: string): AppData {
+  const conversation = conversationFor(data, familyId, memberId)
+  const liaMessage = message('lia', reply.trim() || 'משהו השתבש כרגע. אפשר לנסות שוב בעוד רגע.')
+  return saveConversation(data, { ...conversation, messages: [...conversation.messages, liaMessage], updatedAt: liaMessage.createdAt })
+}
+
+export function fallbackLiaChatMessage(data: AppData, familyId: string, memberId: string, input: string, optimisticMessageId?: string): AppData {
+  if (!optimisticMessageId) return sendLiaChatMessage(data, familyId, memberId, input).data
+  const conversation = conversationFor(data, familyId, memberId)
+  const withoutOptimisticMessage = { ...conversation, messages: conversation.messages.filter(item => item.id !== optimisticMessageId) }
+  return sendLiaChatMessage(saveConversation(data, withoutOptimisticMessage), familyId, memberId, input).data
+}
+
 function visibleInterventions(data: AppData, familyId: string, member: Person, childMode: boolean) {
   return buildLiaInterventions(data, familyId).filter(item => {
     if (childMode && item.visibility.audience !== 'members') return false
