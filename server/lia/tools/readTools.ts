@@ -125,9 +125,14 @@ export function findAvailableDrivers(context: LiaReadContext, args: Args) {
   const title = textArg(args, 'eventTitle')
   const date = textArg(args, 'date', datePattern) || context.today
   if (!eventId && !title) throw new Error('eventId or eventTitle is required')
-  const event = context.events.find(item => eventId ? item.id === eventId : item.date === date && item.title.includes(title!))
+  const matches = context.events.filter(item => eventId ? item.id === eventId : item.date === date && item.title.includes(title!))
+  if (!eventId && matches.length > 1) return { ...dateContext(context, date), event: null, ambiguous: true, matches: matches.map(item => ({ id: item.id, title: item.title, date: item.date, weekday: hebrewWeekday(item.date), time: item.time })), eligibleDrivers: [], message: 'Multiple matching events found; ask the user which event they mean' }
+  const event = matches[0]
   if (!event) return { ...dateContext(context, date), event: null, eligibleDrivers: [], message: 'No matching event found' }
   const data = appData(context)
   const eligible = new Set(eligibleDrivers(data, event).map(person => person.id))
-  return { ...dateContext(context, event.date), event: { id: event.id, title: event.title, date: event.date, weekday: hebrewWeekday(event.date), time: event.time }, eligibleDrivers: context.family.people.filter(person => eligible.has(person.id)).map(person => ({ id: person.id, name: person.name })), excluded: context.family.people.filter(person => !eligible.has(person.id)).map(person => ({ name: person.name, reason: pickupIneligibility(person, event, data) })) }
+  const request = context.transportationRequests.find(item => item.eventId === event.id)
+  const passenger = request && context.family.people.find(person => person.id === request.passengerId)
+  const currentDriver = request && context.family.people.find(person => person.id === request.selectedDriverId)
+  return { ...dateContext(context, event.date), event: { id: event.id, title: event.title, date: event.date, weekday: hebrewWeekday(event.date), time: event.time }, request: request ? { id: request.id, status: request.status, passenger: passenger ? { id: passenger.id, name: passenger.name } : null, currentDriver: currentDriver ? { id: currentDriver.id, name: currentDriver.name } : null } : null, eligibleDrivers: context.family.people.filter(person => eligible.has(person.id)).map(person => ({ id: person.id, name: person.name })), excluded: context.family.people.filter(person => !eligible.has(person.id)).map(person => ({ name: person.name, reason: pickupIneligibility(person, event, data) })) }
 }

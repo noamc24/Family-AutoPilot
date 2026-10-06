@@ -5,14 +5,14 @@ import { build } from 'esbuild'
 
 const result = await build({
   stdin: {
-    contents: `export { appendLiaTextReply, appendLiaUserMessage, conversationFor, clearLiaConversation, detectLiaIntent, fallbackLiaChatMessage, performLiaChatAction, sendLiaChatMessage } from './src/liaChat.ts'; export { liaQuickPrompts } from './src/components/LiaChatPreview.tsx'; export { initialData, localDate, readData, sanitizeAppData } from './src/data.ts'; export { respondToRequest, confirmDriver, requestForEvent } from './src/coordination.ts';`,
+    contents: `export { appendLiaTextReply, appendLiaUserMessage, canUseLegacyLiaFallback, conversationFor, clearLiaConversation, detectLiaIntent, fallbackLiaChatMessage, performLiaChatAction, sendLiaChatMessage } from './src/liaChat.ts'; export { liaQuickPrompts } from './src/components/LiaChatPreview.tsx'; export { initialData, localDate, readData, sanitizeAppData } from './src/data.ts'; export { respondToRequest, confirmDriver, requestForEvent } from './src/coordination.ts';`,
     resolveDir: process.cwd(), sourcefile: 'lia-chat-test-entry.ts', loader: 'ts',
   },
   bundle: true, write: false, format: 'cjs', platform: 'node',
 })
 const module = { exports: {} }
 new Function('module', 'exports', 'require', result.outputFiles[0].text)(module, module.exports, createRequire(import.meta.url))
-const { appendLiaTextReply, appendLiaUserMessage, conversationFor, clearLiaConversation, detectLiaIntent, fallbackLiaChatMessage, performLiaChatAction, sendLiaChatMessage, liaQuickPrompts, initialData, localDate, readData, sanitizeAppData, respondToRequest, confirmDriver, requestForEvent } = module.exports
+const { appendLiaTextReply, appendLiaUserMessage, canUseLegacyLiaFallback, conversationFor, clearLiaConversation, detectLiaIntent, fallbackLiaChatMessage, performLiaChatAction, sendLiaChatMessage, liaQuickPrompts, initialData, localDate, readData, sanitizeAppData, respondToRequest, confirmDriver, requestForEvent } = module.exports
 
 const clone = value => structuredClone(value)
 const conversation = (data, memberId = 'Mor') => conversationFor(data, 'Avrahami', memberId)
@@ -47,6 +47,27 @@ test('AI failure replaces the optimistic message with one dictionary fallback ex
   const messages = conversationFor(data, 'f', 'm').messages
   assert.deepEqual(messages.map(item => item.sender), ['user', 'lia'])
   assert.match(messages[1].text, /LIA|העוזרת המשפחתית/)
+})
+
+test('AI failure does not turn an unsupported mutation request into an unrelated legacy answer', () => {
+  const base = simpleData()
+  const before = { events: clone(base.events), tasks: clone(base.tasks), requests: clone(base.transportationRequests) }
+  const input = 'תוסיפי לעומר משימה לסדר את החדר למחר'
+  const optimistic = appendLiaUserMessage(base, 'f', 'm', input, 'unsafe-fallback')
+  const data = fallbackLiaChatMessage(optimistic.data, 'f', 'm', input, optimistic.messageId)
+  const messages = conversationFor(data, 'f', 'm').messages
+  assert.equal(canUseLegacyLiaFallback(data, 'f', 'm', input), false)
+  assert.equal(messages.at(-1).text, 'אני לא מצליחה לעבד את הבקשה כרגע. אפשר לנסות שוב בעוד רגע.')
+  assert.doesNotMatch(messages.at(-1).text, /להכין תיק|משימות פתוחות/)
+  assert.deepEqual({ events: data.events, tasks: data.tasks, requests: data.transportationRequests }, before)
+})
+
+test('AI failure still uses the deterministic fallback for a reliable legacy intent', () => {
+  const input = 'איזה משימות נשארו להיום?'
+  const optimistic = appendLiaUserMessage(simpleData(), 'f', 'm', input, 'safe-fallback')
+  const data = fallbackLiaChatMessage(optimistic.data, 'f', 'm', input, optimistic.messageId)
+  assert.equal(canUseLegacyLiaFallback(data, 'f', 'm', input), true)
+  assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /אישור הורים|משימות/)
 })
 
 test('AI-only action acknowledgement cannot mutate application state', () => {
@@ -281,6 +302,7 @@ test('שאלות סטטוס טבעיות שומרות את הקשר בקשת ה�
 test('שאלות מקור, next, שעות וסיכום משולב מחזירות נתונים ולא fallback', () => {
   const base = simpleData()
   base.events[0].date = localDate(1)
+  base.activity[0].createdAt = `${localDate()}T12:00:00.000Z`
   let data = sendLiaChatMessage(base, 'f', 'm', 'מה שינית היום?').data
   data = sendLiaChatMessage(data, 'f', 'm', 'מאיזה מקור זה הגיע?').data
   assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /התוכנית המשפחתית/)

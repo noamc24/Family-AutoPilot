@@ -40,5 +40,19 @@ export type LiaCreateTaskProposal = {
   requiresConfirmation: true
 }
 
-export type LiaActionProposal = LiaUpdateEventTimeProposal | LiaCreateEventProposal | LiaCreateTaskProposal
+export type LiaAssignRideDriverProposal = {
+  id: string
+  type: 'assign_ride_driver'
+  familyId: string
+  summary: string
+  requestId: string
+  event: { id: string; title: string; date: string; time: string }
+  passenger: { id: string; name: string }
+  before: { driver: { id: string; name: string } | null }
+  after: { driver: { id: string; name: string } }
+  warnings: string[]
+  requiresConfirmation: true
+}
+
+export type LiaActionProposal = LiaUpdateEventTimeProposal | LiaCreateEventProposal | LiaCreateTaskProposal | LiaAssignRideDriverProposal
 

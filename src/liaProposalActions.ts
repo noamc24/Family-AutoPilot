@@ -2,6 +2,7 @@ import { saveEventAndDependents } from './domain'
 import { isIsoDate, isTime } from './dateTime'
 import { uid, type AppData, type FamilyEvent, type FamilyTask } from './data'
 import type { LiaActionProposal } from './liaActionProposals'
+import { assignRideDriver, eligibleDrivers } from './coordination'
 
 type ProposalResult = { data: AppData; status: 'completed' | 'dismissed' | 'failed'; message: string; success: boolean }
 
@@ -35,12 +36,24 @@ export function isValidLiaActionProposal(value: unknown): value is LiaActionProp
     if (!['title', 'due', 'weekday'].every(key => typeof proposal[key] === 'string' && !!(proposal[key] as string).trim()) || !isIsoDate(proposal.due as string)) return false
     return !!proposal.assignee && typeof proposal.assignee === 'object' && !Array.isArray(proposal.assignee) && exactKeys(proposal.assignee, ['id', 'name']) && Object.values(proposal.assignee).every(item => typeof item === 'string' && !!item.trim())
   }
+  if (proposal.type === 'assign_ride_driver') {
+    if (!exactKeys(proposal, ['id', 'type', 'familyId', 'summary', 'requestId', 'event', 'passenger', 'before', 'after', 'warnings', 'requiresConfirmation'])) return false
+    if (typeof proposal.requestId !== 'string' || !proposal.requestId.trim()) return false
+    const event = proposal.event as Record<string, unknown> | undefined
+    const passenger = proposal.passenger as Record<string, unknown> | undefined
+    const before = proposal.before as { driver?: unknown } | undefined
+    const after = proposal.after as { driver?: unknown } | undefined
+    const validPerson = (person: unknown) => !!person && typeof person === 'object' && !Array.isArray(person) && exactKeys(person, ['id', 'name']) && Object.values(person).every(item => typeof item === 'string' && !!item.trim())
+    return !!event && exactKeys(event, ['id', 'title', 'date', 'time']) && ['id', 'title', 'date', 'time'].every(key => typeof event[key] === 'string' && !!(event[key] as string).trim()) && isIsoDate(event.date as string) && isTime(event.time as string)
+      && validPerson(passenger) && !!before && exactKeys(before, ['driver']) && (before.driver === null || validPerson(before.driver))
+      && !!after && exactKeys(after, ['driver']) && validPerson(after.driver)
+  }
   return false
 }
 
 export function resolveLiaActionProposal(data: AppData, familyId: string, proposal: unknown, decision: 'approve' | 'reject', actorId = ''): ProposalResult {
   if (!isValidLiaActionProposal(proposal) || proposal.familyId !== familyId) return { data, status: 'failed', message: 'לא הצלחתי לאמת את השינוי, ולכן לא בוצע דבר.', success: false }
-  if (decision === 'reject') return { data, status: 'dismissed', message: proposal.type === 'update_event_time' ? `בסדר, לא שיניתי את ${proposal.eventTitle}.` : proposal.type === 'create_event' ? `בסדר, לא יצרתי את ${proposal.title}.` : `בסדר, לא יצרתי את המשימה ${proposal.title}.`, success: false }
+  if (decision === 'reject') return { data, status: 'dismissed', message: proposal.type === 'update_event_time' ? `בסדר, לא שיניתי את ${proposal.eventTitle}.` : proposal.type === 'create_event' ? `בסדר, לא יצרתי את ${proposal.title}.` : proposal.type === 'create_task' ? `בסדר, לא יצרתי את המשימה ${proposal.title}.` : 'בסדר, לא שיניתי את ההסעה.', success: false }
   if (proposal.type === 'update_event_time') {
     const event = data.events.find(item => item.id === proposal.targetId && item.familyId === familyId)
     if (!event || event.title !== proposal.eventTitle || event.date !== proposal.eventDate || event.time !== proposal.before.time) return { data, status: 'failed', message: 'האירוע השתנה או כבר לא קיים, ולכן לא ביצעתי את ההצעה. אפשר לבקש הצעה חדשה.', success: false }
@@ -48,6 +61,18 @@ export function resolveLiaActionProposal(data: AppData, familyId: string, propos
     return { data: next, status: 'completed', message: `${event.title} עודכן ל־${proposal.after.time}.`, success: true }
   }
   const family = data.families.find(item => item.id === familyId)
+  if (proposal.type === 'assign_ride_driver') {
+    const request = data.transportationRequests.find(item => item.id === proposal.requestId && item.familyId === familyId)
+    const event = data.events.find(item => item.id === proposal.event.id && item.familyId === familyId)
+    const passenger = family?.people.find(item => item.id === proposal.passenger.id && item.name === proposal.passenger.name)
+    const driver = family?.people.find(item => item.id === proposal.after.driver.id && item.name === proposal.after.driver.name)
+    const expectedDriverId = proposal.before.driver?.id || ''
+    if (!request || !event || !passenger || !driver || request.eventId !== event.id || request.passengerId !== passenger.id || request.status === 'CANCELLED' || request.selectedDriverId !== expectedDriverId || event.title !== proposal.event.title || event.date !== proposal.event.date || event.time !== proposal.event.time || !eligibleDrivers(data, event).some(item => item.id === driver.id)) return { data, status: 'failed', message: 'פרטי ההסעה או הזמינות השתנו, ולכן לא ביצעתי את השיבוץ. אפשר לבקש הצעה חדשה.', success: false }
+    const assigned = assignRideDriver(data, request.id, driver.id)
+    if (assigned === data || assigned.transportationRequests.find(item => item.id === request.id)?.selectedDriverId !== driver.id) return { data, status: 'failed', message: 'לא הצלחתי להשלים את שיבוץ הנהג/ת, ולכן לא בוצע שינוי.', success: false }
+    const next = { ...assigned, activity: [{ id: uid(), familyId, text: `ההסעה עבור ${event.title} שובצה ל${driver.name}`, personIds: [passenger.id, driver.id], eventId: event.id, source: 'family' as const, createdAt: new Date().toISOString() }, ...assigned.activity] }
+    return { data: next, status: 'completed', message: proposal.before.driver ? `ההסעה של ${passenger.name} הועברה מ${proposal.before.driver.name} ל${driver.name}.` : `ההסעה של ${passenger.name} שובצה ל${driver.name}.`, success: true }
+  }
   if (proposal.type === 'create_event') {
     const participant = family?.people.find(item => item.id === proposal.participant.id && item.name === proposal.participant.name)
     if (!participant) return { data, status: 'failed', message: 'בן המשפחה כבר לא זמין להצעה הזו, ולכן לא יצרתי את האירוע.', success: false }

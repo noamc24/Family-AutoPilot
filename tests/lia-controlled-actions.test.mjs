@@ -22,6 +22,20 @@ const appData = () => ({ ...structuredClone(context()), families: [structuredClo
 const proposal = () => createActionProposal('propose_update_event_time', { targetId: 'club', time: '18:00' }, context())
 const createEventProposal = (overrides = {}) => createActionProposal('propose_create_event', { title: 'אימון שחייה', date: 'tomorrow', time: '18:00', member: 'איתמר', ...overrides }, context())
 const createTaskProposal = (overrides = {}) => createActionProposal('propose_create_task', { title: 'להכין תיק', due: 'tomorrow', member: 'איתמר', ...overrides }, context())
+const rideContext = () => ({
+  today: '2026-10-06',
+  family: { id: 'f', name: 'משפחה', people: [
+    { id: 'child', name: 'איתמר', role: 'בן', color: 'sage', age: 9, hasLicense: false, hasCar: false, availableForPickup: false },
+    { id: 'driver-a', name: 'אוראל', role: 'אב', color: 'sage', age: 38, hasLicense: true, hasCar: true, availableForPickup: true },
+    { id: 'driver-b', name: 'מור', role: 'אם', color: 'peach', age: 33, hasLicense: true, hasCar: true, availableForPickup: true },
+    { id: 'blocked', name: 'דנה', role: 'אם', color: 'peach', age: 33, hasLicense: true, hasCar: true, availableForPickup: false },
+  ] },
+  events: [{ id: 'ride-event', familyId: 'f', title: 'איסוף איתמר מהחוג', date: '2026-10-07', time: '18:00', icon: '🚗', participantIds: ['child'], responsibleId: 'driver-a', details: 'איסוף', requiresDriver: true }],
+  tasks: [],
+  transportationRequests: [{ id: 'ride-request', familyId: 'f', eventId: 'ride-event', passengerId: 'child', eligibleMemberIds: ['driver-a', 'driver-b'], responses: { 'driver-a': 'CAN_DO', 'driver-b': 'PENDING' }, selectedDriverId: 'driver-a', status: 'COVERED', createdById: 'driver-a', origin: 'בית', destination: 'חוג', requiredAt: '2026-10-07T18:00' }],
+})
+const rideData = () => ({ ...structuredClone(rideContext()), families: [structuredClone(rideContext().family)], activity: [], integrationLogs: [], calendarMirrors: [], liaConversations: [] })
+const rideProposal = () => createActionProposal('propose_assign_ride_driver', { eventId: 'ride-event', driver: 'מור' }, rideContext())
 
 test('proposal is validated and does not mutate application data', () => {
   const source = context()
@@ -63,6 +77,23 @@ test('create event and task proposals are grounded and do not mutate data', () =
   assert.equal(task.requiresConfirmation, true)
 })
 
+test('explicit task titles must preserve the exact user wording and can be corrected', async () => {
+  const message = 'תוסיפי לעומר משימה לסדר את החדר למחר'
+  assert.throws(() => createActionProposal('propose_create_task', { title: 'סדר את החדר', due: 'tomorrow', member: 'איתמר' }, context(), message), /exactly match/)
+  assert.equal(createActionProposal('propose_create_task', { title: 'לסדר את החדר', due: 'tomorrow', member: 'איתמר' }, context(), message).title, 'לסדר את החדר')
+  assert.throws(() => createActionProposal('propose_create_task', { title: 'הכין תיק', due: 'tomorrow', member: 'איתמר' }, context(), 'תוסיפי לעומר משימה להכין תיק למחר'), /exactly match/)
+
+  let turn = 0
+  const corrected = await askLIA(message, context(), async () => {
+    turn += 1
+    return turn === 1
+      ? { role: 'assistant', content: null, tool_calls: [{ id: 'bad-title', type: 'function', function: { name: 'propose_create_task', arguments: '{"title":"סדר את החדר","due":"tomorrow","member":"איתמר"}' } }] }
+      : { role: 'assistant', content: null, tool_calls: [{ id: 'corrected-title', type: 'function', function: { name: 'propose_create_task', arguments: '{"title":"לסדר את החדר","due":"tomorrow","member":"איתמר"}' } }] }
+  })
+  assert.equal(corrected.proposal.title, 'לסדר את החדר')
+  assert.match(corrected.toolTrace[0].result.error, /exactly match/)
+})
+
 test('approval creates exactly one event or task and rejection creates none', () => {
   const data = appData()
   const eventProposal = createEventProposal()
@@ -95,6 +126,76 @@ test('duplicate approval creates an event at most once', () => {
   const twice = resolveLiaProposalMessage(once, 'f', 'child', messageId, 'approve')
   assert.equal(once.events.filter(event => event.title === 'אימון שחייה').length, 1)
   assert.strictEqual(twice, once)
+})
+
+test('ride assignment proposal is grounded, confirmed, cancellable and updates the existing request cascade', () => {
+  const contextBefore = rideContext()
+  const snapshot = structuredClone(contextBefore)
+  const proposed = createActionProposal('propose_assign_ride_driver', { eventId: 'ride-event', driver: 'מור' }, contextBefore)
+  assert.deepEqual(contextBefore, snapshot)
+  assert.equal(proposed.passenger.name, 'איתמר')
+  assert.equal(proposed.before.driver.name, 'אוראל')
+  assert.equal(proposed.after.driver.name, 'מור')
+
+  const source = rideData()
+  const rejected = resolveLiaActionProposal(source, 'f', proposed, 'reject')
+  assert.strictEqual(rejected.data, source)
+  assert.equal(rejected.status, 'dismissed')
+
+  const approved = resolveLiaActionProposal(source, 'f', proposed, 'approve')
+  assert.equal(approved.success, true)
+  assert.equal(approved.data.transportationRequests[0].selectedDriverId, 'driver-b')
+  assert.equal(approved.data.transportationRequests[0].status, 'COVERED')
+  assert.equal(approved.data.events[0].responsibleId, 'driver-b')
+  assert.match(approved.data.events[0].details, /מור/)
+  assert.equal(approved.data.activity[0].text, 'ההסעה עבור איסוף איתמר מהחוג שובצה למור')
+  assert.equal(approved.message, 'ההסעה של איתמר הועברה מאוראל למור.')
+})
+
+test('ride proposal and approval deterministically reject ineligible or stale assignments', () => {
+  assert.throws(() => createActionProposal('propose_assign_ride_driver', { eventId: 'ride-event', driver: 'דנה' }, rideContext()), /not eligible/)
+  assert.throws(() => createActionProposal('propose_assign_ride_driver', { eventId: 'missing', driver: 'מור' }, rideContext()), /inactive/)
+  const stale = rideData()
+  stale.transportationRequests[0].selectedDriverId = ''
+  assert.equal(resolveLiaActionProposal(stale, 'f', rideProposal(), 'approve').status, 'failed')
+  const unavailable = rideData()
+  unavailable.families[0].people.find(person => person.id === 'driver-b').availableForPickup = false
+  assert.equal(resolveLiaActionProposal(unavailable, 'f', rideProposal(), 'approve').status, 'failed')
+})
+
+test('read-only driver questions and ambiguous rides create no proposal', async () => {
+  let readTurn = 0
+  const readOnly = await askLIA('מי יכול לקחת את איתמר לאיסוף?', rideContext(), async () => {
+    readTurn += 1
+    return readTurn === 1
+      ? { role: 'assistant', content: null, tool_calls: [{ id: 'drivers', type: 'function', function: { name: 'find_available_drivers', arguments: '{"eventId":"ride-event"}' } }] }
+      : { role: 'assistant', content: 'אוראל ומור יכולים לקחת את איתמר.', tool_calls: [] }
+  })
+  assert.equal(readOnly.proposal, undefined)
+  assert.equal(readOnly.toolTrace[0].name, 'find_available_drivers')
+
+  const ambiguousContext = rideContext()
+  ambiguousContext.events.push({ ...ambiguousContext.events[0], id: 'ride-event-2', title: 'איסוף איתמר מאימון', time: '19:00' })
+  let ambiguousTurn = 0
+  const ambiguous = await askLIA('מי יכול לקחת את איתמר?', ambiguousContext, async () => {
+    ambiguousTurn += 1
+    return ambiguousTurn === 1
+      ? { role: 'assistant', content: null, tool_calls: [{ id: 'events', type: 'function', function: { name: 'find_events', arguments: '{"query":"איסוף","member":"איתמר"}' } }] }
+      : { role: 'assistant', content: 'לאיזה איסוף התכוונת — מהחוג או מהאימון?', tool_calls: [] }
+  })
+  assert.equal(ambiguous.proposal, undefined)
+  assert.equal(ambiguous.toolTrace[0].result.count, 2)
+})
+
+test('duplicate ride approval changes one request only once', () => {
+  const data = rideData()
+  const withProposal = appendLiaProposalReply(data, 'f', 'child', 'שיבוץ מוצע', rideProposal())
+  const messageId = conversationFor(withProposal, 'f', 'child').messages.at(-1).id
+  const once = resolveLiaProposalMessage(withProposal, 'f', 'child', messageId, 'approve')
+  const twice = resolveLiaProposalMessage(once, 'f', 'child', messageId, 'approve')
+  assert.equal(once.transportationRequests.filter(request => request.id === 'ride-request' && request.selectedDriverId === 'driver-b').length, 1)
+  assert.strictEqual(twice, once)
+  assert.equal(once.activity.filter(item => item.text === 'ההסעה עבור איסוף איתמר מהחוג שובצה למור').length, 1)
 })
 
 test('unknown type, target and fields are rejected', () => {

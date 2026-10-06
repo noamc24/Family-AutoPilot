@@ -57,7 +57,7 @@ export function appendLiaTextReply(data: AppData, familyId: string, memberId: st
 
 export function appendLiaProposalReply(data: AppData, familyId: string, memberId: string, reply: string, proposal: LiaActionProposal): AppData {
   const conversation = conversationFor(data, familyId, memberId)
-  const relatedEntityIds = proposal.type === 'update_event_time' ? [proposal.targetId] : undefined
+  const relatedEntityIds = proposal.type === 'update_event_time' ? [proposal.targetId] : proposal.type === 'assign_ride_driver' ? [proposal.requestId, proposal.event.id, proposal.passenger.id, proposal.after.driver.id] : undefined
   const liaMessage = message('lia', reply, 'actionRequest', { kind: 'actionProposal', label: 'אישור', proposal }, relatedEntityIds)
   return saveConversation(data, { ...conversation, messages: [...conversation.messages, liaMessage], updatedAt: liaMessage.createdAt })
 }
@@ -67,13 +67,24 @@ export function resolveLiaProposalMessage(data: AppData, familyId: string, membe
   const target = conversation.messages.find(item => item.id === messageId)
   if (!target?.action?.proposal || target.status !== 'sent') return data
   const resolved = resolveLiaActionProposal(data, familyId, target.action.proposal, decision, memberId)
-  const relatedId = target.action.proposal.type === 'update_event_time' ? target.action.proposal.targetId : undefined
-  const result = message('lia', resolved.message, 'actionResult', undefined, relatedId ? [relatedId] : undefined)
+  const relatedIds = target.action.proposal.type === 'update_event_time' ? [target.action.proposal.targetId] : target.action.proposal.type === 'assign_ride_driver' ? [target.action.proposal.requestId, target.action.proposal.event.id, target.action.proposal.passenger.id, target.action.proposal.after.driver.id] : undefined
+  const result = message('lia', resolved.message, 'actionResult', undefined, relatedIds)
   const nextConversation = { ...conversation, messages: [...conversation.messages.map(item => item.id === messageId ? { ...item, status: resolved.status } : item), result], updatedAt: result.createdAt }
   return saveConversation(resolved.data, nextConversation)
 }
 
+export const LIA_TEMPORARILY_UNAVAILABLE = 'אני לא מצליחה לעבד את הבקשה כרגע. אפשר לנסות שוב בעוד רגע.'
+
+export function canUseLegacyLiaFallback(data: AppData, familyId: string, memberId: string, input: string): boolean {
+  const conversation = conversationFor(data, familyId, memberId)
+  if (conversation.contextState?.pendingIntent) return true
+  const text = normalize(input)
+  if (/(?:^| )(?:תוסיפי|הוסיפי|תעבירי|תשני|תקבעי|תצרי|תמחקי|בטלי)(?: |$)/.test(text)) return false
+  return !['UNSUPPORTED', 'ACTION_REQUEST', 'SEND_RIDE_REQUEST'].includes(detectLiaIntent(input, conversation.contextState?.pendingIntent))
+}
+
 export function fallbackLiaChatMessage(data: AppData, familyId: string, memberId: string, input: string, optimisticMessageId?: string): AppData {
+  if (!canUseLegacyLiaFallback(data, familyId, memberId, input)) return appendLiaTextReply(data, familyId, memberId, LIA_TEMPORARILY_UNAVAILABLE)
   if (!optimisticMessageId) return sendLiaChatMessage(data, familyId, memberId, input).data
   const conversation = conversationFor(data, familyId, memberId)
   const withoutOptimisticMessage = { ...conversation, messages: conversation.messages.filter(item => item.id !== optimisticMessageId) }
@@ -407,7 +418,7 @@ function responseFor(data: AppData, conversation: LiaConversation, member: Perso
     if (resolved.explicit && resolved.member && context.lastEventId === event.id) {
       const candidate = resolved.member
       const reason = memberRideReason(data, event, candidate)
-      if (reason) return { text: `${candidate.name} לא יכול/ה לקחת כרגע: ${reason}.`, context: { ...context, lastMemberId: candidate.id, lastEventId: event.id, pendingIntent: undefined, referenceKind: 'ride' } }
+      if (reason) return { text: `אי אפשר לשבץ את ${candidate.name} כנהג כרגע: ${reason}.`, context: { ...context, lastMemberId: candidate.id, lastEventId: event.id, pendingIntent: undefined, referenceKind: 'ride' } }
       const pendingIntent: LiaPendingIntent = { type: 'sendRideRequest', relatedEventId: event.id, suggestedMemberId: candidate.id, proposedAction: 'sendRideRequest' }
       const feminine = candidate.role === 'אם' || candidate.role === 'בת'
       return { text: `${candidate.name} ${feminine ? 'פנויה ומתאימה' : 'פנוי ומתאים'} לפי הלו״ז ותנאי הנהיגה. רוצה שאשלח בקשה?`, type: 'actionRequest', action: { kind: 'sendRideRequest', label: 'שליחת בקשה', eventId: event.id, memberId: candidate.id }, context: { ...context, pendingIntent, lastMemberId: candidate.id, lastEventId: event.id, candidateMemberIds: [candidate.id], referenceKind: 'ride' }, entities: [event.id, candidate.id] }
