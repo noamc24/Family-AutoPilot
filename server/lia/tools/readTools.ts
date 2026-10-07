@@ -87,7 +87,7 @@ export function getMemberAvailability(context: LiaReadContext, args: Args) {
   const selected = memberFor(context, textArg(args, 'member'))
   const members = (selected ? [selected] : context.family.people).map(person => {
     const reasons: string[] = []
-    if (person.availability && !['available', 'home'].includes(person.availability)) reasons.push(person.availability === 'work' ? 'בעבודה' : person.availability === 'travel' ? 'בנסיעה' : 'לא זמין/ה')
+    if (person.availability && !['available', 'home'].includes(person.availability)) reasons.push(person.availability === 'work' ? 'בעבודה' : person.availability === 'travel' ? 'בנסיעה' : 'ללא זמינות')
     if (time && endTime) {
       const routine = routineAt(person, date, time, endTime)
       if (routine) reasons.push(`לו״ז קבוע: ${routine.label}`)

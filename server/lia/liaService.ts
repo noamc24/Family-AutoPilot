@@ -34,8 +34,8 @@ export async function askLIA(message: string, context?: LiaReadContext, complete
         if (context && LIA_PROPOSAL_TOOL_NAMES.has(call.function.name as never)) {
           const proposal = createActionProposal(call.function.name, args, context, message)
           toolTrace.push({ name: call.function.name, arguments: args, result: proposal })
-          const warning = proposal.warnings.length ? `\nשימי לב: ${proposal.warnings.join('; ')}.` : ''
-          const details = proposal.type === 'update_event_time' ? `${proposal.eventTitle}\n${proposal.before.time} → ${proposal.after.time}` : proposal.type === 'create_event' ? `${proposal.title} · ${proposal.participant.name}\n${proposal.date} · ${proposal.time}${proposal.endTime ? `–${proposal.endTime}` : ''}` : proposal.type === 'create_task' ? `${proposal.title}\n${proposal.assignee.name} · ${proposal.due}` : `${proposal.event.title} · ${proposal.passenger.name}\n${proposal.before.driver?.name || 'ללא נהג/ת'} → ${proposal.after.driver.name} · ${proposal.event.date} · ${proposal.event.time}`
+          const warning = proposal.warnings.length ? `\nכדאי לדעת: ${proposal.warnings.join('; ')}.` : ''
+          const details = proposal.type === 'update_event_time' ? `${proposal.eventTitle}\n${proposal.before.time} → ${proposal.after.time}` : proposal.type === 'create_event' ? `${proposal.title} · ${proposal.participant.name}\n${proposal.date} · ${proposal.time}${proposal.endTime ? `–${proposal.endTime}` : ''}` : proposal.type === 'create_task' ? `${proposal.title}\n${proposal.assignee.name} · ${proposal.due}` : `${proposal.event.title} · ${proposal.passenger.name}\n${proposal.before.driver?.name || 'ללא שיבוץ'} → ${proposal.after.driver.name} · ${proposal.event.date} · ${proposal.event.time}`
           return { reply: `${proposal.summary}\n${details}${warning}`, proposal, toolTrace }
         }
         result = context ? executeLiaReadTool(call.function.name, args, context) : { error: 'Family data is unavailable' }

@@ -68,7 +68,7 @@ export function createActionProposal(name: string, args: unknown, context: LiaRe
     if (request.selectedDriverId === driver.id) throw new Error('Driver is already assigned')
     if (!eligibleDrivers(appData(context), event).some(item => item.id === driver.id)) throw new Error('Driver is not eligible for this ride')
     const current = context.family.people.find(item => item.id === request.selectedDriverId)
-    return { id: randomUUID(), type: 'assign_ride_driver', familyId: context.family.id, summary: current ? `החלפת נהג/ת עבור ${event.title}` : `שיבוץ נהג/ת עבור ${event.title}`, requestId: request.id, event: { id: event.id, title: event.title, date: event.date, time: event.time }, passenger: { id: passenger.id, name: passenger.name }, before: { driver: current ? { id: current.id, name: current.name } : null }, after: { driver: { id: driver.id, name: driver.name } }, warnings: [], requiresConfirmation: true }
+    return { id: randomUUID(), type: 'assign_ride_driver', familyId: context.family.id, summary: current ? `החלפת השיבוץ עבור ${event.title}` : `שיבוץ ההסעה עבור ${event.title}`, requestId: request.id, event: { id: event.id, title: event.title, date: event.date, time: event.time }, passenger: { id: passenger.id, name: passenger.name }, before: { driver: current ? { id: current.id, name: current.name } : null }, after: { driver: { id: driver.id, name: driver.name } }, warnings: [], requiresConfirmation: true }
   }
   throw new Error('Unsupported proposal type')
 }

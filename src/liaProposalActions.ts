@@ -69,7 +69,7 @@ export function resolveLiaActionProposal(data: AppData, familyId: string, propos
     const expectedDriverId = proposal.before.driver?.id || ''
     if (!request || !event || !passenger || !driver || request.eventId !== event.id || request.passengerId !== passenger.id || request.status === 'CANCELLED' || request.selectedDriverId !== expectedDriverId || event.title !== proposal.event.title || event.date !== proposal.event.date || event.time !== proposal.event.time || !eligibleDrivers(data, event).some(item => item.id === driver.id)) return { data, status: 'failed', message: 'פרטי ההסעה או הזמינות השתנו, ולכן לא ביצעתי את השיבוץ. אפשר לבקש הצעה חדשה.', success: false }
     const assigned = assignRideDriver(data, request.id, driver.id)
-    if (assigned === data || assigned.transportationRequests.find(item => item.id === request.id)?.selectedDriverId !== driver.id) return { data, status: 'failed', message: 'לא הצלחתי להשלים את שיבוץ הנהג/ת, ולכן לא בוצע שינוי.', success: false }
+    if (assigned === data || assigned.transportationRequests.find(item => item.id === request.id)?.selectedDriverId !== driver.id) return { data, status: 'failed', message: 'לא הצלחתי להשלים את שיבוץ ההסעה, ולכן לא בוצע שינוי.', success: false }
     const next = { ...assigned, activity: [{ id: uid(), familyId, text: `ההסעה עבור ${event.title} שובצה ל${driver.name}`, personIds: [passenger.id, driver.id], eventId: event.id, source: 'family' as const, createdAt: new Date().toISOString() }, ...assigned.activity] }
     return { data: next, status: 'completed', message: proposal.before.driver ? `ההסעה של ${passenger.name} הועברה מ${proposal.before.driver.name} ל${driver.name}.` : `ההסעה של ${passenger.name} שובצה ל${driver.name}.`, success: true }
   }
