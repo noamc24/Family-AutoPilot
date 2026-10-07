@@ -402,6 +402,17 @@ test('הסבר נהג משתמש בסיבת פסילה אמיתית ומי עו�
   assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /אוראל.*יכול להתאים גם/)
 })
 
+test('שם אחרי לקחת את מזוהה כנוסע גם כשהאירוע כבר בהקשר', () => {
+  const base = simpleData()
+  base.events.push({ ...base.events[0], id: 'early-pickup', title: 'איסוף מוקדם של איתמר', time: '13:00' })
+  let data = sendLiaChatMessage(base, 'f', 'm', 'מה איתמר עושה היום?').data
+  data = sendLiaChatMessage(data, 'f', 'm', 'מי יכול לקחת את איתמר לחוג?').data
+  const answer = conversationFor(data, 'f', 'm').messages.at(-1).text
+  assert.match(answer, /אוראל|מור/)
+  assert.doesNotMatch(answer, /איתמר.*מתחת לגיל 18/)
+  assert.equal(conversationFor(data, 'f', 'm').contextState.lastEventId, 'club')
+})
+
 test('what-if בודק בלי לשנות state ובקשת פעולה מחכה לאישור', () => {
   const base = simpleData()
   let data = sendLiaChatMessage(base, 'f', 'm', 'אם נעביר לאוראל זה מסתדר?').data

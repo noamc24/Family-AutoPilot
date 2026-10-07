@@ -243,3 +243,18 @@ test('ambiguous, nonexistent and read-only turns do not create proposals', async
   assert.equal(readOnly.proposal, undefined)
 })
 
+test('event plus target time cannot be routed to driver tools', async () => {
+  const eventContext = context()
+  eventContext.events[0].title = 'האימון של איתמר'
+  let turn = 0
+  const result = await askLIA('תעבירי את האימון של איתמר לשש', eventContext, async () => {
+    turn += 1
+    if (turn === 1) return { role: 'assistant', content: null, tool_calls: [{ id: 'wrong-route', type: 'function', function: { name: 'find_available_drivers', arguments: '{"eventId":"club"}' } }] }
+    if (turn === 2) return { role: 'assistant', content: null, tool_calls: [{ id: 'resolve-event', type: 'function', function: { name: 'find_events', arguments: '{"query":"אימון","member":"איתמר"}' } }] }
+    return { role: 'assistant', content: null, tool_calls: [{ id: 'correct-route', type: 'function', function: { name: 'propose_update_event_time', arguments: '{"targetId":"club","time":"18:00"}' } }] }
+  })
+  assert.match(result.toolTrace[0].result.error, /event time, not a driver assignment/)
+  assert.equal(result.proposal.type, 'update_event_time')
+  assert.equal(result.proposal.after.time, '18:00')
+})
+

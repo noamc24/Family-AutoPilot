@@ -8,6 +8,9 @@ import { createActionProposal } from './tools/proposalTools.js'
 
 export type LiaToolTrace = { name: string; arguments: unknown; result: unknown }
 
+const eventTimeChangeRequest = (message: string) => /(?:אימון|חוג|תור|פגישה|אירוע)/u.test(message)
+  && /(?:^|\s)ל(?:־|-)?\s*(?:[01]?\d|2[0-3])(?::[0-5]\d)?(?:\s|$)|(?:^|\s)ל(?:־|-)?\s*(?:שש|שבע|שמונה|תשע|עשר|אחת(?:־|\s)?עשרה|שתים(?:־|\s)?עשרה)(?:\s+וחצי)?(?:\s|$)/u.test(message)
+
 export async function askLIA(message: string, context?: LiaReadContext, complete = createGroqChatCompletion): Promise<{ reply: string; toolTrace: LiaToolTrace[]; proposal?: LiaActionProposal }> {
   const messages: GroqMessage[] = [
     { role: 'system', content: LIA_SYSTEM_PROMPT },
@@ -27,6 +30,7 @@ export async function askLIA(message: string, context?: LiaReadContext, complete
       let result: unknown
       try {
         args = JSON.parse(call.function.arguments || '{}')
+        if (eventTimeChangeRequest(message) && ['find_available_drivers', 'propose_assign_ride_driver'].includes(call.function.name)) throw new Error('This request changes an event time, not a driver assignment. Resolve the event and use the event-time proposal flow.')
         if (context && LIA_PROPOSAL_TOOL_NAMES.has(call.function.name as never)) {
           const proposal = createActionProposal(call.function.name, args, context, message)
           toolTrace.push({ name: call.function.name, arguments: args, result: proposal })

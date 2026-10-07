@@ -115,7 +115,9 @@ function matchingEvent(data: AppData, familyId: string, input: string, conversat
     return !event.responsibleId && !request?.selectedDriverId && request?.status !== 'COVERED'
   }
   const open = candidates.filter(isOpenRide)
-  return open.find(event => text.split(' ').some(word => word.length > 2 && normalize(event.title).includes(word))) || open[0] || data.events.find(event => event.id === conversation.contextState?.lastEventId && isOpenRide(event))
+  const genericRideWords = new Set(['מי', 'יכול', 'יכולה', 'לקחת', 'להחזיר', 'להסיע', 'לאסוף', 'את', 'של'])
+  const eventWords = text.split(' ').map(word => /^[להב]/u.test(word) && word.length > 3 ? word.slice(1) : word).filter(word => word.length > 2 && !genericRideWords.has(word) && word !== named?.name.toLowerCase())
+  return open.find(event => eventWords.some(word => normalize(event.title).includes(word))) || open[0] || data.events.find(event => event.id === conversation.contextState?.lastEventId && isOpenRide(event))
 }
 
 function driverOptions(data: AppData, event: FamilyEvent) {
@@ -409,13 +411,14 @@ function responseFor(data: AppData, conversation: LiaConversation, member: Perso
       return { text: driver && event ? `${driver.name} אחראי/ת כרגע להסעה ל־${event.title}.` : 'עדיין לא נקבע מי אוסף. מבוגר מהמשפחה יכול לטפל בזה.', context: { ...context, lastEventId: event?.id } }
     }
     const event = matchingEvent(data, family.id, input, referenceConversation)
+    const namedPersonIsPassenger = /(?:לקחת|להחזיר|להסיע|לאסוף)\s+את\s+/u.test(normalize(input))
     if (!event) {
       const named = family.people.find(person => normalize(input).includes(normalize(person.name)))
       const covered = data.events.filter(item => item.familyId === family.id && item.date >= localDate() && item.requiresDriver && (item.responsibleId || requestForEvent(data, item.id)?.selectedDriverId) && (!named || item.participantIds.includes(named.id))).sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`))[0]
       const driver = family.people.find(person => person.id === (covered?.responsibleId || (covered && requestForEvent(data, covered.id)?.selectedDriverId)))
       return driver && covered ? { text: `${driver.name} כבר אחראי/ת להסעה ל־${covered.title}. האיסוף מכוסה.`, context: { ...context, lastEventId: covered.id, lastMemberId: driver.id }, entities: [covered.id, driver.id] } : { text: 'לא מצאתי אירוע קרוב שדורש הסעה. אפשר לציין שם של אירוע או בן משפחה.', context }
     }
-    if (resolved.explicit && resolved.member && context.lastEventId === event.id) {
+    if (resolved.explicit && resolved.member && context.lastEventId === event.id && !namedPersonIsPassenger) {
       const candidate = resolved.member
       const reason = memberRideReason(data, event, candidate)
       if (reason) return { text: `אי אפשר לשבץ את ${candidate.name} כנהג כרגע: ${reason}.`, context: { ...context, lastMemberId: candidate.id, lastEventId: event.id, pendingIntent: undefined, referenceKind: 'ride' } }
@@ -427,7 +430,7 @@ function responseFor(data: AppData, conversation: LiaConversation, member: Perso
     const options = driverOptions(data, event).filter(option => !alternativesOnly || option.person.id !== context.lastMemberId)
     if (!options.length) {
       const reasons = family.people.filter(person => person.age >= 18).map(person => ({ person, reason: memberRideReason(data, event, person) })).filter(item => item.reason).slice(0, 2)
-      return { text: `לא מצאתי כרגע נהג/ת כשיר/ה ופנוי/ה ל־${event.title}.${reasons.length ? ` ${reasons.map(item => `${item.person.name} ${item.reason}`).join(', ')}.` : ''}`, context: { ...context, lastEventId: event.id, referenceKind: 'ride' } }
+      return { text: `כרגע אין מי שפנוי ויכול להסיע ל${event.title}.${reasons.length ? ` ${reasons.map(item => `${item.person.name} ${item.reason}`).join(', ')}.` : ''}`, context: { ...context, lastEventId: event.id, referenceKind: 'ride' } }
     }
     const best = options[0]
     const alternative = options[1]
@@ -461,7 +464,8 @@ function responseFor(data: AppData, conversation: LiaConversation, member: Perso
       const from = times[0] || (/בערב/.test(normalize(input)) ? '18:00' : undefined)
       const to = times[1] || (from ? '22:00' : undefined)
       const available = from && to ? availableMembersBetween(data, family.id, localDate(), from, to) : family.people.filter(person => person.age >= 18 && person.availableForPickup && person.availability !== 'unavailable')
-      return { text: available.length ? `${from && to ? `בין ${from} ל־${to} פנויים לפי הלו״ז` : 'האנשים שמסומנים כפנויים כרגע'}: ${available.map(person => person.name).join(', ')}.` : from && to ? `לא מצאתי מבוגר פנוי בין ${from} ל־${to} לפי הלו״ז הקיים.` : 'לא מצאתי כרגע מבוגר שמסומן כפנוי.', context }
+      const names = available.map(person => person.name).join(' ו')
+      return { text: available.length ? from && to ? `${names} פנויים${/^(?:1[89]|2\d):/.test(from) ? ' הערב' : ''}, בין ${from} ל־${to}.` : `${names} מסומנים כפנויים כרגע.` : from && to ? `לא מצאתי מבוגר פנוי בין ${from} ל־${to} לפי הלו״ז הקיים.` : 'לא מצאתי כרגע מבוגר שמסומן כפנוי.', context }
     }
     const event = eventReference(data, referenceConversation, input) || matchingEvent(data, family.id, input, referenceConversation)
     const reason = event ? memberRideReason(data, event, named) : named.availableForPickup && named.availability !== 'unavailable' ? null : named.availability === 'work' ? 'בעבודה' : 'לא מסומן/ת כזמין/ה'
