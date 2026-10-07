@@ -11,6 +11,10 @@ export type LiaToolTrace = { name: string; arguments: unknown; result: unknown }
 const eventTimeChangeRequest = (message: string) => /(?:אימון|חוג|תור|פגישה|אירוע)/u.test(message)
   && /(?:^|\s)ל(?:־|-)?\s*(?:[01]?\d|2[0-3])(?::[0-5]\d)?(?:\s|$)|(?:^|\s)ל(?:־|-)?\s*(?:שש|שבע|שמונה|תשע|עשר|אחת(?:־|\s)?עשרה|שתים(?:־|\s)?עשרה)(?:\s+וחצי)?(?:\s|$)/u.test(message)
 
+export const neutralizeLiaReply = (reply: string) => reply
+  .replace(/אם (?:תרצי|תרצה)/gu, 'אם מתאים')
+  .replace(/(?:רק )?(?:תגידי|תגיד)(?: לי)?[!.]?/gu, 'אפשר לכתוב לי.')
+
 export async function askLIA(message: string, context?: LiaReadContext, complete = createGroqChatCompletion): Promise<{ reply: string; toolTrace: LiaToolTrace[]; proposal?: LiaActionProposal }> {
   const messages: GroqMessage[] = [
     { role: 'system', content: LIA_SYSTEM_PROMPT },
@@ -23,7 +27,7 @@ export async function askLIA(message: string, context?: LiaReadContext, complete
     messages.push(assistant)
     if (!assistant.tool_calls?.length) {
       if (!assistant.content) throw new Error('LIA returned no reply')
-      return { reply: assistant.content, toolTrace }
+      return { reply: neutralizeLiaReply(assistant.content), toolTrace }
     }
     for (const call of assistant.tool_calls) {
       let args: unknown
