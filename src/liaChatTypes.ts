@@ -1,13 +1,16 @@
+import type { LiaActionProposal } from './liaActionProposals'
+
 export type LiaMessageType = 'text' | 'suggestion' | 'entitySummary' | 'actionRequest' | 'actionResult'
 export type LiaMessageStatus = 'sent' | 'completed' | 'dismissed' | 'failed'
 
 export type LiaChatAction = {
-  kind: 'sendRideRequest' | 'openCalendar' | 'liaDecision'
+  kind: 'sendRideRequest' | 'openCalendar' | 'liaDecision' | 'actionProposal'
   label: string
   eventId?: string
   memberId?: string
   interventionId?: string
   decision?: 'approve' | 'addToCalendar' | 'createTask' | 'dismiss' | 'reassign'
+  proposal?: LiaActionProposal
 }
 
 export type LiaMessage = {
