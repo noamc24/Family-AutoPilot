@@ -25,7 +25,6 @@ import {
   dateLabel,
   DEFAULT_FAMILY_ID,
   defaultPersonalSettings,
-  detectScenario,
   initialData,
   hasCompletedOnboarding,
   localDate,
@@ -79,7 +78,7 @@ import {
   respondToRequest,
   transitAlternative,
 } from './coordination'
-import { detectIntegrationScenario, integrationNames, simulateIntegration, type IntegrationScenario } from './integrations'
+import { integrationNames, type IntegrationScenario } from './integrations'
 import {
   advanceAutomaticScenarios,
   applyScheduleSolution,
@@ -226,7 +225,7 @@ function App() {
   const [view, setView] = useState<View>('home')
   const [dialog, setDialog] = useState<Dialog>(null)
   const [prompt, setPrompt] = useState('')
-  const [processing, setProcessing] = useState(false)
+  const [processing] = useState(false)
   const [chatProcessing, setChatProcessing] = useState(false)
   const chatRequestInFlight = useRef(false)
   const [toast, setToast] = useState('')
@@ -1185,43 +1184,20 @@ function App() {
     setData(next)
     setToast(result.applied ? 'הפעולה אושרה והתוכנית עודכנה' : 'הפעולה כבר אינה מתאימה לתוכנית הנוכחית')
   }
-  function runSimulatedSource(source: IntegrationScenario) {
-    if (childMode) {
-      setToast('בדיקת מקורות זמינה למבוגרים')
-      return
-    }
-    const result = simulateIntegration(data, family.id, activePersonId, source)
-    if (result.applied) setData(result.data)
-    setToast(result.message)
-    setView('home')
-  }
   function sendPrompt(value = prompt) {
-    if (!value.trim() || processing) return
-    const external = detectIntegrationScenario(value)
-    if (external) {
-      setPrompt('')
-      setProcessing(true)
-      window.setTimeout(() => {
-        setProcessing(false)
-        runSimulatedSource(external)
-      }, 650)
-      return
-    }
-    const scenario = detectScenario(value)
+    const text = value.trim()
+    if (!text || processing || chatProcessing || chatRequestInFlight.current) return
     setPrompt('')
-    setProcessing(true)
-    window.setTimeout(() => {
-      setProcessing(false)
-      setDialog(scenario === 'unknown' ? { type: 'unknown' } : { type: 'plan', scenario, input: value })
-    }, 850)
+    setView('assistant')
+    void sendChatMessage(text, true)
   }
-  async function sendChatMessage(value: string) {
+  async function sendChatMessage(value: string, startFresh = false) {
     const text = value.trim()
     if (!text || chatProcessing || chatRequestInFlight.current) return
     const targetFamilyId = family.id
     const targetMemberId = activePersonId
-    const currentConversation = conversationFor(data, targetFamilyId, targetMemberId)
-    if (currentConversation.contextState?.pendingIntent) {
+    const currentConversation = startFresh ? undefined : conversationFor(data, targetFamilyId, targetMemberId)
+    if (currentConversation?.contextState?.pendingIntent) {
       chatRequestInFlight.current = true
       setData((previous) => sendLiaChatMessage(previous, targetFamilyId, targetMemberId, text).data)
       queueMicrotask(() => { chatRequestInFlight.current = false })
@@ -1232,7 +1208,8 @@ function App() {
     setChatProcessing(true)
     const optimisticMessageId = uid()
     setData((previous) => {
-      const appended = appendLiaUserMessage(previous, targetFamilyId, targetMemberId, text, optimisticMessageId)
+      const base = startFresh ? clearLiaConversation(previous, targetFamilyId, targetMemberId) : previous
+      const appended = appendLiaUserMessage(base, targetFamilyId, targetMemberId, text, optimisticMessageId)
       return appended.data
     })
 
