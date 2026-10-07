@@ -113,7 +113,9 @@ import { CalendarView } from './components/CalendarView'
 import { TasksView } from './components/TasksView'
 import { FamilyView } from './components/FamilyView'
 import { FirstTimeExperience } from './components/FirstTimeExperience'
-import { clearLiaConversation, conversationFor, performLiaChatAction, sendLiaChatMessage } from './liaChat'
+import { appendLiaProposalReply, appendLiaTextReply, appendLiaUserMessage, clearLiaConversation, conversationFor, fallbackLiaChatMessage, performLiaChatAction, resolveLiaProposalMessage, sendLiaChatMessage } from './liaChat'
+import { askLiaAI } from './services/liaAi'
+import { createLiaReadContext } from './liaReadContext'
 import { notificationPreferenceAllows, proactiveSuggestionsEnabled, type OptionalNotificationCategory } from './personalSettings'
 import type { LiaMessage } from './liaChatTypes'
 import { homeGreeting, remainingToday } from './uiModel'
@@ -225,6 +227,8 @@ function App() {
   const [dialog, setDialog] = useState<Dialog>(null)
   const [prompt, setPrompt] = useState('')
   const [processing, setProcessing] = useState(false)
+  const [chatProcessing, setChatProcessing] = useState(false)
+  const chatRequestInFlight = useRef(false)
   const [toast, setToast] = useState('')
   const [attentionExpanded, setAttentionExpanded] = useState(false)
   const [calendarNavigationTarget, setCalendarNavigationTarget] = useState<{ eventId: string; date: string; key: number } | null>(null)
@@ -1211,12 +1215,55 @@ function App() {
       setDialog(scenario === 'unknown' ? { type: 'unknown' } : { type: 'plan', scenario, input: value })
     }, 850)
   }
-  function sendChatMessage(value: string) {
-    if (!value.trim() || processing) return
-    setData((previous) => sendLiaChatMessage(previous, family.id, activePersonId, value).data)
+  async function sendChatMessage(value: string) {
+    const text = value.trim()
+    if (!text || chatProcessing || chatRequestInFlight.current) return
+    const targetFamilyId = family.id
+    const targetMemberId = activePersonId
+    const currentConversation = conversationFor(data, targetFamilyId, targetMemberId)
+    if (currentConversation.contextState?.pendingIntent) {
+      chatRequestInFlight.current = true
+      setData((previous) => sendLiaChatMessage(previous, targetFamilyId, targetMemberId, text).data)
+      queueMicrotask(() => { chatRequestInFlight.current = false })
+      return
+    }
+
+    chatRequestInFlight.current = true
+    setChatProcessing(true)
+    const optimisticMessageId = uid()
+    setData((previous) => {
+      const appended = appendLiaUserMessage(previous, targetFamilyId, targetMemberId, text, optimisticMessageId)
+      return appended.data
+    })
+
+    try {
+      const result = await askLiaAI(text, createLiaReadContext(dataRef.current, targetFamilyId, localDate()))
+      setData((previous) => result.proposal ? appendLiaProposalReply(previous, targetFamilyId, targetMemberId, result.reply, result.proposal) : appendLiaTextReply(previous, targetFamilyId, targetMemberId, result.reply))
+    } catch {
+      setData((previous) => {
+        try {
+          return fallbackLiaChatMessage(previous, targetFamilyId, targetMemberId, text, optimisticMessageId)
+        } catch {
+          return appendLiaTextReply(previous, targetFamilyId, targetMemberId, 'משהו השתבש כרגע. אפשר לנסות שוב בעוד רגע.')
+        }
+      })
+    } finally {
+      chatRequestInFlight.current = false
+      setChatProcessing(false)
+    }
   }
-  function runChatAction(message: LiaMessage) {
+  function sendChatQuickPrompt(value: string) {
+    if (!value.trim() || chatProcessing || chatRequestInFlight.current) return
+    chatRequestInFlight.current = true
+    setData((previous) => sendLiaChatMessage(previous, family.id, activePersonId, value).data)
+    queueMicrotask(() => { chatRequestInFlight.current = false })
+  }
+  function runChatAction(message: LiaMessage, decision?: 'approve' | 'reject') {
     if (!message.action || childMode) return
+    if (message.action.kind === 'actionProposal' && decision) {
+      setData((previous) => resolveLiaProposalMessage(previous, family.id, activePersonId, message.id, decision))
+      return
+    }
     setData((previous) => performLiaChatAction(previous, conversationFor(previous, family.id, activePersonId), activePersonId).data)
   }
   function clearChat() {
@@ -1736,8 +1783,9 @@ function App() {
             <LiaChatPreview
               conversation={liaConversation}
               memberName={currentPerson?.name || 'המשפחה'}
-              processing={processing}
+              processing={chatProcessing}
               onSend={sendChatMessage}
+              onQuickPrompt={sendChatQuickPrompt}
               onAction={runChatAction}
               onClear={clearChat}
             />

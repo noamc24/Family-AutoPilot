@@ -5,14 +5,14 @@ import { build } from 'esbuild'
 
 const result = await build({
   stdin: {
-    contents: `export { conversationFor, clearLiaConversation, detectLiaIntent, performLiaChatAction, sendLiaChatMessage } from './src/liaChat.ts'; export { liaQuickPrompts } from './src/components/LiaChatPreview.tsx'; export { APP_DATA_STORAGE_KEY, initialData, localDate, readData, sanitizeAppData } from './src/data.ts'; export { respondToRequest, confirmDriver, requestForEvent } from './src/coordination.ts';`,
+    contents: `export { appendLiaTextReply, appendLiaUserMessage, canUseLegacyLiaFallback, conversationFor, clearLiaConversation, detectLiaIntent, fallbackLiaChatMessage, performLiaChatAction, sendLiaChatMessage } from './src/liaChat.ts'; export { liaQuickPrompts } from './src/components/LiaChatPreview.tsx'; export { APP_DATA_STORAGE_KEY, initialData, localDate, readData, sanitizeAppData } from './src/data.ts'; export { respondToRequest, confirmDriver, requestForEvent } from './src/coordination.ts';`,
     resolveDir: process.cwd(), sourcefile: 'lia-chat-test-entry.ts', loader: 'ts',
   },
   bundle: true, write: false, format: 'cjs', platform: 'node',
 })
 const module = { exports: {} }
 new Function('module', 'exports', 'require', result.outputFiles[0].text)(module, module.exports, createRequire(import.meta.url))
-const { APP_DATA_STORAGE_KEY, conversationFor, clearLiaConversation, detectLiaIntent, performLiaChatAction, sendLiaChatMessage, liaQuickPrompts, initialData, localDate, readData, sanitizeAppData, respondToRequest, confirmDriver, requestForEvent } = module.exports
+const { APP_DATA_STORAGE_KEY, appendLiaTextReply, appendLiaUserMessage, canUseLegacyLiaFallback, conversationFor, clearLiaConversation, detectLiaIntent, fallbackLiaChatMessage, performLiaChatAction, sendLiaChatMessage, liaQuickPrompts, initialData, localDate, readData, sanitizeAppData, respondToRequest, confirmDriver, requestForEvent } = module.exports
 
 const clone = value => structuredClone(value)
 const conversation = (data, memberId = 'Mor') => conversationFor(data, 'Avrahami', memberId)
@@ -33,6 +33,52 @@ function simpleData() {
     liaConversations: [],
   }
 }
+
+test('AI success stores one user message and exactly one LIA reply', () => {
+  const optimistic = appendLiaUserMessage(simpleData(), 'f', 'm', 'מי את?', 'optimistic-1')
+  const data = appendLiaTextReply(optimistic.data, 'f', 'm', 'אני LIA.')
+  const messages = conversationFor(data, 'f', 'm').messages
+  assert.deepEqual(messages.map(item => [item.sender, item.text]), [['user', 'מי את?'], ['lia', 'אני LIA.']])
+})
+
+test('AI failure replaces the optimistic message with one dictionary fallback exchange', () => {
+  const optimistic = appendLiaUserMessage(simpleData(), 'f', 'm', 'מי את?', 'optimistic-2')
+  const data = fallbackLiaChatMessage(optimistic.data, 'f', 'm', 'מי את?', optimistic.messageId)
+  const messages = conversationFor(data, 'f', 'm').messages
+  assert.deepEqual(messages.map(item => item.sender), ['user', 'lia'])
+  assert.match(messages[1].text, /LIA|העוזרת המשפחתית/)
+})
+
+test('AI failure does not turn an unsupported mutation request into an unrelated legacy answer', () => {
+  const base = simpleData()
+  const before = { events: clone(base.events), tasks: clone(base.tasks), requests: clone(base.transportationRequests) }
+  const input = 'תוסיפי לעומר משימה לסדר את החדר למחר'
+  const optimistic = appendLiaUserMessage(base, 'f', 'm', input, 'unsafe-fallback')
+  const data = fallbackLiaChatMessage(optimistic.data, 'f', 'm', input, optimistic.messageId)
+  const messages = conversationFor(data, 'f', 'm').messages
+  assert.equal(canUseLegacyLiaFallback(data, 'f', 'm', input), false)
+  assert.equal(messages.at(-1).text, 'אני לא מצליחה לעבד את הבקשה כרגע. אפשר לנסות שוב בעוד רגע.')
+  assert.doesNotMatch(messages.at(-1).text, /להכין תיק|משימות פתוחות/)
+  assert.deepEqual({ events: data.events, tasks: data.tasks, requests: data.transportationRequests }, before)
+})
+
+test('AI failure still uses the deterministic fallback for a reliable legacy intent', () => {
+  const input = 'איזה משימות נשארו להיום?'
+  const optimistic = appendLiaUserMessage(simpleData(), 'f', 'm', input, 'safe-fallback')
+  const data = fallbackLiaChatMessage(optimistic.data, 'f', 'm', input, optimistic.messageId)
+  assert.equal(canUseLegacyLiaFallback(data, 'f', 'm', input), true)
+  assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /אישור הורים|משימות/)
+})
+
+test('AI-only action acknowledgement cannot mutate application state', () => {
+  const base = simpleData()
+  const before = { events: clone(base.events), requests: clone(base.transportationRequests), tasks: clone(base.tasks) }
+  const optimistic = appendLiaUserMessage(base, 'f', 'm', 'תעבירי את החוג של איתמר לשש', 'optimistic-3')
+  const data = appendLiaTextReply(optimistic.data, 'f', 'm', 'הבנתי שמדובר בשינוי השעה, אבל כרגע איני יכולה לבצע אותו.')
+  assert.deepEqual(data.events, before.events)
+  assert.deepEqual(data.transportationRequests, before.requests)
+  assert.deepEqual(data.tasks, before.tasks)
+})
 
 test('הודעת משתמש ותשובת ליה נשמרות לפי הסדר והודעה ריקה נזנחת', () => {
   const base = clone(initialData)
@@ -61,9 +107,11 @@ test('conversation נשמר ב-AppData ונטען מחדש דרך persistence', 
 })
 
 test('quick prompt עובר באותו send flow ומחזיר נתוני אירועים אמיתיים', () => {
-  const data = sendLiaChatMessage(clone(initialData), 'Avrahami', 'Mor', liaQuickPrompts[1]).data
+  const seed = clone(initialData)
+  seed.events.forEach(event => { event.date = localDate(1) })
+  const data = sendLiaChatMessage(seed, 'Avrahami', 'Mor', liaQuickPrompts[1]).data
   assert.equal(conversation(data).messages[0].text, liaQuickPrompts[1])
-  assert.match(last(data).text, /10:30 · תור לרופא שיניים/)
+  assert.match(last(data).text, /אין לך אירועים כרגע/)
 })
 
 test('TODAY_SCHEDULE ו-OPEN_TASKS נקראים מה-events וה-tasks האמיתיים', () => {
@@ -256,6 +304,7 @@ test('שאלות סטטוס טבעיות שומרות את הקשר בקשת ה�
 test('שאלות מקור, next, שעות וסיכום משולב מחזירות נתונים ולא fallback', () => {
   const base = simpleData()
   base.events[0].date = localDate(1)
+  base.activity[0].createdAt = `${localDate()}T12:00:00.000Z`
   let data = sendLiaChatMessage(base, 'f', 'm', 'מה שינית היום?').data
   data = sendLiaChatMessage(data, 'f', 'm', 'מאיזה מקור זה הגיע?').data
   assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /התוכנית המשפחתית/)
@@ -353,6 +402,17 @@ test('הסבר נהג משתמש בסיבת פסילה אמיתית ומי עו�
   assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /מור.*בעבודה/)
   data = sendLiaChatMessage(data, 'f', 'm', 'ומי עוד?').data
   assert.match(conversationFor(data, 'f', 'm').messages.at(-1).text, /אוראל.*יכול להתאים גם/)
+})
+
+test('שם אחרי לקחת את מזוהה כנוסע גם כשהאירוע כבר בהקשר', () => {
+  const base = simpleData()
+  base.events.push({ ...base.events[0], id: 'early-pickup', title: 'איסוף מוקדם של איתמר', time: '13:00' })
+  let data = sendLiaChatMessage(base, 'f', 'm', 'מה איתמר עושה היום?').data
+  data = sendLiaChatMessage(data, 'f', 'm', 'מי יכול לקחת את איתמר לחוג?').data
+  const answer = conversationFor(data, 'f', 'm').messages.at(-1).text
+  assert.match(answer, /אוראל|מור/)
+  assert.doesNotMatch(answer, /איתמר.*מתחת לגיל 18/)
+  assert.equal(conversationFor(data, 'f', 'm').contextState.lastEventId, 'club')
 })
 
 test('what-if בודק בלי לשנות state ובקשת פעולה מחכה לאישור', () => {

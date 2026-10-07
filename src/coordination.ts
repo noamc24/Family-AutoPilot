@@ -87,6 +87,18 @@ export function acceptRideRequest(data: AppData, requestId: string, personId: st
   return confirmDriver(answered, requestId, personId)
 }
 
+/** Assign or reassign a ride only after validating the current request and driver eligibility. */
+export function assignRideDriver(data: AppData, requestId: string, personId: string): AppData {
+  const request = data.transportationRequests.find(item => item.id === requestId)
+  const event = request && data.events.find(item => item.id === request.eventId && item.familyId === request.familyId)
+  if (!request || !event || request.status === 'CANCELLED' || request.selectedDriverId === personId || !eligibleDrivers(data, event).some(person => person.id === personId)) return data
+  let next = reconcileTransportation(data)
+  const currentDriverId = next.transportationRequests.find(item => item.id === requestId)?.selectedDriverId
+  if (currentDriverId) next = respondToRequest(next, requestId, currentDriverId, 'CANNOT_DO')
+  next = respondToRequest(next, requestId, personId, 'CAN_DO')
+  return confirmDriver(next, requestId, personId)
+}
+
 export type DriverOption = { person: Person; reason: string; score: number }
 export function rankedDrivers(data: AppData, request: TransportationRequest): DriverOption[] {
   const family = data.families.find(item => item.id === request.familyId)

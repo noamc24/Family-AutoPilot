@@ -19,6 +19,9 @@ const initializedWithMorAvailable = () => {
   const mor = data.families[0].people.find(person => person.id === 'Mor')
   mor.routines = []
   mor.availability = 'available'
+  mor.unavailableUntil = undefined
+  data.events = data.events.filter(event => event.id === 'traffic-pickup')
+  data.events[0].date = model.localDate(1)
   return data
 }
 const intervention = data => data.liaInterventions.find(item => item.type === 'traffic')

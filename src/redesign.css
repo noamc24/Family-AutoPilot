@@ -760,6 +760,48 @@ h2 { letter-spacing: -.02em; }
 .lia-chat-action-card.state-failed { border-color: #ead7d4; background: #fffafa; box-shadow: none; }
 .lia-chat-action-card.state-failed .lia-action-state { color: var(--v2-danger); }
 .lia-chat-action-card.state-dismissed { opacity: .72; box-shadow: none; }
+.view-assistant .lia-proposal-card {
+  width: min(100%,380px); padding: 15px 16px 14px; display: flex; flex-direction: column; gap: 13px;
+  border-color: var(--lia-primary-border); background: rgba(251,250,254,.92); box-shadow: 0 9px 28px rgba(37,31,61,.07);
+}
+.lia-proposal-heading { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.lia-proposal-heading > div { min-width: 0; display: grid; gap: 2px; }
+.lia-proposal-heading strong { color: var(--text); font-size: 13px; line-height: 1.4; }
+.lia-proposal-heading small { color: var(--text-muted); font-size: 10px; }
+.lia-proposal-icon {
+  width: 34px; height: 34px; flex: none; display: grid; place-items: center; border-radius: 10px;
+  color: var(--lia-primary); background: var(--lia-primary-soft); border: 1px solid var(--lia-primary-border);
+}
+.lia-proposal-transition {
+  align-self: stretch; display: flex; direction: ltr; unicode-bidi: isolate; align-items: baseline; justify-content: center; gap: 12px;
+  padding: 12px 14px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface); color: var(--text);
+  font-variant-numeric: tabular-nums; font-size: 17px; font-weight: 750; letter-spacing: .01em;
+}
+.lia-proposal-transition span { color: var(--lia-gold); font-weight: 650; }
+.lia-proposal-before { color: var(--text-muted); }
+.lia-proposal-after { color: var(--lia-primary); }
+.lia-proposal-details { display: grid; gap: 3px; padding: 11px 13px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface); }
+.lia-proposal-details strong { color: var(--text); font-size: 13px; line-height: 1.45; }
+.lia-proposal-details span { color: var(--lia-primary); font-size: 11px; font-weight: 700; }
+.lia-proposal-details small { color: var(--text-muted); font-size: 10px; line-height: 1.5; }
+.lia-proposal-warning {
+  display: flex; align-items: flex-start; gap: 8px; padding: 10px 11px; border: 1px solid #ead9b8; border-radius: 10px;
+  background: #fff8e9; color: #755d31;
+}
+.lia-proposal-warning > svg { flex: none; margin-top: 2px; }
+.lia-proposal-warning > div { display: grid; gap: 2px; }
+.lia-proposal-warning strong { font-size: 10px; }
+.lia-proposal-warning span { font-size: 10px; line-height: 1.55; }
+.lia-proposal-actions { display: flex; gap: 8px; align-items: center; }
+.lia-proposal-actions button { min-height: 39px; margin: 0; }
+.lia-proposal-actions .lia-proposal-approve { min-width: 96px; }
+.lia-proposal-actions .secondary-button { min-width: 78px; background: transparent; }
+.lia-proposal-resolution { display: flex; align-items: center; gap: 7px; min-height: 24px; color: var(--text-muted); font-size: 10px; font-weight: 700; }
+.lia-proposal-card.state-completed { padding-block: 12px; border-color: #d8dfd7; background: #fbfcf9; }
+.lia-proposal-card.state-completed .lia-proposal-icon,.lia-proposal-card.state-completed .lia-proposal-resolution { color: #4f7359; background: #eef5ed; border-color: #d8e5d8; }
+.lia-proposal-card.state-dismissed { padding-block: 12px; opacity: 1; background: #faf9f6; }
+.lia-proposal-card.state-dismissed .lia-proposal-icon,.lia-proposal-card.state-dismissed .lia-proposal-resolution { color: #817f77; background: #f0efeb; border-color: #e3e1db; }
+.lia-proposal-card.state-failed .lia-proposal-icon { color: var(--v2-danger); background: #fff4f2; border-color: #ead7d4; }
 .lia-typing { min-height: 28px; padding: 7px 9px; display: flex; align-items: center; gap: 4px; }
 .lia-typing i { width: 5px; height: 5px; border-radius: 50%; background: #aaa89f; animation: lia-dot 1s ease-in-out infinite; }
 .lia-typing i:nth-child(2) { animation-delay: .14s; }.lia-typing i:nth-child(3) { animation-delay: .28s; }
@@ -799,6 +841,9 @@ h2 { letter-spacing: -.02em; }
   .view-assistant .lia-chat-message { max-width: 86%; }
   .view-assistant .lia-chat-message.lia { max-width: 96%; }
   .view-assistant .lia-chat-action-card { width: 100%; }
+  .view-assistant .lia-proposal-card { max-width: 100%; }
+  .lia-proposal-actions { width: 100%; }
+  .lia-proposal-actions button { flex: 1; }
   .view-assistant .lia-quick-prompts { padding: 8px 16px 12px; justify-content: flex-start; overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; }
   .view-assistant .lia-quick-prompts button { flex: none; }
   .view-assistant .lia-composer { width: calc(100% - 24px); margin: 0 12px 10px; border-radius: 17px; }
@@ -811,6 +856,7 @@ h2 { letter-spacing: -.02em; }
   .view-assistant .lia-chat-message.user { max-width: 82%; }
   .lia-action-meta { display: grid; gap: 4px; }
   .lia-action-meta span { width: fit-content; }
+  .lia-proposal-transition { gap: 10px; padding-inline: 10px; font-size: 16px; }
 }
 
 /* Focused Calendar luxury pass */
