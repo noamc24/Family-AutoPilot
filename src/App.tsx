@@ -1897,7 +1897,7 @@ function App() {
               <X size={19} />
             </button>
             {processing ? (
-              <div className="processing">
+              <div className="processing" role="status" aria-live="polite" aria-busy="true">
                 <span className="processing-orb">
                   <Sparkles size={27} />
                 </span>
@@ -2862,7 +2862,7 @@ function ModalActions({ onSave, onDelete, disabled }: { onSave: () => void; onDe
   )
 }
 function Empty({ text }: { text: string }) {
-  return <div className="empty-state">{text}</div>
+  return <div className="empty-state" role="status"><span className="empty-state-mark" aria-hidden="true" />{text}</div>
 }
 function HomeBrief({
   events,

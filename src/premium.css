@@ -101,8 +101,8 @@ p { color: var(--fp-body); }
 .section-card, .attention-card { border-radius: 16px; }
 .section-heading { margin-bottom: 18px; }
 .section-heading h2 { font-size: 17px; }
-.empty-state { color: var(--fp-muted); padding: 34px 12px; }
-.empty-state::before { content: ""; display: block; width: 32px; height: 2px; margin: 0 auto 13px; background: var(--fp-indigo-line); }
+.empty-state { display:grid; justify-items:center; gap:10px; color:var(--fp-muted); padding:30px 12px; line-height:1.55; text-align:center; }
+.empty-state-mark { width:28px; height:18px; display:block; border:1px solid var(--fp-indigo-line); border-radius:9px; background:linear-gradient(90deg,transparent 0 35%,var(--fp-indigo-soft) 35% 65%,transparent 65%); }
 
 /* Actions: quiet by default, unmistakable at decision points. */
 .light-button, .secondary-button, .primary-action, .subtle-button {
@@ -118,6 +118,23 @@ p { color: var(--fp-body); }
 }
 .dark-button:hover, .pulse-action:hover, .submit:hover:not(:disabled), .view-assistant .lia-composer button:hover { background: var(--fp-indigo-deep); border-color: var(--fp-indigo-deep); }
 .submit:disabled { color: var(--fp-faint); background: #ecece8; border-color: #ecece8; box-shadow: none; }
+.dark-button:disabled,
+.secondary-button:disabled,
+.primary-action:disabled,
+.pulse-action:disabled,
+.modal-actions button:disabled,
+.lia-proposal-actions button:disabled {
+  opacity:1;
+  color:#9b9991;
+  background:#eeede9;
+  border-color:#deddd7;
+  box-shadow:none;
+  cursor:not-allowed;
+}
+.dark-button:disabled svg,
+.secondary-button:disabled svg,
+.primary-action:disabled svg,
+.pulse-action:disabled svg { opacity:.68; }
 .delete-button, .quiet-danger { color: var(--fp-danger); background: transparent; border-color: #ecdcdc; }
 .text-link { color: var(--fp-indigo-deep); border-radius: 7px; padding: 5px 7px; }
 .text-link:hover { background: var(--fp-indigo-soft); color: var(--fp-indigo-deep); }
@@ -129,6 +146,12 @@ p { color: var(--fp-body); }
 .lia-card, .lia-chat-action-card { border-color: var(--fp-indigo-line); }
 .view-home .lia-card { background: #fbfaff; border-radius: 17px; box-shadow: 0 10px 30px rgba(46,44,99,.05); }
 .lia-recommendation, .lia-action-person > span { color: var(--fp-indigo-deep); background: var(--fp-indigo-soft); border-color: var(--fp-indigo-line); }
+.lia-card-decisionRequired .lia-status { color:#79581d; border-color:#ead9b8; background:#fff8e9; }
+.lia-card-waiting .lia-status,
+.lia-card-owned .lia-status,
+.lia-card-inProgress .lia-status { color:var(--fp-indigo-deep); border-color:var(--fp-indigo-line); background:var(--fp-indigo-soft); }
+.lia-card-completed .lia-status { color:#4f7359; border-color:#d8e5d8; background:#eef5ed; }
+.lia-card-noAction .lia-status { color:#74726b; border-color:#e1dfd9; background:#f3f2ee; }
 .lia-created-chip, .lia-header-mark, .lia-message-mark, .lia-chat-welcome > span, .month-event em,
 .day-popover em, .calendar-block em, .task-copy b, .brief-row b, .calendar-row b { color: var(--fp-amber); }
 .ask-card { max-width: 900px; }
@@ -609,6 +632,68 @@ p { color: var(--fp-body); }
   :where(.rule-check,.checks label,.repeat-editor label,.routine-kinds label,.routine-day-check,.lia-member-picker label) > input[type="checkbox"] { width:20px; height:20px; }
   .concept-e-home .lia-member-picker label { grid-template-columns:20px 28px minmax(0,1fr); min-height:48px; }
 }
+
+/* Calm, explicit application states -------------------------------------- */
+.lia-chat-action-card.state-sent { border-color:var(--fp-indigo-line); background:#fbfaff; }
+.lia-chat-action-card.state-sent .lia-action-person > span,
+.lia-proposal-card.state-sent .lia-proposal-icon { color:var(--fp-indigo-deep); background:#f1f0f8; border-color:var(--fp-indigo-line); }
+.lia-proposal-card.state-sent .lia-proposal-heading small {
+  width:max-content;
+  padding:3px 7px;
+  border:1px solid var(--fp-indigo-line);
+  border-radius:99px;
+  background:#f1f0f8;
+  color:var(--fp-indigo-deep);
+  font-weight:750;
+}
+.lia-chat-action-card.state-completed { border-color:#d8e5d8; background:#fbfcf9; }
+.lia-chat-action-card.state-completed .lia-action-person > span { color:#4f7359; background:#eef5ed; border-color:#d8e5d8; }
+.lia-chat-action-card.state-dismissed {
+  opacity:1;
+  border-color:#e1dfd9;
+  background:#faf9f6;
+  box-shadow:none;
+}
+.lia-chat-action-card.state-dismissed .lia-action-person > span,
+.lia-chat-action-card.state-dismissed .lia-action-state { color:#74726b; background:#f0efeb; border-color:#e1dfd9; }
+.lia-chat-action-card.state-failed {
+  border-color:#eadbd7;
+  background:#fffdfc;
+  box-shadow:none;
+}
+.lia-chat-action-card.state-failed .lia-action-person > span { color:#9b5e55; background:#fff4f2; border-color:#eadbd7; }
+.lia-action-person > span svg { width:15px; height:15px; }
+
+.processing { min-height:250px; align-content:center; }
+.processing-orb { animation:processing-breathe 1.8s ease-in-out infinite; }
+.processing-bar { height:6px; background:#ecebe6; }
+.processing-bar span { background:var(--fp-indigo); animation:processing-progress 1.5s ease-in-out infinite; }
+@keyframes processing-breathe { 50% { transform:translateY(-2px); box-shadow:0 8px 20px rgba(81,79,163,.12); } }
+@keyframes processing-progress { 0% { transform:translateX(120%); } 100% { transform:translateX(-245%); } }
+
+.task-rows > .quiet-copy,
+.integration-empty {
+  margin:0;
+  padding:20px 12px;
+  border:1px dashed var(--fp-line);
+  border-radius:12px;
+  background:var(--fp-surface-warm);
+  color:var(--fp-muted);
+  line-height:1.55;
+  text-align:center;
+}
+.settings-toggle.disabled { opacity:.72; }
+
+@media(max-width:600px){
+  .empty-state { padding:22px 10px; }
+  .lia-proposal-card.state-sent .lia-proposal-heading small { white-space:normal; }
+  .processing { min-height:210px; padding-inline:4px; }
+  .task-rows > .quiet-copy,.integration-empty { padding:16px 10px; }
+}
+
+@media(prefers-reduced-motion:reduce){
+  .processing-orb,.processing-bar span,.lia-typing i,.lia-live-dot::after { animation:none !important; }
+}
 .concept-e-home .lia-card {
   padding: 14px 2px 2px; border: 0; border-top: 1px solid rgba(84,80,151,.14); border-radius: 0;
   background: transparent; box-shadow: none;
@@ -618,6 +703,9 @@ p { color: var(--fp-body); }
 .concept-e-home .lia-card-head { grid-template-columns: 29px minmax(0,1fr) auto; }
 .concept-e-home .lia-card .lia-mark { width: 29px; height: 29px; color:var(--fp-indigo); background:#eeedf8; border-radius: 9px; }
 .concept-e-home .lia-status { color:var(--fp-indigo-deep); border-color:var(--fp-indigo-line); background:#f8f7fc; }
+.concept-e-home .lia-card-decisionRequired .lia-status { color:#79581d; border-color:#ead9b8; background:#fff8e9; }
+.concept-e-home .lia-card-completed .lia-status { color:#4f7359; border-color:#d8e5d8; background:#eef5ed; }
+.concept-e-home .lia-card-noAction .lia-status { color:#74726b; border-color:#e1dfd9; background:#f3f2ee; }
 .concept-e-home .lia-card-kicker, .concept-e-home .lia-context > span, .concept-e-home .lia-recommendation span, .concept-e-home .lia-why summary { color:var(--fp-indigo-deep); }
 .concept-e-home .lia-context { border-color:var(--fp-indigo-line); }
 .concept-e-home .lia-recommendation { padding: 9px 10px; color:var(--fp-indigo); border-radius: 9px; background:#edecf7; }
