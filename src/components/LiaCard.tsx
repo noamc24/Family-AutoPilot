@@ -1,4 +1,4 @@
-import { Check, ChevronDown, Sparkles, Users } from 'lucide-react'
+import { AlertTriangle, Check, ChevronDown, CircleMinus, Clock3, Sparkles, Users } from 'lucide-react'
 import type { Person } from '../data'
 import { sourceDefinitionById } from '../sourceDefinitions'
 import { liaStatusLabels, type LiaActionKind, type LiaIntervention } from '../liaInterventions'
@@ -7,8 +7,9 @@ import { SourceIcon } from './SourceIcon'
 const actionLabel = (kind: LiaActionKind, fallback: string) => ['addToCalendar', 'createTask', 'takeOwnership', 'complete', 'acceptHandoff', 'approve'].includes(kind) ? 'אישור' : ['dismiss', 'cannotDo', 'declineHandoff'].includes(kind) ? 'לא מתאים' : fallback
 
 export function LiaCard({ item, onAction, onReassign, reassignCandidates = [], memberName }: { item: LiaIntervention; onAction: (action: LiaActionKind) => void; onReassign?: (memberId: string) => void; reassignCandidates?: Person[]; memberName?: (id: string) => string }) {
+  const StatusIcon = item.status === 'completed' ? Check : item.status === 'noAction' ? CircleMinus : item.status === 'decisionRequired' ? AlertTriangle : Clock3
   return <article className={`lia-card lia-card-${item.status}`} data-state={item.status}>
-    <div className="lia-card-head"><span className="lia-mark"><Sparkles size={18}/></span><div><span className="lia-card-kicker">✦ LIA זיהתה · {item.type === 'traffic' ? 'תזמון והגעה' : item.type === 'message' ? 'עדכון' : 'תיאום משפחתי'}</span><h3>{item.title}</h3></div><span className="lia-status"><Check size={13}/>{item.statusDetail || liaStatusLabels[item.status]}</span></div>
+    <div className="lia-card-head"><span className="lia-mark"><Sparkles size={18}/></span><div><span className="lia-card-kicker">✦ LIA זיהתה · {item.type === 'traffic' ? 'תזמון והגעה' : item.type === 'message' ? 'עדכון' : 'תיאום משפחתי'}</span><h3>{item.title}</h3></div><span className="lia-status"><StatusIcon size={13}/>{item.statusDetail || liaStatusLabels[item.status]}</span></div>
     <p className="lia-detected">{item.detectedChange}</p>
     <div className="lia-context"><span>למה זה חשוב</span><p>{item.whyItMatters}</p></div>
     {item.recommendation && <div className="lia-recommendation"><Sparkles size={15}/><div><span>LIA ממליצה</span><strong>{item.recommendation}</strong></div></div>}

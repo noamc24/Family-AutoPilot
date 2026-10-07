@@ -37,7 +37,7 @@ function ActionCard({ message, onAction }: { message: LiaMessage; onAction: (dec
     </div>
   }
   return <div className={`lia-chat-action-card state-${state}`}>
-    <div className="lia-action-person"><span>{decision ? '✓' : name.slice(0, 1)}</span><div><strong>{decision ? 'המלצת LIA' : name}</strong><small>{message.action.kind === 'sendRideRequest' ? 'הזמינות מתאימה להסעה' : decision ? 'פעולה אמיתית ב־FamPilot' : 'פעולה ביומן'}</small></div></div>
+    <div className="lia-action-person"><span>{decision ? <StateIcon size={15}/> : name.slice(0, 1)}</span><div><strong>{decision ? 'המלצת LIA' : name}</strong><small>{message.action.kind === 'sendRideRequest' ? 'הזמינות מתאימה להסעה' : decision ? 'פעולה אמיתית ב־FamPilot' : 'פעולה ביומן'}</small></div></div>
     <div className="lia-action-meta"><span>לפי הזמינות</span><span>לפי הלו״ז המשפחתי</span></div>
     {state === 'sent' ? <button onClick={() => onAction()}>{message.action.label}</button> : <div className="lia-action-state"><StateIcon size={14}/>{stateCopy}</div>}
   </div>
