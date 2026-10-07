@@ -32,6 +32,12 @@ test('identity question completes without executing a tool', async () => {
   assert.equal(calls, 1)
 })
 
+test('free-text replies use neutral Hebrew even when the model addresses the user by gender', async () => {
+  const complete = async () => ({ role: 'assistant', content: 'אם תרצי לתאם משהו, רק תגידי!' })
+  const result = await askLIA('מי פנוי בערב?', context(), complete)
+  assert.equal(result.reply, 'אם מתאים לתאם משהו, אפשר לכתוב לי.')
+})
+
 test('schedule, availability and tasks return real scoped data', () => {
   const schedule = executeLiaReadTool('get_schedule', { date: '2026-10-06' }, context())
   assert.equal(schedule.events[0].title, 'חוג של איתמר')
